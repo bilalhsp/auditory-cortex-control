@@ -48,7 +48,6 @@ from .recording_config import RecordingConfig
 from ..base_metadata import BaseMetaData, register_metadata
 
 DATASET_NAME = NEURAL_DATASETS[0]
-DATA_DIR = os.path.join(neural_data_dir, DATASET_NAME)
 
 @register_metadata(DATASET_NAME)
 class UCSFMetaData(BaseMetaData):
@@ -61,10 +60,11 @@ class UCSFMetaData(BaseMetaData):
             for sess in v:
                 self.session_to_area[sess] = k
 
-        self.data_dir = DATA_DIR
+        self.data_dir = neural_data_dir / DATASET_NAME
+        self.stimuli_dir = self.data_dir / 'stimuli'
         # loading stimuli metadata details...
         mat_file = 'out_sentence_details_timit_all_loudness.mat'
-        self.sentences = io.loadmat(os.path.join(self.data_dir, mat_file), struct_as_record = False, squeeze_me = True, )
+        self.sentences = io.loadmat(self.stimuli_dir / mat_file, struct_as_record = False, squeeze_me = True, )
         self.features = self.sentences['features']
         self.phn_names = self.sentences['phnnames']
         self.sentdet = self.sentences['sentdet']
@@ -73,7 +73,7 @@ class UCSFMetaData(BaseMetaData):
 
         # mVoc metadata..
         self.mVocId_to_trialId, self.mVoc_test_stimIds, self.mVoc_test_trIds = self.get_mVoc_metadata()
-        self.mVocAud, self.mVocDur, self.mVocRate = UCSFMetaData.read_mVoc_stim_details()
+        self.mVocAud, self.mVocDur, self.mVocRate = UCSFMetaData.read_mVoc_stim_details(self.data_dir)
         self.mVocTrialIds = np.array(list(self.mVocAud.keys()))
         self.mVoc_silence_dur = 0.0 # seconds
         self.mVocs_all_stim_ids = list(self.mVocId_to_trialId.keys())
@@ -230,31 +230,11 @@ class UCSFMetaData(BaseMetaData):
         """Returns 'area' (core/belt/PB) for the given session"""
         return self.session_to_area[int(session)]
     
-    def get_area_choices(self):
-        """Returns all brain areas covered in recordings. e.g. ['core', 'belt']"""
-        area_choices = list(self.cfg.area_wise_sessions.keys())
-        area_choices.append('all')
-        return area_choices
 
     def get_session_coordinates(self, session):
         """Returns coordinates of recoring site (session)"""
         return self.cfg.session_coordinates[int(session)]
     
-    def get_all_sessions(self, area=None):
-        """Returns a list of all sessions, or area-specific 
-        sessions.
-        
-        Args:
-            area (str): area of auditory cortex, default=None,  
-                        ('core', 'belt', 'parabelt').
-        """
-        if area is None or area=='all':
-            sessions = []
-            for k,v in self.cfg.area_wise_sessions.items():
-                sessions.append(v)
-            return np.sort(np.concatenate(sessions))
-        else:
-            return np.sort(self.cfg.area_wise_sessions[area])
         
     def get_sessions_for_recording_config(self, subject: str=None):
         """Returns sessions for the 'subject', where subject refers
@@ -351,7 +331,7 @@ class UCSFMetaData(BaseMetaData):
         """Retrieves the session IDs for which data is available in 'neural_data_dir'"""  
         bad_sessions = self.cfg.bad_sessions
         
-        all_sessions = get_subdirectories(self.data_dir)
+        all_sessions = get_subdirectories(self.data_dir / 'sessions')
         sessions = all_sessions[np.isin(all_sessions, bad_sessions, invert=True)]
         sessions = np.sort(sessions.astype(str))
         return sessions
@@ -373,7 +353,7 @@ class UCSFMetaData(BaseMetaData):
         and dictionary that gives trial Ids for stim IDs.
         """
         mat_file = 'SqMoPhys_MVOCStimcodes.mat'
-        sqm_data = io.loadmat(os.path.join(self.data_dir, mat_file), struct_as_record = False, squeeze_me = True, )
+        sqm_data = io.loadmat(self.stimuli_dir / mat_file, struct_as_record = False, squeeze_me = True, )
 
         mVocId_to_trialId = {}
         mVocStimCodes = np.unique(sqm_data['mVocsStimCodes'])
@@ -424,7 +404,7 @@ class UCSFMetaData(BaseMetaData):
         
 
     @staticmethod
-    def extract_mVoc_stimuli_info():
+    def extract_mVoc_stimuli_info(stimuli_dir):
         """Reads the wav file and extracts the following 
         information from the wav file,
         - trial_ID:
@@ -435,7 +415,7 @@ class UCSFMetaData(BaseMetaData):
         """
         # read wav file..
         file_name = 'MonkVocs_15Blocks.wav'
-        file_path = os.path.join(DATA_DIR, file_name)
+        file_path = stimuli_dir / file_name
         audio_data, sampling_rate = read_wav_file(file_path)
         num_frames = audio_data.shape[0]
         # get pulse start samples
@@ -464,11 +444,12 @@ class UCSFMetaData(BaseMetaData):
         return mVoc_wavforms, time_durations, sampling_rate
     
     @staticmethod
-    def write_mVoc_stim_details(new_sampling_rate=16000):
+    def write_mVoc_stim_details(data_dir, new_sampling_rate=16000):
         """Extract mVoc stim details and write to disk."""
         filename = 'mVoc_stim_details.pkl'
-        mVoc_filepath = os.path.join(DATA_DIR, filename)
-        mVoc_wavforms, mVoc_durations, sampling_rate = UCSFMetaData.extract_mVoc_stimuli_info()
+        stimuli_dir = data_dir / 'stimuli'
+        mVoc_filepath = stimuli_dir / filename
+        mVoc_wavforms, mVoc_durations, sampling_rate = UCSFMetaData.extract_mVoc_stimuli_info(stimuli_dir)
         # resample, clip silence, normalize
         mVoc_wavforms, mVoc_durations, sampling_rate = UCSFMetaData.pre_process_mVocs(
             mVoc_wavforms, sampling_rate, new_sampling_rate)
@@ -486,17 +467,23 @@ class UCSFMetaData(BaseMetaData):
         print(f"mVoc stim details saved to {mVoc_filepath}")
 
     @staticmethod
-    def read_mVoc_stim_details():
+    def read_mVoc_stim_details(data_dir):
         """Extract mVoc stim details and write to disk."""
         filename = 'mVoc_stim_details.pkl'
-        mVoc_filepath = os.path.join(DATA_DIR, filename)
+        stimuli_dir = data_dir / 'stimuli'
+        mVoc_filepath = stimuli_dir / filename
 
         if os.path.exists(mVoc_filepath):
             with open(mVoc_filepath, 'rb') as F:
                 mVoc_stim_dict = pickle.load(F)
             return mVoc_stim_dict['stim_audios'], mVoc_stim_dict['stim_durations'], mVoc_stim_dict['sampling_rate']		
         else:
-            raise FileNotFoundError(f"{mVoc_filepath} does not exist.")
+            # raise FileNotFoundError(
+            #     f"{mVoc_filepath} does not exist." + \
+            # "Please run `UCSFMetaData.write_mVoc_stim_details(data_dir_path)` first to create this file." + \
+            # "This needs to be done for the first time only! ")
+            UCSFMetaData.write_mVoc_stim_details(data_dir)
+            return UCSFMetaData.read_mVoc_stim_details(data_dir)
         
     @staticmethod
     def pre_process_mVocs(mVoc_wavforms, sampling_rate, new_sampling_rate=16000):

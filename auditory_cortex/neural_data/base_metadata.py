@@ -135,4 +135,26 @@ class BaseMetaData(ABC):
                 stim_duration += self.get_stim_duration(stim_id, mVocs=mVocs)
                 choosen_stim_ids.append(stim_id)
             return np.array(choosen_stim_ids), stim_duration
+        
+    def get_area_choices(self):
+        """Returns all brain areas covered in recordings. e.g. ['core', 'belt']"""
+        area_choices = list(self.cfg.area_wise_sessions.keys())
+        area_choices.append('all')
+        return np.unique(area_choices)
+        
+    def get_area_wise_sessions(self, area=None):
+        """Returns a list of all sessions, or area-specific 
+        sessions.
+        
+        Args:
+            area (str): area of auditory cortex, default=None,  
+                        ('core', 'belt', 'parabelt').
+        """
+        if area is None or area=='all':
+            sessions = []
+            for k,v in self.cfg.area_wise_sessions.items():
+                sessions.append(v)
+            return np.sort(np.concatenate(sessions))
+        else:
+            return np.sort(self.cfg.area_wise_sessions[area])
     

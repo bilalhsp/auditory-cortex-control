@@ -87,6 +87,7 @@ class UCDavisMetaData(BaseMetaData):
 
         self.timit_stim_ids, self.mVocs_stim_ids = self.read_stim_ids()
 
+
     def num_repeats_for_sess(self, sess_id, mVocs=False):
         """Returns the number of repeats (of test data) for the given session id
         
