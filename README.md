@@ -1,12 +1,13 @@
 # Deep neural networks explain spiking activity in auditory cortex
 
-> 📘 This is the **official implementation** for:  
-> Bilal Ahmed et al., 2024
-> [📄 Read the paper](https://www.biorxiv.org/content/10.1101/2024.11.12.623280v1)
-
 ## Overview
 This repository provides the code used to model and analyze spiking activity in the auditory cortex using deep neural networks...
 
+
+## 📂 Dataset
+
+The neural dataset used in this project is publicly available on Zenodo:  
+🔗 [Click here to access the dataset](https://doi.org/10.5281/zenodo.16175377)
 
 
 ## 📂 Repository Structure
@@ -14,7 +15,7 @@ This repository provides the code used to model and analyze spiking activity in 
 The repository is organized as follows:
 
 ```
-auditory_cortex/
+deep-auditory-spikes/
 ├── auditory_cortex/             ← Core project code
 │   ├── dnn_feature_extractor/   ← Extracts features from pretrained DNNs
 │   ├── neural_data/             ← Loads and preprocesses neural recordings
@@ -57,5 +58,43 @@ git clone https://github.com/bilalhsp/deep-auditory-spikes.git
 cd deep-auditory-spikes
 pip install -e .
 ```
+
+## ⚙️ Configuration
+
+Before running any scripts or experiments, make sure to edit the `config.yml` file:
+
+```bash
+auditory_cortex/config.yml
+```
+
+This file defines key paths and parameters. You must update the following fields to point to your local environment:
+
+```yaml
+neural_data_dir: /path/to/neural_data/
+pretrained_models_dir: /path/to/pretrained_models/
+results_dir: /path/to/save/results/
+cache_dir: /path/to/feature/cache/
+```
+
+> ⚠️ Make sure all the directories exist and are accessible before running the code.
+> You can customize the provided file as needed.
+
+## 🚀 Usage
+
+The best way to get started is by exploring the example notebooks:
+
+| Notebook | Description |
+|----------|-------------|
+| [`examples/1_neural_datasets.ipynb`](./examples/1_neural_datasets.ipynb) | Use neural dataset and metadata objects |
+| [`examples/2_features_extractor.ipynb`](./examples/2_features_extractor.ipynb) | Use feature extractor objects to get DNN features |
+| [`examples/3_dataloader.ipynb`](./examples/3_dataloader.ipynb) | Work with dataloader object (a unified interface to DNN features and neural data) |
+| [`examples/4_data_assembler.ipynb`](./examples/4_data_assembler.ipynb) | Prepare training and test data |
+
+> 💡 **Tip**: Make sure to first configure your environment using the `config.yml` file as described above.
+
+
+
+
+
 
 
