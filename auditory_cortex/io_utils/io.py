@@ -32,6 +32,38 @@ def read_dict(filepath):
     except FileNotFoundError:
         logger.warning(f"File not found: {filepath}")
         return None
+    
+
+def read_result_from_cache(**kwargs):
+    """Reads a dictionary from a file based on the provided keyword arguments.
+
+    Args:
+        kwargs (dict): Dictionary containing parameters to construct the file path.
+
+    Returns:
+        dict: The loaded dictionary or None if the file does not exist.
+    """
+    filename = settings_to_name(kwargs) + '.pkl.gz'
+    filepath = os.path.join(cache_dir, filename)
+    if not os.path.exists(filepath):
+        logger.warning(f"File not found: {filepath}")
+        return None
+    logger.info(f"Reading results from from {filepath}")
+    return read_dict(filepath)
+
+def write_result_to_cache(result, **kwargs):
+    """Writes a dictionary to a file based on the provided keyword arguments.
+
+    Args:
+        result (dict): The dictionary to save.
+        kwargs (dict): Dictionary containing parameters to construct the file path.
+    """
+    filename = settings_to_name(kwargs) + '.pkl.gz'
+    filepath = os.path.join(cache_dir, filename)
+    write_dict(result, filepath)
+    
+
+    
 ################################################################
 ######      Normalizer read/write functions....STARTS HERE
 def read_inter_trial_corr_dists(
@@ -60,36 +92,7 @@ def read_inter_trial_corr_dists(
         )
     return norm_dist, null_dist
 
-# def write_inter_trial_corr_dists(
-#         norm_dist, null_dist, 
-#         session, bin_width, delay, mVocs=False, dataset_name='ucsf'
-#         ):
-#     """Writes distributions (True & Null both) of trial-trial correlations
-#     for the given selection.
-#     """
-#     bin_width = int(bin_width)
-#     delay = int(delay)
-#     if dataset_name != 'ucsf':
-#         parent_dir = os.path.join(normalizers_dir, dataset_name)
-#     else:
-#         parent_dir = normalizers_dir
-#     if mVocs:
-#         parent_dir = os.path.join(parent_dir, 'mVocs')
 
-#     norm_dir = os.path.join(parent_dir, 'norm_dist')
-#     null_dir = os.path.join(parent_dir, 'null_dist')
-
-#     os.makedirs(norm_dir, exist_ok=True)
-#     os.makedirs(null_dir, exist_ok=True)
-
-#     write_dict(
-#         norm_dist,
-#         os.path.join(norm_dir, f"norm_bw_{bin_width}ms_sess_{session}.pkl.gz")
-#     )
-#     write_dict(
-#         null_dist,
-#         os.path.join(null_dir, f"null_bw_{bin_width}ms_sess_{session}.pkl.gz")
-#     )
 
 
 def read_inter_trial_corr_dists(
@@ -803,9 +806,7 @@ def write_lmbdas(
 
 def read_WER():
 
-    # path_dir = os.path.join(results_dir, 'task_optimization')
     filename = f'pretrained_networks_WERs.csv'    
-    # file_path = os.path.join(path_dir, filename)
     file_path = os.path.join(saved_corr_dir, filename)
     if os.path.isfile(file_path):
         logger.info("Reading existing WER results")

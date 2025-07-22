@@ -125,7 +125,7 @@ class TRF:
         stim_ids, stim_duration = self.dataset_assembler.dataloader.sample_stim_ids_by_duration(
             percent_duration, repeated=False, mVocs=mVocs
             )
-        logger.info(f"Total duration={stim_duration:.2f} sec")
+        logger.info(f"Total duration of training set={stim_duration:.2f} sec")
         return stim_ids
 
     def cross_validated_fit(
@@ -227,7 +227,6 @@ class TRF:
             num_folds=num_folds,
             mapping_set=mapping_set,
             )
-            
         
         # get mapping data..
         mapping_x, mapping_y = self.dataset_assembler.get_training_data(mapping_set)
@@ -295,16 +294,6 @@ class TRF:
             shuffled=shuffled, layer_ID=layer_ID, LPF=LPF, mVocs=mVocs,
             dataset_name=dataset_name, lag=tmax
             )
-        # io.write_trf_parameters(
-        #     model_name, session, biases, bin_width=bin_width, 
-        #     shuffled=shuffled, layer_ID=layer_ID, LPF=LPF, mVocs=mVocs,
-        #     bias=True, dataset_name=dataset_name, lag=tmax
-        #     )
-        # io.write_alphas(
-        #     model_name, session, alphas, bin_width=bin_width,
-        #     shuffled=shuffled, layer_ID=layer_ID, LPF=LPF, mVocs=mVocs,
-        #     dataset_name=dataset_name, lag=tmax
-        #     )
         
 
     def neural_prediction(
@@ -343,11 +332,10 @@ class GpuTRF(nl.encoding.TRF):
         self.center_y = True
         self.alpha = alpha
         if isinstance(alpha, float):
-            # self.alpha = alpha
             self.n_alphas = 1
             self.model = LinearModel(alpha=alpha)
         elif isinstance(alpha, list) or (isinstance(alpha, np.ndarray) and alpha.ndim == 1):
-            # self.alpha = alpha
+
             self.n_alphas = len(alpha)
             for i in range(self.n_alphas):
                 self.models = [LinearModel(alpha=alp) for alp in alpha]

@@ -352,7 +352,7 @@ class STRFCorrelations(BaseCorrelations):
         if mVocs:
             column = 'mVocs_'+column
 
-        area_sessions = self.metadata.get_all_sessions(neural_area)
+        area_sessions = self.metadata.get_area_wise_sessions(neural_area)
         if use_stat_inclusion:
             selected_data = self.get_significant_data_using_statistical_inclusion(
                 sessions=area_sessions, bin_width=bin_width, delay=delay,
@@ -699,7 +699,7 @@ class Correlations(BaseCorrelations):
 
     def get_significant_sessions(self, threshold = None, bin_width=50, neural_area=None):
         """Returns sessions with corr scores above significant threshold for at least 1 channel"""
-        sessions = self.metadata.get_all_sessions(neural_area)
+        sessions = self.metadata.get_area_wise_sessions(neural_area)
         if threshold is None:
             threshold = self.get_normalizer_threshold(bin_width=bin_width, poisson_normalizer=True)
         sig_data = self.get_selected_data(
@@ -1071,7 +1071,7 @@ class Correlations(BaseCorrelations):
         else:
             column = 'test_cc_raw'
 
-        area_sessions = self.metadata.get_all_sessions(neural_area)
+        area_sessions = self.metadata.get_area_wise_sessions(neural_area)
 
         dist_spread = {}   
         bin_widths = np.sort(self.data['bin_width'].unique())
@@ -1105,9 +1105,9 @@ class Correlations(BaseCorrelations):
             use_stat_inclusion: bool = If True, select significant sessions/channels 
                 using t-test instead of thresholding method.
         """
-        area_choices = self.metadata.get_area_choices()
-        # assert neural_area in ['core', 'belt', 'parabelt', 'all'], print(f"Unknown neural area '{neural_area}' specified.")
-        assert neural_area in area_choices, logger.info(f"Unknown neural area '{neural_area}' specified.")
+        if neural_area is not None:
+            area_choices = self.metadata.get_area_choices()
+            assert neural_area in area_choices, logger.info(f"Unknown neural area '{neural_area}' specified.")
         if column is None:
             if normalized:
                 # Deprecated...
@@ -1122,7 +1122,7 @@ class Correlations(BaseCorrelations):
 
         logger.info(f"Extracting column: {column}")
 
-        area_sessions = self.metadata.get_all_sessions(neural_area)
+        area_sessions = self.metadata.get_area_wise_sessions(neural_area)
         if use_stat_inclusion:
             select_data = self.get_significant_data_using_statistical_inclusion(
                 bin_width=bin_width, sessions=area_sessions, delay=delay,
@@ -1195,26 +1195,6 @@ class Correlations(BaseCorrelations):
         x_ticks = (x_tick_labels)*snippet_width + snippet_width//2
 
         return hist_combined, (x_ticks, x_tick_labels), (yticks, ytick_labels)
-
-    # deprecated    
-    # def get_KDE_for_baseline(
-    #         self, area, bin_width, delay=0,
-    #         normalized=True, poisson_normalizer = True 
-    #     ):
-    #     """Get KDE for baseline data."""
-    #     bw_threshold = self.get_normalizer_threshold(
-    #             bin_width=bin_width, poisson_normalizer=poisson_normalizer
-    #             )
-
-    #     # plot baseline...
-    #     area_sessions = self.metadata.get_all_sessions(area)
-    #     baseline_dist = self.get_baseline_corr_session(
-    #         sessions= area_sessions,bin_width=bin_width, delay=delay,
-    #                 threshold=bw_threshold, normalized=normalized)
-
-    #     data_dist = {0: baseline_dist}
-
-    #     return self.get_KDE_from_dist(data_dist)
 
 
     def get_KDE_from_dist(
@@ -1408,19 +1388,6 @@ class Correlations(BaseCorrelations):
         logger.info(f"Number of sig. neurons = {corr_dict[layer_id].shape[0]}")
         return corr_dict[layer_id]
     
-    # deprecated
-    # def get_baseline_corr_for_area(
-    #         self, neural_area='core',bin_width=20, delay=0,
-    #         threshold=0.068, normalized=True
-    #     ):
-    #     """Retrieves baseline correlations for all sig. sessions."""
-    #     area_sessions = self.metadata.get_all_sessions(neural_area)
-
-    #     corr_dist = self.get_baseline_corr_session(
-    #         sessions=area_sessions, bin_width=bin_width, delay=delay,
-    #         threshold=threshold, normalized=normalized
-    #     )
-    #     return corr_dist
     
     def get_architecture_specific_layer_ids(self):
         """

@@ -544,3 +544,64 @@ class RandProjAssembler(BaseDataAssembler):
         spect = self.dataloader.feature_extractor.process_input(aud) #(t, num_freqs)
         return spect
     
+
+
+class DNNSTRFPredictionsAssembler(DNNDataAssembler):
+    def __init__(
+            self,
+            training_spikes, 
+            dataset_obj, feature_extractor, 
+            layer_id, bin_width, 
+            mVocs=False,
+            ):
+        """
+        Args:
+            model_name:
+            session: int = session ID
+            bin_width: int = bin width in ms
+        """
+        self.training_spikes = training_spikes
+        super().__init__(
+            dataset_obj, feature_extractor, 
+            layer_id, bin_width, mVocs,
+            force_reload=False, LPF=False,
+            )    
+
+    def load_neural_spikes(self):
+        """load neural spikes for the given session."""
+        if self.LPF:
+            bin_width = self.LPF_analysis_bw
+        else:
+            bin_width = self.bin_width
+        logger.info(f"Loading data for session at bin_width-{bin_width}ms.")
+        training_spikes = self.training_spikes
+        testing_spikes = self.dataloader.get_session_spikes(
+            bin_width=bin_width,
+            delay=0,
+            repeated=True,
+            mVocs=self.mVocs
+            )
+        return training_spikes, testing_spikes 
+
+    def read_session_spikes(self, dataset_obj, training_spikes):
+        """Reads the neural spikes for new session, while keeping the
+        features in the cache.
+        """
+        feature_extractor = self.dataloader.feature_extractor
+        self.dataloader = DataLoader(dataset_obj, feature_extractor)
+        _, testing_spikes = self.load_neural_spikes()
+
+        self.data_cache['training_spikes'] = training_spikes
+        self.data_cache['testing_spikes'] = testing_spikes
+
+        training_stim_ids = list(training_spikes.keys())
+        channel_ids = list(training_spikes[training_stim_ids[0]].keys())
+
+        self.channel_ids = channel_ids
+        self.num_channels = len(self.channel_ids)
+        self.training_stim_ids = np.array(training_stim_ids)
+        self.dataloader.clear_cache()
+        gc.collect()  # Force garbage collection  
+
+
+    

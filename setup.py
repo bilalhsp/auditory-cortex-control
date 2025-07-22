@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="auditory_cortex",
-    version="0.1",
+    version="1.0",
     author="Bilal Ahmed",
     author_email="ahmedb@purdue.edu",
     description="Deep neural networks as models of the auditory cortex using ECoG data in PyTorch",
