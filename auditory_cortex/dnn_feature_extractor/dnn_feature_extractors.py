@@ -43,6 +43,7 @@ torch.serialization.add_safe_globals([dict])
 torch.serialization.add_safe_globals([collections.defaultdict])
 torch.serialization.add_safe_globals([list])
 torch.serialization.add_safe_globals([tuple])
+torch.serialization.add_safe_globals([omegaconf.dictconfig.DictConfig])
 torch.serialization.add_safe_globals([omegaconf.base.ContainerMetadata])
 torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig])
 HF_CACHE_DIR = cache_dir / 'hf_cache'
