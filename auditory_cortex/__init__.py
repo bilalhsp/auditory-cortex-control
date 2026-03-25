@@ -28,11 +28,19 @@ valid_model_names = DNN_MODELS
 import sys
 import types
 
-dummy = types.ModuleType("hydra_configs")
+# Fake package
+hydra_configs = types.ModuleType("hydra_configs")
+hydra_configs.__path__ = []   # makes Python treat it like a package
+
+# Fake submodule
+pl_mod = types.ModuleType("hydra_configs.pytorch_lightning")
 
 class Dummy:
     pass
 
-dummy.SomeClass = Dummy
-sys.modules["hydra_configs"] = dummy
+# Add likely names as needed
+pl_mod.Dummy = Dummy
+
+sys.modules["hydra_configs"] = hydra_configs
+sys.modules["hydra_configs.pytorch_lightning"] = pl_mod
 
