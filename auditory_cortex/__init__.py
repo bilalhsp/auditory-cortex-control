@@ -24,3 +24,15 @@ NEURAL_DATASETS = config['neural_datasets']
 DNN_MODELS = config['dnn_models']
 valid_model_names = DNN_MODELS
 
+
+import sys
+import types
+
+dummy = types.ModuleType("hydra_configs")
+
+class Dummy:
+    pass
+
+dummy.SomeClass = Dummy
+sys.modules["hydra_configs"] = dummy
+
