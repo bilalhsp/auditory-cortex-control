@@ -29,7 +29,8 @@ setuptools.setup(
         'matplotlib', 'pandas', 'omegaconf', 
         'memory-profiler',
         'sentencepiece', 'transformers',
-        'cupy', 'seaborn', 'plotly', 'naplib', 'scikit-learn',
+        # 'cupy', 
+        'seaborn', 'plotly', 'naplib', 'scikit-learn',
         'torch>=2.0', 'torchaudio>=2.0',
     ],
 )
