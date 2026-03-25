@@ -23,14 +23,3 @@ aux_dir = root_dir / 'dnn_feature_extractor' /'auxilliary'
 NEURAL_DATASETS = config['neural_datasets']
 DNN_MODELS = config['dnn_models']
 valid_model_names = DNN_MODELS
-
-
-import types
-import sys
-import pytorch_lightning
-
-hydra_configs = types.ModuleType("hydra_configs")
-hydra_configs.__path__ = []  # mark as package
-
-sys.modules["hydra_configs"] = hydra_configs
-sys.modules["hydra_configs.pytorch_lightning"] = pytorch_lightning
