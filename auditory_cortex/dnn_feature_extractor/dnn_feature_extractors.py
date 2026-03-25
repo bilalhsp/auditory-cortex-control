@@ -29,15 +29,16 @@ import omegaconf
 
 import collections
 
-_original_load = torch.load
+# _original_load = torch.load
 
-def patched_load(*args, **kwargs):
-    kwargs["weights_only"] = False
-    return _original_load(*args, **kwargs)
+# def patched_load(*args, **kwargs):
+#     kwargs["weights_only"] = False
+#     return _original_load(*args, **kwargs)
 
-torch.load = patched_load
+# torch.load = patched_load
 
 torch.serialization.add_safe_globals([CheckpointHandler])
+torch.serialization.add_safe_globals([int])
 torch.serialization.add_safe_globals([dict])
 torch.serialization.add_safe_globals([collections.defaultdict])
 torch.serialization.add_safe_globals([list])
