@@ -11,6 +11,7 @@ from transformers import AutoModel, Wav2Vec2FeatureExtractor
 from transformers import ClapModel, ClapProcessor
 
 # import GPU specific packages...
+import deepspeech_pytorch
 from deepspeech_pytorch.model import DeepSpeech
 import deepspeech_pytorch.loader.data_loader as data_loader
 from deepspeech_pytorch.configs.train_config import SpectConfig
@@ -46,6 +47,11 @@ torch.serialization.add_safe_globals([tuple])
 torch.serialization.add_safe_globals([omegaconf.dictconfig.DictConfig])
 torch.serialization.add_safe_globals([omegaconf.base.ContainerMetadata])
 torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig])
+torch.serialization.safe_globals([deepspeech_pytorch.configs.train_config.AdamConfig])
+torch.serialization.safe_globals([deepspeech_pytorch.configs.train_config.DeepSpeechConfig])
+
+
+
 HF_CACHE_DIR = cache_dir / 'hf_cache'
 
 @register_feature_extractor('wav2letter_modified')
