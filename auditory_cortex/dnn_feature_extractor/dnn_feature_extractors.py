@@ -30,6 +30,7 @@ import omegaconf
 import collections
 
 torch.serialization.add_safe_globals([CheckpointHandler])
+torch.serialization.add_safe_globals([dict])
 torch.serialization.add_safe_globals([collections.defaultdict])
 torch.serialization.add_safe_globals([list])
 torch.serialization.add_safe_globals([tuple])
