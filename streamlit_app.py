@@ -1,4 +1,7 @@
 # streamlit_app.py
+import os
+os.environ.pop("LD_LIBRARY_PATH", None)
+
 import streamlit as st
 from pathlib import Path
 
