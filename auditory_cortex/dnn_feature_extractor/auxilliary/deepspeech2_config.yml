@@ -1,6 +1,12 @@
 saved_checkpoint: librispeech_pretrained_v3.ckpt
 # /depot/jgmakin/data/auditory_cortex/pretrained_weights/deepspeech2/librispeech_pretrained_v3.ckpt
+# spectrogram parameters
 sampling_rate: 16000  # sampling rate the network was trained on
+window_size: 0.02
+window_stride: 0.01
+window: hamming
+normalize: True
+
 use_pca: False
 # shuffle_weights: True
 layers:

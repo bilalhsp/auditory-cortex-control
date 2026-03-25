@@ -134,6 +134,7 @@ class TRF:
             tmin=0, 
             num_folds=3,
             mapping_set=None,
+            lmbdas=None,
         ):
         """Computes score for the given lag (tmax) using cross-validated fit.
         
@@ -142,7 +143,6 @@ class TRF:
             tmax: int = lag (window width) in ms
             tmin: int = min lag start of window in ms
             num_workers: int = number of workers used by naplib.
-            num_lmbdas: int  = number of regularization parameters (lmbdas)
             num_folds: int = number of folds of cross-validation
             use_nonlinearity: bool = using non-linearity with the linear model or not.
                 Default = False.
@@ -155,10 +155,10 @@ class TRF:
         
         # Deprecated...
         if mapping_set is None:
-            mapping_set = self.dataset_assembler.training_stim_ids
+            mapping_set = self.dataset_assembler.get_training_stim_ids()
             np.random.shuffle(mapping_set)
-
-        lmbdas = np.logspace(-5, 15, 21)
+        if lmbdas is None:
+            lmbdas = np.logspace(-5, 15, 21)
         lmbda_score = np.zeros(((len(lmbdas), num_channels)))
         size_of_chunk = int(len(mapping_set) / num_folds)
 
@@ -196,6 +196,7 @@ class TRF:
             tmin: int= 0,
             num_folds: int= 3, 
             percent_duration=None,
+            lmbdas=None,
         ):
         """Fits the linear model (with or without non-linearity) 
         by searching for optimal lag (max window lag) using cross-
@@ -226,6 +227,7 @@ class TRF:
             tmin=tmin, 
             num_folds=num_folds,
             mapping_set=mapping_set,
+            lmbdas=lmbdas,
             )
         
         # get mapping data..
@@ -272,6 +274,11 @@ class TRF:
         trf_model.X_mean_ = parameters['x_mean']
         trf_model.X_std_ = parameters['x_std']
         trf_model.y_mean_ = parameters['y_mean']
+
+        # matches what happens in fit()
+        trf_model.ndim_y_ = parameters['y_mean'].ndim
+        trf_model.n_targets_ = parameters['y_mean'].shape[-1]
+        trf_model.n_models = None
         return trf_model
     
     @staticmethod
@@ -304,11 +311,11 @@ class TRF:
         trf_model = self.load_saved_model(
             model_name, session, layer_ID, bin_width, shuffled=shuffled,
             LPF=False, mVocs=mVocs, dataset_name=dataset_name,
-            tmax=lag
+            tmax=lag, 
             )
             
         X, _ = self.dataset_assembler.get_testing_data(stim_ids)
-        pred = trf_model.predict(X)
+        pred = trf_model.predict(X, n_offset=self.dataset_assembler.n_offset)
         return pred
     
 
@@ -335,7 +342,6 @@ class GpuTRF(nl.encoding.TRF):
             self.n_alphas = 1
             self.model = LinearModel(alpha=alpha)
         elif isinstance(alpha, list) or (isinstance(alpha, np.ndarray) and alpha.ndim == 1):
-
             self.n_alphas = len(alpha)
             for i in range(self.n_alphas):
                 self.models = [LinearModel(alpha=alp) for alp in alpha]
@@ -362,8 +368,9 @@ class GpuTRF(nl.encoding.TRF):
             X: list = list of ndarrays of shape (n_samples, n_features)
             y: list = list of ndarrays of shape (n_samples, n_targets)
         """
-        self.ndim_y_ = y[0].ndim
+        
         self.X_feats_ = X[0].shape[-1]
+        self.ndim_y_ = y[0].ndim
         self.n_targets_ = y[0].shape[1]
         self.n_models = None
         
@@ -475,9 +482,18 @@ class GpuTRF(nl.encoding.TRF):
     def coef_(self, value):
         """Sets the coefficients of the linear map and the bias term."""
         # Expecting value to be a tuple: (weights, bias)
-        self.X_feats_ = value.shape[0]
-        self.model.coef_ = value.reshape(-1, value.shape[-1])
-        self.n_alphas = 1
+        # self.X_feats_ = value.shape[0]
+        # self.model.coef_ = value.reshape(-1, value.shape[-1])
+        # self.n_alphas = 1
+
+        x_feats, n_delays, n_targets = value.shape
+        assert self.n_alphas == n_targets, logger.warn(f"'n_targets' do no match the 'n_alphas'")
+        assert self._ndelays == n_delays, logger.warn(f"'n_delays' do no match the expected number of delays, possible mismatch between model and parameters")
+        self.X_feats_ = x_feats
+        # self._ndelays = n_delays
+        # self.n_alphas = n_targets
+        for i in range(self.n_alphas):
+            self.models[i].coef_ = value[...,i].reshape(-1)
         
 
 class LinearModel:

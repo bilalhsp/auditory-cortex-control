@@ -1,0 +1,18 @@
+defaults:
+  # - task: super_resolution
+  - data: esc50-demo
+  # - model: ffhq
+  - sampler: daps
+
+model_type: edm
+batch_size: 10
+num_runs: 1
+output_root_dir: /scratch/gilbreth/ahmedb/inverse_problems/
+# sampler_name: daps
+wandb: False
+save_samples: False
+# show_eval: False
+eval_fid: False
+project_name: aud-demo
+eval_fn_list: ['psnr', 'ssim']
+seed: 42

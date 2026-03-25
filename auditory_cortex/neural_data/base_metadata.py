@@ -55,6 +55,14 @@ class BaseMetaData(ABC):
         return {'unique': 0, 'repeated': 0}
     
     @abstractmethod
+    def get_all_stim_ids(self, mVocs=False):
+        """Returns the set of stimulus ids for stimulus type.
+        Returns:
+            ndarray: (n,)
+        """        
+        return np.array([])
+    
+    @abstractmethod
     def get_stim_ids(self, mVocs=False):
         """Returns the set of stimulus ids for both unique and repeated stimuli
         Returns:
@@ -102,11 +110,12 @@ class BaseMetaData(ABC):
         """Returns duration of the stimulus in seconds"""
         pass
 
-    def sample_stim_ids_by_duration(self, percent_duration=None, repeated=False, mVocs=False):
+    def sample_stim_ids_by_duration(self, stim_ids, percent_duration=None, mVocs=False):
         """Returns random choice of stimulus ids, for the desired fraction of total 
         duration of test set as specified by percent_duration.
         
         Args:
+            stim_ids: list or array of stimulus ids to sample from.
             percent_duration: float = Fraction of total duration to consider.
                 If None or >= 100, returns all stimulus ids.
             repeated: bool = if True, returns spikes for repeated trials, else for unique trials.
@@ -115,13 +124,16 @@ class BaseMetaData(ABC):
         Returns:
             list: stimulus subset for the fraction of duration.
         """
-        stim_durations = self.total_stimuli_duration(mVocs)
-        if repeated:
-            all_stim_ids = self.get_testing_stim_ids(mVocs)
-            total_duration = stim_durations['repeated']
-        else:
-            all_stim_ids = self.get_training_stim_ids(mVocs)
-            total_duration = stim_durations['unique']
+        # stim_durations = self.total_stimuli_duration(mVocs)
+        # if repeated:
+        #     all_stim_ids = self.get_testing_stim_ids(mVocs)
+        #     total_duration = stim_durations['repeated']
+        # else:
+        #     all_stim_ids = self.get_training_stim_ids(mVocs)
+        #     total_duration = stim_durations['unique']
+        assert len(stim_ids) > 0, "No stimulus ids provided for sampling."
+        total_duration = sum(self.get_stim_duration(stim_id, mVocs) for stim_id in stim_ids)
+        all_stim_ids = np.array(stim_ids)
         np.random.shuffle(all_stim_ids)
         if percent_duration is None: 
             return all_stim_ids, total_duration

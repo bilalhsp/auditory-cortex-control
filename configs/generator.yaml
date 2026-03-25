@@ -1,0 +1,18 @@
+generation:
+  unit_id: 2002
+  task: 'stretch'
+  duration: 2
+  n_stimuli: 1
+
+neural_data:
+  session_id: 0
+  mVocs: False
+
+initialize:
+  dataset_name: 'ucdavisAct'
+  mVocs: False
+  model_name: deepspeech2
+  layer_id: 2
+  shuffled: False
+  bin_width: 50
+  lag: 200

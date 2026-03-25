@@ -21,7 +21,7 @@ set_up_logging()
 import time
 import argparse
 
-from auditory_cortex import valid_model_names
+from auditory_cortex import valid_model_names, NEURAL_DATASETS
 from auditory_cortex.dataloader import DataLoader
 from auditory_cortex.neural_data import create_neural_dataset
 from auditory_cortex.dnn_feature_extractor import create_feature_extractor
@@ -82,7 +82,7 @@ def get_parser():
     
     parser.add_argument(
         '-d','--dataset_name', dest='dataset_name', type= str, action='store',
-        choices=['ucsf', 'ucdavis'], required=True,
+        choices=NEURAL_DATASETS, required=True,
         help = "Name of neural data to be used."
     )
     parser.add_argument(

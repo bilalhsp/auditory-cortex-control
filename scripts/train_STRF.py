@@ -35,6 +35,7 @@ import pandas as pd
 
 
 # local
+from auditory_cortex import NEURAL_DATASETS
 from auditory_cortex import utils, config, saved_corr_dir
 from auditory_cortex.neural_data import create_neural_dataset, create_neural_metadata
 from auditory_cortex.data_assembler import STRFDataAssembler
@@ -104,7 +105,7 @@ def compute_and_save_STRF_baseline(args):
     else:
         subjects = sessions
 
-    dataset_obj = create_neural_dataset(dataset_name, subjects[0])
+    dataset_obj = create_neural_dataset(dataset_name)
     data_assembler = STRFDataAssembler(
         dataset_obj, bin_width, mVocs=mVocs,
         mel_spectrogram=mel_spectrogram,
@@ -171,7 +172,7 @@ def get_parser():
         )
     parser.add_argument(
         '-d','--dataset_name', dest='dataset_name', type= str, action='store',
-        choices=['ucsf', 'ucdavis'],
+        choices=NEURAL_DATASETS,
         help = "Name of neural data to be used."
     )
     parser.add_argument(

@@ -91,6 +91,15 @@ class DataLoader:
         """
         return self.dataset_obj.get_testing_stim_ids(mVocs=mVocs)
     
+    def get_all_stim_ids(self, mVocs=False):
+        """Returns the set of stimulus ids for stimulus type.
+        Args:
+            mVocs: bool = If True, returns ids for mVocs,
+                otherwise for timit stimuli.
+        Returns:
+            ndarray: (n,)
+        """
+        return self.dataset_obj.get_all_stim_ids(mVocs=mVocs)
 
     def sample_stim_ids_by_duration(self, percent_duration=None, repeated=False, mVocs=False):
         """Returns random choice of stimulus ids, for the desired fraction of total 
@@ -105,8 +114,9 @@ class DataLoader:
             Returns:
                 list: stimulus subset for the fraction of duration.
             """
+        stim_ids = self.get_testing_stim_ids(mVocs=mVocs) if repeated else self.get_training_stim_ids(mVocs=mVocs)
         stim_ids, stim_duration = self.dataset_obj.metadata.sample_stim_ids_by_duration(
-            percent_duration, repeated=repeated, mVocs=mVocs
+            stim_ids, percent_duration, mVocs=mVocs
             )
         return stim_ids, stim_duration
     
@@ -176,9 +186,10 @@ class DataLoader:
                 shuffled=shuffled, mVocs=mVocs,
                 )
         if force_reload or raw_DNN_features is None:
-            training_stim_ids = self.get_training_stim_ids(mVocs)
-            testing_stim_ids = self.get_testing_stim_ids(mVocs)
-            all_stim_ids = np.concatenate([training_stim_ids, testing_stim_ids])
+            # training_stim_ids = self.get_training_stim_ids(mVocs)
+            # testing_stim_ids = self.get_testing_stim_ids(mVocs)
+            # all_stim_ids = np.concatenate([training_stim_ids, testing_stim_ids])
+            all_stim_ids = self.get_all_stim_ids(mVocs=mVocs)
             stim_audios = {}
             stim_durations = {}
             for stim_id in all_stim_ids:
@@ -266,6 +277,7 @@ class DataLoader:
                 if self.pad_time is not None:
                     # extra number of bins because of padding..
                     n += self.dataset_obj.calculate_num_bins(self.pad_time, bin_width_sec)
+
                 if LPF:
                     analysis_bw_sec = LPF_analysis_bw/1000
                     n_final = self.dataset_obj.calculate_num_bins(duration, analysis_bw_sec)

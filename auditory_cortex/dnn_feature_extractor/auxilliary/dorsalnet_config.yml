@@ -1,0 +1,31 @@
+chkpt_dir: /depot/jgmakin/data/dorsal_visual/checkpoints/
+saved_checkpoint: airsim_dorsalnet_batch2_model.ckpt-3174400-2021-02-12 02-03-29.666899.pt
+
+sampling_rate: 60  # sampling rate the network was trained on
+use_pca: False
+
+layers:
+- layer_name: s1.conv1
+  layer_id: 0
+  RF: 1               # dummy value 
+  layer_type: conv
+- layer_name: s1.bn1
+  layer_id: 1
+  RF: 1               # dummy value
+  layer_type: conv
+- layer_name: res0
+  layer_id: 2
+  RF: 1               # dummy value
+  layer_type: conv
+- layer_name: res1
+  layer_id: 3
+  RF: 1               # dummy value
+  layer_type: conv
+- layer_name: res2
+  layer_id: 4
+  RF: 1               # dummy value
+  layer_type: conv
+- layer_name: res3
+  layer_id: 5
+  RF: 1               ## dummy value
+  layer_type: conv

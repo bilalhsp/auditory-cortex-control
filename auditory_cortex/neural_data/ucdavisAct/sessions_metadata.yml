@@ -1,0 +1,134 @@
+
+area_wise_sessions:
+  all: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+
+
+sessions_info:
+  - id: 0
+    session: psydwaze_2025-07-23a_boilermaker.mat
+    area: CM
+    monkey: p
+    num_repeats: 3
+    interleaved: true
+    target_stimuli: true
+
+  - id: 1
+    session: psydwaze_2025-07-25a_boilermaker.mat
+    area: CL
+    monkey: p
+    num_repeats: 3
+    interleaved: true
+    target_stimuli: true
+
+  - id: 2
+    session: psydwaze_2025-07-28a_boilermaker.mat
+    area: CL
+    monkey: p
+    num_repeats: 3
+    interleaved: true
+    target_stimuli: true
+
+  - id: 3
+    session: psydwaze_2025-07-30a_boilermaker.mat
+    area: CL
+    monkey: p
+    num_repeats: 3
+    interleaved: true
+    target_stimuli: true
+
+  - id: 4
+    session: psydwaze_2025-08-01a_boilermaker.mat
+    area: CL
+    monkey: p
+    num_repeats: 3
+    interleaved: true
+    target_stimuli: true
+
+  - id: 5
+    session: psydwaze_2025-08-05a_boilermaker.mat
+    area: CM
+    monkey: p
+    num_repeats: 3
+    interleaved: true
+    target_stimuli: true
+
+  - id: 6
+    session: psydwaze_2025-08-07a_boilermaker.mat
+    area: CM
+    monkey: p
+    num_repeats: 3
+    interleaved: true
+    target_stimuli: true
+
+  - id: 7
+    session: psydwaze_2025-08-08a_boilermaker.mat
+    area: A1
+    monkey: p
+    num_repeats: 3
+    interleaved: true
+    target_stimuli: true
+
+  - id: 8
+    session: psydwaze_2025-08-19a_boilermaker.mat
+    area: A1
+    monkey: p
+    num_repeats: 3
+    interleaved: true
+    target_stimuli: true
+
+  - id: 9
+    session: psydwaze_2025-08-21a_boilermaker.mat
+    area: CM
+    monkey: p
+    num_repeats: 3
+    interleaved: true
+    target_stimuli: true
+
+  - id: 10
+    session: psydwaze_2025-08-22a_boilermaker.mat
+    area: A1
+    monkey: p
+    num_repeats: 3
+    interleaved: true
+    target_stimuli: true
+
+  - id: 11
+    session: psydwaze_2025-08-26a_boilermaker.mat
+    area: A1
+    monkey: p
+    num_repeats: 3
+    interleaved: true
+    target_stimuli: true
+
+  - id: 12
+    session: psydwaze_2025-08-28a_boilermaker.mat
+    area: A1
+    monkey: p
+    num_repeats: 3
+    interleaved: true
+    target_stimuli: true
+
+  - id: 13
+    session: psydwaze_2025-08-29a_boilermaker.mat
+    area: A1
+    monkey: p
+    num_repeats: 3
+    interleaved: true
+    target_stimuli: true
+
+  - id: 14
+    session: psydwaze_2025-09-02a_boilermaker.mat
+    area: A1
+    monkey: p
+    num_repeats: 3
+    interleaved: true
+    target_stimuli: true
+
+  - id: 15
+    session: psydwaze_2025-09-04a_boilermaker.mat
+    area: A1
+    monkey: p
+    num_repeats: 3
+    interleaved: true
+    target_stimuli: true
+

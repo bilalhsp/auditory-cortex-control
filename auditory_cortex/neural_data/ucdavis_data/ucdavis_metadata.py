@@ -52,14 +52,23 @@ logging.basicConfig(
     )
 
 DATASET_NAME = NEURAL_DATASETS[1]
-DATA_DIR = os.path.join(neural_data_dir, DATASET_NAME)
 
 @register_metadata(DATASET_NAME)
 class UCDavisMetaData(BaseMetaData):
     def __init__(self):
-        self.data_dir = DATA_DIR
+        self.data_dir = neural_data_dir / DATASET_NAME
+
+        def sorting_fn(p):
+            """Helper function to sort filepaths in the order of date.
+
+                Returns:
+                    name with data first (str): e.g., 2024-10-28b_relayz_boilermaker.mat
+            """
+            parts = p.name.split('_')
+            ordered_name = "".join([parts[1], parts[0], *parts[2:]])
+            return ordered_name
     
-        filepaths = sorted(Path(self.data_dir, 'Data').glob("*.mat"), key=lambda p: p.name)
+        filepaths = sorted(Path(self.data_dir, 'Data').glob("*.mat"), key=sorting_fn)
         self.sessions_dict = {i: p.name for i, p in enumerate(filepaths)}
 
         self.cfg = RecordingConfig()
@@ -88,6 +97,19 @@ class UCDavisMetaData(BaseMetaData):
         self.timit_stim_ids, self.mVocs_stim_ids = self.read_stim_ids()
 
 
+    def get_exp_name(self, session_id, mVocs=False):
+        """Returns the experiment name for the current session id
+        
+        Args:
+            sessions_id (int): Session ID to get the experiment name for
+            mVocs (bool): If True, get the experiment name for mVocs, otherwise for TIMIT
+
+        Returns:
+            str: Experiment name for the current session id
+        """
+        return self.cfg.get_exp_name(session_id, mVocs)
+
+
     def num_repeats_for_sess(self, sess_id, mVocs=False):
         """Returns the number of repeats (of test data) for the given session id
         
@@ -108,15 +130,22 @@ class UCDavisMetaData(BaseMetaData):
         Args: 
             num_repeats (int): Number of repeats of test data, default is 12
         """
-        if num_repeats is None:
-            session_ids = list(self.sessions_dict.keys())
-        else:
-            if num_repeats not in self.cfg.sess_wise_num_repeats.values():
-                raise ValueError(f"Number of repeats {num_repeats} is not valid. Try one of {self.cfg.sess_wise_num_repeats.values()}.")
-            else:
-                all_session_ids = list(self.sessions_dict.keys())
-                session_ids = [sess_id for sess_id in all_session_ids if self.num_repeats_for_sess(sess_id) == num_repeats]
+
+        session_ids = np.array(self.cfg.filter_by_num_repeats(num_repeats))
+        if len(session_ids) == 0:
+            raise ValueError(f"No sessions found with {num_repeats} repeats. Available options: {self.cfg.info['num_repeats'].unique().tolist()}")
+        session_ids = np.sort(session_ids) #.astype(str)
         return session_ids
+
+        # if num_repeats is None:
+        #     session_ids = list(self.sessions_dict.keys())
+        # else:
+        #     if num_repeats not in self.cfg.sess_wise_num_repeats.values():
+        #         raise ValueError(f"Number of repeats {num_repeats} is not valid. Try one of {self.cfg.sess_wise_num_repeats.values()}.")
+        #     else:
+        #         all_session_ids = list(self.sessions_dict.keys())
+        #         session_ids = [sess_id for sess_id in all_session_ids if self.num_repeats_for_sess(sess_id) == num_repeats]
+        # return session_ids
     
     def full_session_name(self, sess_id):
         """Returns the full name of the session (with date and monkey name)"""
@@ -134,6 +163,15 @@ class UCDavisMetaData(BaseMetaData):
             return self.mVocs_stim_ids
         else:
             return self.timit_stim_ids
+        
+    def get_all_stim_ids(self, mVocs=False):
+        """Returns the set of stimulus ids for stimulus type.
+        Returns:
+            ndarray: (n,)
+        """
+        stim_ids = self.get_stim_ids(mVocs)
+        all_stim_ids = np.concatenate([stim_ids['unique'], stim_ids['repeated']])
+        return all_stim_ids
 
     
     def get_training_stim_ids(self, mVocs=False):

@@ -1,0 +1,30 @@
+
+area_wise_sessions:
+  all: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+
+
+sessions_info:
+  - id: 0
+    session: psydwaze_2026-01-14a_boilermaker.mat
+    area: A1      # filler..actual assignment not know yet
+    monkey: p
+    num_repeats: 3
+    interleaved: true
+    target_stimuli: true
+
+  - id: 1
+    session: psydwaze_2026-02-09b_boilermaker.mat
+    area: A1      # filler..actual assignment not know yet
+    monkey: p
+    num_repeats: 3
+    interleaved: true
+    target_stimuli: true
+
+  - id: 2
+    session: psydwaze_2026-02-13a_boilermaker.mat
+    area: A1      # filler..actual assignment not know yet
+    monkey: p
+    num_repeats: 3
+    interleaved: true
+    target_stimuli: true
+

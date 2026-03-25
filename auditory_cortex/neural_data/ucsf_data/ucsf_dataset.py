@@ -83,16 +83,14 @@ class UCSFDataset(BaseDataset):
         """Returns the sampling rate of the neural data"""
         return self.metadata.get_sampling_rate(mVocs=mVocs)
     
+    
     def get_stim_ids(self, mVocs=False):
         """Returns the set of stimulus ids for both unique and repeated stimuli
         Returns:
             {'unique': (n,), 'repeated': (m,)}
         """
         return self.metadata.get_stim_ids(mVocs)
-        # return {
-        #     'unique': self.get_training_stim_ids(mVocs),
-        #     'repeated': self.get_testing_stim_ids(mVocs),
-        #     }
+
 
     def get_training_stim_ids(self, mVocs=False):
         """Returns the set of training stimulus ids"""

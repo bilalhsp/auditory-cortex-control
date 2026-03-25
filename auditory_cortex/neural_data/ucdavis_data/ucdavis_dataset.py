@@ -22,6 +22,12 @@ TrialStimData has the following sub-fields:
     ['BMT#', 'BMM#'] where # is the number of repeats for that experiment.
     e.g. for 12-repeat TIMIT experiment it would be 'BMT12'.
 
+    + Possible options for StimulusType explained:
+        - [BMT#, BMM#]: TIMIT (BMT) and mVocs (BMM) experiments are presented in separate experiments.
+        - [BMA#]: Both TIMIT and mVocs stimuli are interleaved in one experiment (BMA).
+        - [S1T, S2]: Both stimuli are interleaved in one experiment, S2 contains target stimuli and S1T contained 
+            trials without target stimuli. Number of repeats in always 3 for these experiments.
+
 Tetrode is a group of 4 electrodes that are used to record neural spikes. Layout of 
 these small electrodes helps in identifying the spikes from different neurons (spike sorting).
 Each WM_# field contains the following sub-fields:
@@ -46,7 +52,7 @@ DATASET_NAME = NEURAL_DATASETS[1]
 
 @register_dataset(DATASET_NAME)
 class UCDavisDataset(BaseDataset):
-    def __init__(self, sess_id=3, data_dir=None):
+    def __init__(self, sess_id=0, data_dir=None):
         """Initialize the UCDavisDataset with session id and data directory."""
         sess_id = int(sess_id)
         self.session_id = sess_id
@@ -59,11 +65,13 @@ class UCDavisDataset(BaseDataset):
         
         self.num_repeats = int(self.metadata.num_repeats_for_sess(self.session_id))
         self.rec_filename = self.metadata.full_session_name(sess_id)
-        self.data, self.exp_wise_trial, self.exp_stim_ids = self.read_sess_dataset(self.rec_filename)
+        self.data, self.exp_wise_trial, self.exp_stim_ids = self.read_sess_dataset(self.rec_filename, self.num_repeats)
 
         self.tetrodes = ['WM_1', 'WM_2', 'WM_3', 'WM_4' ]  # example tetrode
         self.assigned_units = np.concatenate([np.unique(self.data[tet].codes) for tet in self.tetrodes])
         # all assigned unit ids (SUA and MUA) across all tetrodes
+
+        self.monkey_name = self.rec_filename.split('_')[0]
 
         # self.data is the entire data structre: contains
         #   TrialStimData, WM_1, WM_2, WM_3, WM_4
@@ -77,15 +85,12 @@ class UCDavisDataset(BaseDataset):
 
     def exp_name(self, mVocs=False):
         """Returns the experiment name for stim type and num of repeats"""
-        if mVocs:
-            return f'BMM{self.num_repeats}'
-        else:
-            return f'BMT{self.num_repeats}'
+        return self.metadata.get_exp_name(self.session_id, mVocs)
 
     def get_stim_ids(self, mVocs=False):
         """Get the stimulus ids (both unique and repeated) for the experiment"""
-        exp_name = self.exp_name(mVocs)
-        return self.exp_stim_ids[exp_name]
+        return self.exp_stim_ids['mVocs' if mVocs else 'timit']
+
     
     def get_training_stim_ids(self, mVocs=False):
         """Returns the set of training stimulus ids"""
@@ -180,28 +185,80 @@ class UCDavisDataset(BaseDataset):
         stim_dur = self.get_stim_duration(stim_id, mVocs)
         return BaseDataset.bin_spike_times(spike_times, stim_dur, bin_width, delay)
 
-    def read_sess_dataset(self, rec_filename: 'str'):
+    def read_sess_dataset(self, rec_filename: 'str', num_repeats: int):
         """Specify the session number to read the recording data"""
         # rec_filename = self.sess_rec_files[sess_id]
         rec_filepath = os.path.join(self.rec_dir, rec_filename)
         data =  scipy.io.loadmat(rec_filepath, squeeze_me=True, struct_as_record=False)
         # keys in data: ['TrialStimData', 'WM_1', 'WM_2', 'WM_3', 'WM_4']
         
-        experiments = self.get_value(data, 'TrialStimData')     # returns two structs [BMT#, BMM#]
+        experiments = self.get_value(data, 'TrialStimData')     
+        # returns two structs [BMT#, BMM#] for relays, 
+        # but BMA# for psydwaze because both stimuli are interleaved in one experiment
+        if not isinstance(experiments, np.ndarray):
+            experiments = [experiments]
         # experiment wise trial data...
         exp_wise_trial = {
             np.unique(self.get_value(exp, 'StimulusType'))[0]: exp for exp in experiments
             }                                                   # {BMT#: struct, BMM#: struct}
-
-        # get filenames of unique and repeated stimuli for each experiment
-        exp_stim_ids = {}
+        all_stim_names = []
+        all_stim_types = []
         for exp_name, trial_data in exp_wise_trial.items():
-            all_stim_names = [name.split('\\')[-1] for name in self.get_value(trial_data, 'StimulusName')]
-            # num_repeats = int(exp_name[3:])
-            unique_stim_names = np.array([name for name in all_stim_names if all_stim_names.count(name) == 1])
-            repeated_stim_names = np.unique([name for name in all_stim_names if all_stim_names.count(name) > 1])
+            if exp_name not in ['BMA3', 'BMT'+str(num_repeats), 'BMM'+str(num_repeats), 'S1T', 'S2']:
+                continue
+            valid_stim_names = self.get_value(trial_data, 'StimulusName')
+            trial_types = self.get_value(trial_data, 'StimulusType')
+            stim_names = [name.split('\\')[-1] for name, ttype in zip(valid_stim_names, trial_types) if ttype != 'S2']
+            stim_types = [name.split('\\')[-2].lower() for name, ttype in zip(valid_stim_names, trial_types) if ttype != 'S2']
 
-            stim_names = {'unique': unique_stim_names, 'repeated': repeated_stim_names}
-            exp_stim_ids[exp_name] = stim_names
+            all_stim_names.extend(stim_names)
+            all_stim_types.extend(stim_types)
 
+        all_stim_names = np.array(all_stim_names)
+        all_stim_types = np.array(all_stim_types)
+
+        print(f"all_stim_names: {len(all_stim_names)}")
+        timit_mask = all_stim_types == 'timit'
+
+        timit_stim = all_stim_names[timit_mask]
+        mVocs_stim = all_stim_names[~timit_mask]
+
+        print(f"timit_stimuli: {len(timit_stim)}, mVocs_stimuli: {len(mVocs_stim)}")
+
+
+        unique_timit, repeated_timit = self.separate_unique_stimuli(timit_stim, num_repeats)
+        unique_mVocs, repeated_mVocs = self.separate_unique_stimuli(mVocs_stim, num_repeats)
+
+        exp_stim_ids = {
+            'timit': {
+                'unique': unique_timit,
+                'repeated': repeated_timit
+            },
+            'mVocs': {
+                'unique': unique_mVocs,
+                'repeated': repeated_mVocs
+            }
+        }
         return data, exp_wise_trial, exp_stim_ids
+
+
+        # # get filenames of unique and repeated stimuli for each experiment
+        # exp_stim_ids = {}
+        # for exp_name, trial_data in exp_wise_trial.items():
+        #     all_stim_names = [name.split('\\')[-1] for name in self.get_value(trial_data, 'StimulusName')]
+        #     # num_repeats = int(exp_name[3:])
+        #     unique_stim_names = np.array([name for name in all_stim_names if all_stim_names.count(name) == 1])
+        #     repeated_stim_names = np.unique([name for name in all_stim_names if all_stim_names.count(name) > 1])
+
+        #     stim_names = {'unique': unique_stim_names, 'repeated': repeated_stim_names}
+        #     exp_stim_ids[exp_name] = stim_names
+
+        # return data, exp_wise_trial, exp_stim_ids
+    
+    @staticmethod
+    def separate_unique_stimuli(all_stimuli, num_repeats):
+        """Separate unique stimuli from the list of all stimuli"""
+        stim_ids, counts = np.unique(all_stimuli, return_counts=True)
+        unique_stim_ids = stim_ids[counts == 1]
+        repeated_stim_ids = stim_ids[counts == num_repeats]
+        return unique_stim_ids, repeated_stim_ids

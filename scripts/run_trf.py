@@ -41,7 +41,7 @@ from auditory_cortex import saved_corr_dir
 import auditory_cortex.utils as utils
 from auditory_cortex.io_utils import ResultsManager
 from auditory_cortex.io_utils.io import write_lmbdas
-from auditory_cortex import valid_model_names
+from auditory_cortex import valid_model_names, NEURAL_DATASETS
 
 from auditory_cortex.neural_data import create_neural_dataset, create_neural_metadata
 from auditory_cortex.dnn_feature_extractor import create_feature_extractor
@@ -202,7 +202,7 @@ def get_parser():
     )
     parser.add_argument(
         '-d','--dataset_name', dest='dataset_name', type= str, action='store',
-        choices=['ucsf', 'ucdavis'],
+        choices=NEURAL_DATASETS,
         help = "Name of neural data to be used."
     )
     parser.add_argument(

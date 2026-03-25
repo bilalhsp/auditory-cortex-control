@@ -11,3 +11,94 @@ sess_wise_num_repeats:
 
 area_wise_sessions:
   all: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+
+
+sessions_info:
+  - id: 0
+    session: relayz_2024-10-28b_boilermaker.mat
+    area: A1
+    monkey: r
+    num_repeats: 3
+    interleaved: false
+    target_stimuli: false
+
+  - id: 1
+    session: relayz_2024-11-13c_boilermaker.mat
+    area: R
+    monkey: r
+    num_repeats: 3
+    interleaved: false
+    target_stimuli: false
+
+  - id: 2
+    session: relayz_2024-11-15b_boilermaker.mat
+    area: R
+    monkey: r
+    num_repeats: 3
+    interleaved: false
+    target_stimuli: false
+
+  - id: 3
+    session: relayz_2024-12-26b_boilermaker.mat
+    area: A1
+    monkey: r
+    num_repeats: 12
+    interleaved: false
+    target_stimuli: false
+
+  - id: 4
+    session: relayz_2024-12-30b_boilermaker.mat
+    area: CM
+    monkey: r
+    num_repeats: 12
+    interleaved: false
+    target_stimuli: false
+
+  - id: 5
+    session: relayz_2024-12-30c_boilermaker.mat
+    area: CM
+    monkey: r
+    num_repeats: 12
+    interleaved: false
+    target_stimuli: false
+
+  - id: 6
+    session: relayz_2025-01-09b_boilermaker.mat
+    area: RT
+    monkey: r
+    num_repeats: 12
+    interleaved: false
+    target_stimuli: false
+
+  - id: 7
+    session: relayz_2025-01-15b_boilermaker.mat
+    area: A1
+    monkey: r
+    num_repeats: 12
+    interleaved: false
+    target_stimuli: false
+
+  - id: 8
+    session: relayz_2025-01-24b_boilermaker.mat
+    area: A1
+    monkey: r
+    num_repeats: 12
+    interleaved: false
+    target_stimuli: false
+
+  - id: 9
+    session: psydwaze_2025-07-15a_boilermaker.mat
+    area: CL
+    monkey: p
+    num_repeats: 3
+    interleaved: true
+    target_stimuli: false
+
+  - id: 10
+    session: psydwaze_2025-07-21b_boilermaker.mat
+    area: CL
+    monkey: p
+    num_repeats: 3
+    interleaved: true
+    target_stimuli: false
+

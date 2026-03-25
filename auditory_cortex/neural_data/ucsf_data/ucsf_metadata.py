@@ -116,6 +116,15 @@ class UCSFMetaData(BaseMetaData):
             'repeated': self.get_testing_stim_ids(mVocs),
             }
 
+    def get_all_stim_ids(self, mVocs=False):
+        """Returns the set of stimulus ids for stimulus type.
+        Returns:
+            ndarray: (n,)
+        """
+        stim_ids = self.get_stim_ids(mVocs)
+        all_stim_ids = np.concatenate([stim_ids['unique'], stim_ids['repeated']])
+        return all_stim_ids
+    
     def get_training_stim_ids(self, mVocs=False):
         """Returns the set of training stimulus ids"""
         if mVocs:

@@ -58,6 +58,13 @@ class BaseDataset(ABC):
         """Returns the number of bins for the given stimulus id"""
         pass
 
+    def get_all_stim_ids(self, mVocs=False):
+        """Returns the set of stimulus ids for stimulus type.
+        Returns:
+            ndarray: (n,)
+        """
+        return self.metadata.get_all_stim_ids(mVocs)
+
     @abstractmethod
     def get_sampling_rate(self, mVocs=False):
         """Returns the sampling rate of the neural data"""

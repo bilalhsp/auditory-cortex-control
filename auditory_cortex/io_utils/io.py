@@ -66,31 +66,31 @@ def write_result_to_cache(result, **kwargs):
     
 ################################################################
 ######      Normalizer read/write functions....STARTS HERE
-def read_inter_trial_corr_dists(
-        session, bin_width, delay, mVocs=False, dataset_name='ucsf'
-        ):
-    """Writes distributions (True & Null both) of trial-trial correlations
-    for the given selection.
-    """
-    bin_width = int(bin_width)
-    delay = int(delay)
-    if dataset_name != 'ucsf':
-        parent_dir = os.path.join(normalizers_dir, dataset_name)
-    else:
-        parent_dir = normalizers_dir
-    if mVocs:
-        parent_dir = os.path.join(parent_dir, 'mVocs')
+# def read_inter_trial_corr_dists(
+#         session, bin_width, delay, mVocs=False, dataset_name='ucsf'
+#         ):
+#     """Writes distributions (True & Null both) of trial-trial correlations
+#     for the given selection.
+#     """
+#     bin_width = int(bin_width)
+#     delay = int(delay)
+#     if dataset_name != 'ucsf':
+#         parent_dir = os.path.join(normalizers_dir, dataset_name)
+#     else:
+#         parent_dir = normalizers_dir
+#     if mVocs:
+#         parent_dir = os.path.join(parent_dir, 'mVocs')
 
-    norm_dir = os.path.join(parent_dir, 'norm_dist')
-    null_dir = os.path.join(parent_dir, 'null_dist')
+#     norm_dir = os.path.join(parent_dir, 'norm_dist')
+#     null_dir = os.path.join(parent_dir, 'null_dist')
 
-    norm_dist = read_dict(
-        os.path.join(norm_dir, f"norm_bw_{bin_width}ms_sess_{session}.pkl.gz")
-        )
-    null_dist = read_dict(
-        os.path.join(null_dir, f"null_bw_{bin_width}ms_sess_{session}.pkl.gz")
-        )
-    return norm_dist, null_dist
+#     norm_dist = read_dict(
+#         os.path.join(norm_dir, f"norm_bw_{bin_width}ms_sess_{session}.pkl.gz")
+#         )
+#     null_dist = read_dict(
+#         os.path.join(null_dir, f"null_bw_{bin_width}ms_sess_{session}.pkl.gz")
+#         )
+#     return norm_dist, null_dist
 
 
 

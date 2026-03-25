@@ -19,7 +19,7 @@ from auditory_cortex.neural_data import NormalizerCalculator
 from auditory_cortex.neural_data import create_neural_metadata
 
 import auditory_cortex.utils as utils
-from auditory_cortex import saved_corr_dir, aux_dir, valid_model_names
+from auditory_cortex import saved_corr_dir, aux_dir, valid_model_names, NEURAL_DATASETS
 from auditory_cortex.io_utils import io
 
 import logging
@@ -41,10 +41,14 @@ class BaseCorrelations(ABC):
             None)
 
         if dataset is None:
-            if 'ucdavis' in filename:
-                self.dataset_name = 'ucdavis'
-            else:
-                self.dataset_name = 'ucsf'
+            for d_name in NEURAL_DATASETS:
+                if '_'+d_name+'_' in filename:
+                    self.dataset_name = d_name
+
+            # if 'ucdavis' in filename:
+            #     self.dataset_name = 'ucdavis'
+            # else:
+            #     self.dataset_name = 'ucsf'
         else:
             self.dataset_name = dataset
 
@@ -85,7 +89,7 @@ class BaseCorrelations(ABC):
         pass
 
     @staticmethod
-    def get_highly_tuned_channels(select_data, threshold, mVocs):
+    def get_highly_tuned_channels(select_data, threshold, mVocs=False):
         norm_column = 'normalizer'
         null_mean_col = 'null_mean'
         null_std_col = 'null_std'
@@ -369,54 +373,15 @@ class STRFCorrelations(BaseCorrelations):
 
 
 class Correlations(BaseCorrelations):
-    def __init__(self, model_name=None) -> None:
+    def __init__(self, model_name=None, dataset=None) -> None:
         
         if model_name is None:
             model_name = 'wav2letter_modified_trained_all_bins'
 
-        super().__init__(model_name)
-
-        # self.model = model_name
-        # filename = f'{model_name}_corr_results.csv'
-        # self.corr_file_path = os.path.join(saved_corr_dir, filename)
-        # self.metadata = NeuralMetaData()
-        # self.norm_obj = Normalizer(normalizer_filename)
-
-
-        # self.data = pd.read_csv(self.corr_file_path)
-        # # check if 'test_cc_raw' not one of the columns
-        # # this will be the case for STRF correlations
-        # # in that case, copy 'strf_corr' to 'test_cc_raw'
-        # if 'test_cc_raw' not in self.data.columns:
-        #     self.data['test_cc_raw'] = self.data['strf_corr']
-        #     print(f"'test_cc_raw added as a column..!")
-        
-        # if 'normalizer' not in self.data.columns:
-        #     self.data.loc[:, 'normalizer'] = np.nan
-        #     # self.set_normalizers()
-        #     self.set_normalizers_using_bootsrap()
-        #     # CorrelationUtils.copy_normalizer(model_name)
-        #     # self.data = pd.read_csv(self.corr_file_path)
-
+        super().__init__(model_name, dataset=dataset)
 
         if 'N_sents' not in self.data.columns:
             self.data['N_sents'] = np.ones(len(self.data.index))*500
-
-        # self.data['normalized_test_cc'] = self.data['test_cc_raw']/(self.data['normalizer'].apply(np.sqrt))
-        # self.sig_threshold = sig_threshold
-
-        # loading STRF baseline
-        # third = None
-        # if third is None:
-        #     STRF_filename = 'STRF_corr_results.csv'
-        # else:
-        #     STRF_filename = f'STRF_{third}_third_corr_results.csv'
-
-        # STRF_file_path = os.path.join(saved_corr_dir, STRF_filename)
-        # self.baseline_corr = pd.read_csv(STRF_file_path)
-        # self.baseline_corr['strf_corr_normalized'] = self.baseline_corr['strf_corr']/(self.baseline_corr['normalizer'].apply(np.sqrt))
-        # # STRF_file_path = os.path.join(results_dir, 'cross_validated_correlations', 'STRF_corr_RidgeCV.npy')
-        # self.baseline_corr = np.load(STRF_file_path)
 
         # using colorbrewer (palettable) colors... 
         colors = qualitative.Set2_8.mpl_colors
@@ -425,18 +390,6 @@ class Correlations(BaseCorrelations):
         self.fill_color = {}
         for layer, color in zip(layer_types, colors):
             self.fill_color[layer] = color
-
-        # if 'normalizer_app' not in self.data.columns:
-        #     # need to remove these bad channels...
-        #     bad_sessions = [180725., 190607., 191212., 200226.]
-        #     all_bad_ids = []
-        #     for sess in bad_sessions:
-        #         all_bad_ids.append(self.data[self.data['session'] == sess].index)
-        #     all_bad_ids = np.concatenate(all_bad_ids)
-        #     self.data.drop(all_bad_ids, inplace=True)
-
-        #     self.set_normalizers_using_app()
-        # self.fill_color = {'conv': Set2_3.mpl_colors[0], 'rnn': 'lightgreen', 'transformer': 'lightskyblue'}
         
 
     def plot_session_coordinates(self, threshold=None, dot_size=400, fontsize=12,

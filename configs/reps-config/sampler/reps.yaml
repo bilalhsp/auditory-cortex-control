@@ -1,0 +1,31 @@
+name: reps
+sampler_config:
+  sigma_max: 80
+  sigma_min: 0.1
+  rho: 15
+  ode_sigma_min: 0.01
+  ode_rho: 7 
+
+  guidance_scale: 1.0
+  n_restarts: 50
+  n_ode_steps: 5
+
+  lr: 0.3
+  lam: 0.01
+  num_iters: 5
+
+# sweep path:
+# ahmedb/uncategorized/ta56mqb0
+
+# demo-ffhq...
+# Fine tuning ffhq...psnr
+# sweep_id: ta56mqb0
+# sweep best: 21.84
+# n_restarts=50, n_ode_steps=10, 
+# sigma_restart=80
+# parameters tuned: lr, lam
+    # lr: 0.30
+    # lam: 0.01
+    # num_iters: 5 
+# n_ode_steps=10... 
+# n_anneal_steps=50, : 

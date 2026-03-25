@@ -56,8 +56,24 @@ class BaseDataAssembler(ABC):
         else:
             logger.info(f"creating Dataset for timit data.")
         self.fs = self.dataloader.get_sampling_rate(mVocs=mVocs)
-        self.training_stim_ids = self.dataloader.get_training_stim_ids(mVocs=self.mVocs)
-        self.testing_stim_ids = self.dataloader.get_testing_stim_ids(mVocs=self.mVocs)
+        # self.training_stim_ids = self.dataloader.get_training_stim_ids(mVocs=self.mVocs)
+        # self.testing_stim_ids = self.dataloader.get_testing_stim_ids(mVocs=self.mVocs)
+
+    def get_training_stim_ids(self):
+        """Returns the set of training stimulus ids (stimuli with unique presentations)
+        
+        Returns:    
+            (n,) - array of training stimulus ids
+        """
+        return self.dataloader.get_training_stim_ids(mVocs=self.mVocs)
+    
+    def get_testing_stim_ids(self):
+        """Returns the set of training stimulus ids (stimuli with unique presentations)
+        
+        Returns:    
+            (n,) - array of training stimulus ids
+        """
+        return self.dataloader.get_testing_stim_ids(mVocs=self.mVocs)
 
     @abstractmethod
     def load_features(self):
@@ -103,7 +119,7 @@ class BaseDataAssembler(ABC):
 
         # Some training ids might be missing for some sessions 
         # (e.g. for mVocs in UCSF there can be bad trials that are skipped)
-        self.training_stim_ids = np.array(training_stim_ids)
+        # self.training_stim_ids = np.array(training_stim_ids)
 
         self.dataloader.clear_cache()
         gc.collect()  # Force garbage collection
@@ -140,7 +156,7 @@ class BaseDataAssembler(ABC):
             spikes_list: list = [(time, channels)] all trials concatenated along time axis.
         """
         if stim_ids is None:
-            stim_ids = self.training_stim_ids
+            stim_ids = self.get_training_stim_ids()
         
         features = self.data_cache['features']
         training_spikes = self.data_cache['training_spikes']
@@ -169,7 +185,7 @@ class BaseDataAssembler(ABC):
             repeated_spikes_list: ndarray = (num_repeats, time, channels) all trials concatenated along time axis.
         """
         if stim_ids is None:
-            stim_ids = self.testing_stim_ids
+            stim_ids = self.get_testing_stim_ids() #self.testing_stim_ids
         
         features = self.data_cache['features']
         testing_spikes = self.data_cache['testing_spikes']
@@ -183,7 +199,7 @@ class BaseDataAssembler(ABC):
             stim_spikes = np.stack(
                 [testing_spikes[stim][ch] for ch in self.channel_ids],
                 axis=-1
-                ).squeeze()
+                )
             spikes_list.append(stim_spikes)
         return features_list, spikes_list
     
@@ -203,7 +219,7 @@ class BaseDataAssembler(ABC):
 
         self.channel_ids = channel_ids
         self.num_channels = len(self.channel_ids)
-        self.training_stim_ids = np.array(training_stim_ids)
+        # self.training_stim_ids = np.array(training_stim_ids)
         self.dataloader.clear_cache()
         gc.collect()  # Force garbage collection
 
@@ -251,7 +267,8 @@ class STRFDataAssembler(BaseDataAssembler):
         """Loads spectrogram features for the given session."""
         sampling_rate = self.dataloader.get_sampling_rate(mVocs=self.mVocs)
         
-        all_stim_ids = np.concatenate([self.training_stim_ids, self.testing_stim_ids])
+        # all_stim_ids = np.concatenate([self.training_stim_ids, self.testing_stim_ids])
+        all_stim_ids = self.dataloader.get_all_stim_ids(mVocs=self.mVocs)
         spect_features = {}
 
         for stim_id in all_stim_ids:
@@ -261,10 +278,10 @@ class STRFDataAssembler(BaseDataAssembler):
 
             padding = np.zeros((int(self.dataloader.pad_time*sampling_rate)))
             aud = np.concatenate((padding, aud))
-            stim_duration += self.dataloader.pad_time
 
+            # stim_duration += self.dataloader.pad_time
             num_bins = self.dataloader.calculate_num_bins(stim_duration, self.bin_width/1000)
-
+            num_bins += self.n_offset
 
             # num_bins = self.dataloader.get_num_bins(stim_id, bin_width=self.bin_width, mVocs=self.mVocs)
             spect = self.get_spectrogram(aud, sampling_rate)
@@ -501,7 +518,8 @@ class RandProjAssembler(BaseDataAssembler):
         """Loads spectrogram features for the given session."""
         sampling_rate = self.dataloader.get_sampling_rate(mVocs=self.mVocs)
         
-        all_stim_ids = np.concatenate([self.training_stim_ids, self.testing_stim_ids])
+        # all_stim_ids = np.concatenate([self.training_stim_ids, self.testing_stim_ids])
+        all_stim_ids = self.dataloader.get_all_stim_ids(mVocs=self.mVocs)
         features = {}
         for stim_id in all_stim_ids:
 
@@ -599,7 +617,7 @@ class DNNSTRFPredictionsAssembler(DNNDataAssembler):
 
         self.channel_ids = channel_ids
         self.num_channels = len(self.channel_ids)
-        self.training_stim_ids = np.array(training_stim_ids)
+        # self.training_stim_ids = np.array(training_stim_ids)
         self.dataloader.clear_cache()
         gc.collect()  # Force garbage collection  
 

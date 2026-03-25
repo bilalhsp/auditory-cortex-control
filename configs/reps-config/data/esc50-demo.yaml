@@ -1,0 +1,4 @@
+sample_rate: 16000
+duration: 3.0
+start_idx: 0
+end_idx: 10

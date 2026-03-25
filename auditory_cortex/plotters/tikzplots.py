@@ -23,60 +23,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-# ------------------  WER vs Neural prectibility ----------------#
-
-# # # peak across all bin widths,
-# trained_median_peaks_50ms = {
-#     # peak correlation at bin width=50ms
-#     'wav2letter_modified': 0.527,  # layer-ID: 4
-#     'wav2vec2': 0.597,             # layer-ID: 9
-#     'speech2text': 0.597,           # layer-ID: 8
-#     'whisper_tiny': 0.611,          # layer-ID: 2
-#     'whisper_base': 0.625,          # layer-ID: 2
-#     'deepspeech2': 0.588,            # layer-ID: 2  
-# }
-# # Using different inclusion criteria....Need to automate thiss....
-# trained_median_peaks_50ms = {
-#     # peak correlation at bin width=50ms
-#     'wav2letter_modified': 0.480,  # layer-ID: 4
-#     'wav2vec2': 0.571,             # layer-ID: 9
-#     'speech2text': 0.560,           # layer-ID: 8
-#     'whisper_tiny': 0.597,          # layer-ID: 2
-#     'whisper_base': 0.589,          # layer-ID: 2
-#     'deepspeech2': 0.529,            # layer-ID: 2 
-# }
-# #     # 'wav2letter_modified': 0.500,  # peak at 60 ms, layer-ID: 4
-# #     # 'wav2vec2': 0.584,             # peak at 40 ms, layer-ID: 8
-# #     # 'speech2text': 0.583,           # peak at 60 ms, layer-ID: 5
-# #     # 'whisper_tiny': 0.598,          # peak at 60 ms, layer-ID: 2
-# #     # 'whisper_base': 0.599,          # peak at 40 ms, layer-ID: 2
-# #     # 'deepspeech2': 0.583,           # peak at 100 ms, layer-ID: 2   
-# # }
-
-
-# # read off of the line plots..
-# trained_median_peaks_20ms = {
-#     'wav2letter_modified': 0.503,  # layer-ID: 8
-#     'wav2vec2': 0.597,             # layer-ID: 7
-#     'speech2text': 0.574,           # layer-ID: 7
-#     'whisper_tiny': 0.600,          # layer-ID: 2
-#     'whisper_base': 0.610,          # layer-ID: 2
-#     'deepspeech2': 0.551,            # layer-ID: 2   
-# }
-# untrained_median_peaks = {
-#     'wav2letter_modified': 0.24,  # layer-ID: 0
-#     'wav2vec2': 0.356,             # layer-ID: 18
-#     'speech2text': 0.530,           # layer-ID: 10
-#     'whisper_tiny': 0.506,          # layer-ID: 1
-#     'whisper_base': 0.507,          # layer-ID: 2
-#     'deepspeech2': 0.534,            # layer-ID: 2   
-# }
-
-# trained_median_peaks = {
-#     '20ms': trained_median_peaks_20ms,
-#     '50ms': trained_median_peaks_50ms,
-# }
-
 def scatter_WER_v_corr(
         save_tikz=True,
         benchmark=None,
