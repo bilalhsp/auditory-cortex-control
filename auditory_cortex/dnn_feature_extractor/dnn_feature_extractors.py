@@ -25,8 +25,10 @@ from auditory_cortex import results_dir, cache_dir, pretrained_dir
 
 import logging
 logger = logging.getLogger(__name__)
+import omegaconf
 
 torch.serialization.add_safe_globals([CheckpointHandler])
+torch.serialization.add_safe_globals([omegaconf.listconfig.ListConfig])
 HF_CACHE_DIR = cache_dir / 'hf_cache'
 
 @register_feature_extractor('wav2letter_modified')
