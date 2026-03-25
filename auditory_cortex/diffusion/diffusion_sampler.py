@@ -8,7 +8,7 @@ import torch.nn.functional as F
 
 # from ml_utils import utils
 from audioldm import build_model
-
+from auditory_cortex import pretrained_dir
 import logging
 logging.basicConfig(
     level=logging.INFO,
@@ -570,7 +570,8 @@ class AudioLDM(DiffusionDDPM):
     def __init__(self, model_path=None, beta_min=0.0015, beta_max=0.0195, T=1000):
         super().__init__(beta_min, beta_max, T)
         if model_path is None:
-            model_path = '/scratch/gilbreth/ahmedb/audioldm/audioldm-s-full.ckpt'
+            # model_path = '/scratch/gilbreth/ahmedb/audioldm/audioldm-s-full.ckpt'
+            model_path = pretrained_dir / 'audioldm/audioldm-s-full.ckpt'
         self.ldm = build_model(ckpt_path=model_path)
         self.ldm = torch.compile(self.ldm)
         self.null_embedding = self.get_null_condition(1)

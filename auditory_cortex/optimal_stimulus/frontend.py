@@ -143,7 +143,7 @@ class Frontend:
         if st.session_state.generator_ready and st.session_state.experiment_config is not None:
             st.subheader("Experiment summary")
             cfg = st.session_state.experiment_config
-            with st.container(border=True):
+            with st.container():
                 col1, col2, col3 = st.columns(3)
                 with col1:
                     st.markdown(f"**Stimulus type**  \n{cfg['Stimulus type']}")
@@ -158,7 +158,7 @@ class Frontend:
 
     def _upload_session(self):
         st.header("Session analysis")
-        with st.container(border=True):
+        with st.container():
             st.caption(
                 "Upload a recording session or select an existing one, then fit the encoding model "
                 "to estimate channel-wise correlations."
@@ -265,7 +265,7 @@ class Frontend:
                 height = None   # auto → fits content
             else:
                 height = self.max_table_height    # max cap
-            with st.container(border=True, height=height):
+            with st.container():
                 top_ch, top_corr = corr_items[0]
                 c1, c2 = st.columns([1, 3])
 
