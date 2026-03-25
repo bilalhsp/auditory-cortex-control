@@ -94,8 +94,8 @@ class StimGenerator:
         # if trf_model is not None:
         #     corr = self.evaluate_model(trf_model)
         # else:
-        # lmbdas = np.logspace(-3, 5, 5)
-        lmbdas = None
+        lmbdas = np.logspace(-3, 5, 8)
+        # lmbdas = None
         trf_obj = TRF(self.model_name, self.data_assembler)        
         corr, opt_lmbda, trf_model = trf_obj.grid_search_CV(
                 lag=self.lag, num_folds=3, lmbdas=lmbdas,
