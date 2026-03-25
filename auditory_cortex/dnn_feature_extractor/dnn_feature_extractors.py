@@ -14,6 +14,7 @@ from transformers import ClapModel, ClapProcessor
 from deepspeech_pytorch.model import DeepSpeech
 import deepspeech_pytorch.loader.data_loader as data_loader
 from deepspeech_pytorch.configs.train_config import SpectConfig
+from deepspeech_pytorch.checkpoint import CheckpointHandler
 import importlib
 from wav2letter.models import Wav2LetterRF, Wav2LetterSpect
 
@@ -25,6 +26,7 @@ from auditory_cortex import results_dir, cache_dir, pretrained_dir
 import logging
 logger = logging.getLogger(__name__)
 
+torch.serialization.add_safe_globals([CheckpointHandler])
 HF_CACHE_DIR = cache_dir / 'hf_cache'
 
 @register_feature_extractor('wav2letter_modified')
