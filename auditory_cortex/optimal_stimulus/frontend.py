@@ -66,9 +66,9 @@ class Frontend:
                 st.session_state[k] = v
 
     def _render_sidebar(self):
-        datasets_supported = ["ucdavis", "ucdavisAct", "ucdavisBAK"]
+        datasets_supported = ["ucdavisBAK"] #["ucdavisBAK", "ucdavis", "ucdavisAct"]
         encoding_models_supported = ["deepspeech2"]
-        dnn_layer_ids = [0, 1, 2]
+        dnn_layer_ids = [2]
         with st.sidebar:
             st.header("Experiment setup")
             with st.form("init_form"):
@@ -80,9 +80,9 @@ class Frontend:
                 mVocs = (stimulus_set == "mVocs")
 
                 # dataset_name = st.radio("Dataset", datasets_supported, index=2)
-                dataset_name = st.selectbox("Dataset", datasets_supported, index=2)
+                dataset_name = st.selectbox("Dataset", datasets_supported, index=0)
                 model_name = st.selectbox("Encoding model", encoding_models_supported, index=0)
-                layer_id = st.selectbox("Layer ID", dnn_layer_ids, index=2)
+                layer_id = st.selectbox("Layer ID", dnn_layer_ids, index=0)
 
                 bw_options = {
                     "20 ms": 20,
