@@ -27,7 +27,10 @@ import logging
 logger = logging.getLogger(__name__)
 import omegaconf
 
+import collections
+
 torch.serialization.add_safe_globals([CheckpointHandler])
+torch.serialization.add_safe_globals([collections.defaultdict])
 torch.serialization.add_safe_globals([list])
 torch.serialization.add_safe_globals([tuple])
 torch.serialization.add_safe_globals([omegaconf.base.ContainerMetadata])
