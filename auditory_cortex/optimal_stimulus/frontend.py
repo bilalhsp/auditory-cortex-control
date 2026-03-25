@@ -275,7 +275,10 @@ class Frontend:
                     st.caption(f"Correlation: {top_corr:.3f}")
 
                 with c2:
-                    st.dataframe(corr_rows, use_container_width=True, hide_index=True)
+                    table_placeholder = st.empty()
+                    with table_placeholder:
+                        st.dataframe(corr_rows, use_container_width=True, hide_index=True)
+                    # st.dataframe(corr_rows, use_container_width=True, hide_index=True)
 
     def _stimulus_generation(self):
         st.header("Stimulus generation")
