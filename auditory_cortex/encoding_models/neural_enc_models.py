@@ -33,8 +33,12 @@ class DeepSpeechsEncoder(torch.nn.Module):
             layer['layer_id']:layer['layer_name']
             for layer in self.config['layers']
             }
-        checkpoint = pretrained_dir / model_name / self.config['saved_checkpoint']
-        self.model = DeepSpeech.load_from_checkpoint(checkpoint_path=checkpoint)
+        checkpoint_path = pretrained_dir / model_name / self.config['saved_checkpoint']
+
+        checkpoint = torch.load(checkpoint_path, map_location='cpu')
+        self.model = DeepSpeech(**checkpoint['hyper_parameters'])
+        self.model.load_state_dict(checkpoint['state_dict'])
+        # self.model = DeepSpeech.load_from_checkpoint(checkpoint_path=checkpoint)
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model.to(self.device)

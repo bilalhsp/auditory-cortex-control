@@ -291,8 +291,12 @@ class DeepSpeech2(BaseFeatureExtractor):
     def __init__(self, shuffled=False):
         self.model_name = 'deepspeech2'
         config = utils.load_dnn_config(model_name=self.model_name)
-        checkpoint = os.path.join(pretrained_dir, self.model_name, config['saved_checkpoint'])
-        model = DeepSpeech.load_from_checkpoint(checkpoint_path=checkpoint)
+        checkpoint_path = os.path.join(pretrained_dir, self.model_name, config['saved_checkpoint'])
+
+        # model = DeepSpeech.load_from_checkpoint(checkpoint_path=checkpoint)
+        checkpoint = torch.load(checkpoint_path, map_location='cpu')
+        model = DeepSpeech(**checkpoint['hyper_parameters'])
+        model.load_state_dict(checkpoint['state_dict'])
 
         super().__init__(model, config, shuffled=shuffled, sampling_rate=config['sampling_rate'])
         audio_config = SpectConfig()
