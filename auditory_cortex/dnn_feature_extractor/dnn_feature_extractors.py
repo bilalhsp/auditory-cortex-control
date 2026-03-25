@@ -20,7 +20,7 @@ from wav2letter.models import Wav2LetterRF, Wav2LetterSpect
 # local imports
 from auditory_cortex import utils
 from .base_feature_extractor import BaseFeatureExtractor, register_feature_extractor
-from auditory_cortex import results_dir, cache_dir
+from auditory_cortex import results_dir, cache_dir, pretrained_dir
 
 import logging
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ class Wav2LetterModified(BaseFeatureExtractor):
         self.model_name = 'wav2letter_modified'
         config = utils.load_dnn_config(model_name=self.model_name)
         saved_checkpoint = config['saved_checkpoint']
-        checkpoint = os.path.join(results_dir, 'pretrained_weights', self.model_name, saved_checkpoint)
+        checkpoint = os.path.join(pretrained_dir, self.model_name, saved_checkpoint)
         pretrained = config['pretrained']
         if pretrained:		
             model = Wav2LetterRF.load_from_checkpoint(checkpoint)
@@ -263,7 +263,7 @@ class DeepSpeech2(BaseFeatureExtractor):
     def __init__(self, shuffled=False):
         self.model_name = 'deepspeech2'
         config = utils.load_dnn_config(model_name=self.model_name)
-        checkpoint = os.path.join(results_dir, 'pretrained_weights', self.model_name, config['saved_checkpoint'])
+        checkpoint = os.path.join(pretrained_dir, self.model_name, config['saved_checkpoint'])
         model = DeepSpeech.load_from_checkpoint(checkpoint_path=checkpoint)
 
         super().__init__(model, config, shuffled=shuffled, sampling_rate=config['sampling_rate'])
