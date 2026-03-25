@@ -1,10 +1,16 @@
 
 # paths to the data and results directories
 # neural_data_dir: /depot/jgmakin/data/dorsal_visual/ #/scratch/gilbreth/ahmedb/auditory_cortex/
-neural_data_dir: /depot/jgmakin/data/auditory_cortex/datasets/
-pretrained_models_dir: /depot/jgmakin/data/auditory_cortex/results/pretrained_weights/
-results_dir: /depot/jgmakin/data/auditory_cortex/results/
-cache_dir: /scratch/gilbreth/ahmedb/cache
+# neural_data_dir: /depot/jgmakin/data/auditory_cortex/datasets/
+# pretrained_models_dir: /depot/jgmakin/data/auditory_cortex/results/pretrained_weights/
+# results_dir: /depot/jgmakin/data/auditory_cortex/results/
+# cache_dir: /scratch/gilbreth/ahmedb/cache
+
+# paths for lightning AI studio
+neural_data_dir: /teamspace/studios/this_studio/gilbreth-data/datasets/
+pretrained_models_dir: /teamspace/studios/this_studio/gilbreth-data/pretrained_weights/
+results_dir: /teamspace/studios/this_studio/gilbreth-data/results/
+cache_dir: /teamspace/studios/this_studio/gilbreth-data/cache
 
 neural_datasets:
 - 'ucsf'          # 0
