@@ -294,7 +294,7 @@ class DeepSpeech2(BaseFeatureExtractor):
         checkpoint_path = os.path.join(pretrained_dir, self.model_name, config['saved_checkpoint'])
 
         # model = DeepSpeech.load_from_checkpoint(checkpoint_path=checkpoint)
-        checkpoint = torch.load(checkpoint_path, map_location='cpu')
+        checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only = False)
         model = DeepSpeech(**checkpoint['hyper_parameters'])
         model.load_state_dict(checkpoint['state_dict'])
 

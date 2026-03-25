@@ -35,7 +35,7 @@ class DeepSpeechsEncoder(torch.nn.Module):
             }
         checkpoint_path = pretrained_dir / model_name / self.config['saved_checkpoint']
 
-        checkpoint = torch.load(checkpoint_path, map_location='cpu')
+        checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only = False)
         self.model = DeepSpeech(**checkpoint['hyper_parameters'])
         self.model.load_state_dict(checkpoint['state_dict'])
         # self.model = DeepSpeech.load_from_checkpoint(checkpoint_path=checkpoint)
