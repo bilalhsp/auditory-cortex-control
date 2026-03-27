@@ -41,6 +41,7 @@ Each WM_# field contains the following sub-fields:
 
 
 import os
+import re
 import scipy.io 
 import numpy as np
 from pathlib import Path
@@ -90,11 +91,23 @@ class UCDavisActiveDataset(BaseDataset):
         self.data, self.exp_wise_trial, self.exp_stim_ids = self.read_sess_dataset()
         self.monkey_name, self.session_name, *_ = self.rec_filename.split('_')
 
-        self.tetrodes = ['WM_1', 'WM_2', 'WM_3', 'WM_4' ]  # example tetrode
-        self.assigned_units = np.concatenate([np.unique(self.data[tet].codes) for tet in self.tetrodes])
+        self.WM_channels = [k for k in self.data.keys() if re.search(r"^WM_\d+$", k)]
+        self.BAK_channels = [k for k in self.data.keys() if re.search(r"^BAK\d+$", k)]
+
+        self.assigned_units = np.concatenate([np.unique(self.data[tet].codes) for tet in self.WM_channels])
+        if len(self.BAK_channels) != 0:
+            self.assigned_units = np.concatenate([
+                self.assigned_units, 
+                [self.BAK_channel_id(bak) for bak in self.BAK_channels]
+                ])
+
+
+        # self.tetrodes = ['WM_1', 'WM_2', 'WM_3', 'WM_4' ]  # example tetrode
+        # self.assigned_units = np.concatenate([np.unique(self.data[tet].codes) for tet in self.tetrodes])
         # all assigned unit ids (SUA and MUA) across all tetrodes
 
-        
+    def BAK_channel_id(self, BAK):
+        return int(re.search(r"\d+$", BAK).group())*(-100)
 
     def exp_name(self, mVocs=False):
         """Returns the experiment name for stim type and num of repeats"""
@@ -178,9 +191,9 @@ class UCDavisActiveDataset(BaseDataset):
         tr_id = np.where(exp_stim_ids==stim_id)[0]
         stim_onset = self.get_value(trial_data, 'StimulusTimeOn')[tr_id]
         stim_dur = self.get_stim_duration(stim_id, mVocs)
-        tetrodes = ['WM_1', 'WM_2', 'WM_3', 'WM_4']
+        # tetrodes = ['WM_1', 'WM_2', 'WM_3', 'WM_4']
         spike_times = {code: [] for code in self.assigned_units}  # dict to hold spike times for each assigned unit
-        for tet in tetrodes:
+        for tet in self.WM_channels:
             all_tet_codes = np.unique(self.data[tet].codes)        # all unique codes for the tetrode
             # spk_times_all_trials = []
             for onset in stim_onset:
@@ -189,10 +202,16 @@ class UCDavisActiveDataset(BaseDataset):
                 tr_codes = self.data[tet].codes[spikes_mask]
                 for code in all_tet_codes:
                     code_mask = tr_codes == code
-                    spike_times[code].append(relative_spk_times[code_mask])  
-                    # append relative spike times for each code
-            #     spk_times_all_trials.append(relative_spk_times)
-            # spike_times[tet] = spk_times_all_trials
+                    spike_times[code].append(relative_spk_times[code_mask]) 
+
+        if len(self.BAK_channels) != 0:
+            for BAK in self.BAK_channels:
+                for onset in stim_onset:
+                    spikes_mask = (self.data[BAK].times >= onset) & (self.data[BAK].times <= onset + stim_dur)
+                    relative_spk_times = self.data[BAK].times[spikes_mask] - onset	# relative to stimulus onset
+                    unit_id = self.BAK_channel_id(BAK)
+                    spike_times[unit_id].append(relative_spk_times) 
+
         return spike_times
         
     def stim_spike_counts(self, stim_id, mVocs=False, bin_width=50, delay=0):

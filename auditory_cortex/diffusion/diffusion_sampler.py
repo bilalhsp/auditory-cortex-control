@@ -1,3 +1,5 @@
+import os
+import yaml
 import tqdm
 import numpy as np
 from abc import ABC, abstractmethod
@@ -7,8 +9,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 # from ml_utils import utils
-from audioldm import build_model
 from auditory_cortex import pretrained_dir
+
+from audioldm import LatentDiffusion, seed_everything
+from audioldm.utils import default_audioldm_config, get_metadata, download_checkpoint
+
+
 import logging
 logging.basicConfig(
     level=logging.INFO,
@@ -27,7 +33,7 @@ class DiffusionDDPM(nn.Module, ABC):
     """Implements the iDDPM model from 'Improved Denoising Diffusion Probabilistic Models' (Nichol et al. 2021).
     This is a denoising diffusion model that uses the noise prediction loss.
     """
-    def __init__(self, beta_min=0.0001, beta_max=0.02, T=1000):
+    def __init__(self, beta_min=0.0001, beta_max=0.02, T=1000, device=None):
         super().__init__()
         self.beta_min = beta_min
         self.beta_max = beta_max
@@ -36,8 +42,10 @@ class DiffusionDDPM(nn.Module, ABC):
         self.dtype = torch.float32
         
         self.define_schedule(beta_min, beta_max, self.T)
-
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if device is None:
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            self.device = device
 
     def define_schedule(self, beta_min, beta_max, n_steps):
         self.betas = np.linspace(beta_min, beta_max, n_steps, dtype=np.float32)
@@ -567,12 +575,12 @@ class DiffusionDDPM(nn.Module, ABC):
 
 
 class AudioLDM(DiffusionDDPM):
-    def __init__(self, model_path=None, beta_min=0.0015, beta_max=0.0195, T=1000):
-        super().__init__(beta_min, beta_max, T)
+    def __init__(self, model_path=None, beta_min=0.0015, beta_max=0.0195, T=1000, device=None):
+        super().__init__(beta_min, beta_max, T, device=device)
         if model_path is None:
             # model_path = '/scratch/gilbreth/ahmedb/audioldm/audioldm-s-full.ckpt'
             model_path = pretrained_dir / 'audioldm/audioldm-s-full.ckpt'
-        self.ldm = build_model(ckpt_path=model_path)
+        self.ldm = build_model(ckpt_path=model_path, device=self.device)
         self.ldm = torch.compile(self.ldm)
         self.null_embedding = self.get_null_condition(1)
 
@@ -649,3 +657,53 @@ def duration_to_latent_t_size(duration):
 
 def round_up_duration(duration):
     return int(round(duration/2.5) + 1) * 2.5
+
+
+
+
+def build_model(
+    ckpt_path=None,
+    config=None,
+    model_name="audioldm-s-full",
+    device=None,
+):
+    print("Load AudioLDM: %s", model_name)
+    
+    if(ckpt_path is None):
+        ckpt_path = get_metadata()[model_name]["path"]
+    
+    if(not os.path.exists(ckpt_path)):
+        download_checkpoint(model_name)
+
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    if config is not None:
+        assert type(config) is str
+        config = yaml.load(open(config, "r"), Loader=yaml.FullLoader)
+    else:
+        config = default_audioldm_config(model_name)
+
+    # Use text as condition instead of using waveform during training
+    config["model"]["params"]["device"] = device
+    config["model"]["params"]["cond_stage_key"] = "text"
+
+    # No normalization here
+    latent_diffusion = LatentDiffusion(**config["model"]["params"])
+
+    resume_from_checkpoint = ckpt_path
+
+    checkpoint = torch.load(resume_from_checkpoint, map_location=device)
+    '''Original. Here is a bug that, an unexpected key "cond_stage_model.model.text_branch.embeddings.position_ids" exists in the checkpoint file. '''
+    # latent_diffusion.load_state_dict(checkpoint["state_dict"])
+    '''2023.10.17 Fix the bug by setting the paramer "strict" as "False" to ignore the unexpected key. '''
+    latent_diffusion.load_state_dict(checkpoint["state_dict"], strict=False)
+
+    latent_diffusion.eval()
+    latent_diffusion = latent_diffusion.to(device)
+
+    latent_diffusion.cond_stage_model.embed_mode = "text"
+    return latent_diffusion
+    
+
+

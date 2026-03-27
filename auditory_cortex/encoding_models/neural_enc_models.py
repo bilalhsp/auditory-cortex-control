@@ -25,7 +25,11 @@ class BaseNeuralEncodingModel(ABC):
         return loss
 
 class DeepSpeechsEncoder(torch.nn.Module):
-    def __init__(self, model_name='deepspeech2', trf_model=None, layer_id=0, ch_idx=0, task='representation'):
+    def __init__(self, 
+                model_name='deepspeech2', trf_model=None, layer_id=0, 
+                ch_idx=0, task='representation',
+                device=None,
+                ):
         super().__init__()
         self.model_name = model_name
         self.config = utils.load_dnn_config(model_name=self.model_name)
@@ -40,7 +44,10 @@ class DeepSpeechsEncoder(torch.nn.Module):
         self.model.load_state_dict(checkpoint['state_dict'])
         # self.model = DeepSpeech.load_from_checkpoint(checkpoint_path=checkpoint)
 
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        if device is None:
+            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        else:
+            self.device = device
         self.model.to(self.device)
 
         # self.model.eval()

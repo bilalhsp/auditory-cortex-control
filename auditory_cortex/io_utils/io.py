@@ -512,7 +512,7 @@ def read_trf_parameters(
             parameters = pickle.load(F)
         return parameters
     else:
-        logger.info(f"Results not found.")
+        logger.info(f"Results not found at: \n{file_path}")
         return None
 
 def write_trf_parameters(

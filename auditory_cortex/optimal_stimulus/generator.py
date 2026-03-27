@@ -1,7 +1,7 @@
+import json
 import torch
 import torch.nn.functional as F
 import numpy as np
-import matplotlib.pylab as plt
 import soundfile as sf
 from pathlib import Path
 from omegaconf import OmegaConf
@@ -27,10 +27,11 @@ import torch.nn.functional as F
 from auditory_cortex import valid_model_names, NEURAL_DATASETS
 import auditory_cortex.io_utils.io as io
 
-from auditory_cortex.neural_data import create_neural_dataset, create_neural_metadata, UCDavisDataset
+from auditory_cortex.neural_data import create_neural_dataset, create_neural_metadata
 from auditory_cortex.dnn_feature_extractor import create_feature_extractor
-from auditory_cortex.data_assembler import DNNDataAssembler, RandProjAssembler
+from auditory_cortex.data_assembler import DNNDataAssembler
 from auditory_cortex.encoding import TRF
+
 
 
 import logging
@@ -62,9 +63,28 @@ class StimGenerator:
 
         self._load_models()
 
+
+    def save_trf_config(self, dirpath):
+        trf_config = {
+            'model_name': self.model_name,
+            'session_id': 0,                    # always using 0, coz saving temporary files...
+            'layer_id': self.layer_id, 
+            'bin_width': self.bin_width, 
+            'mVocs': self.mVocs, 
+            'lag': self.lag, 
+            'dataset_name': self.dataset_name, 
+            'unit_ids': list(self.data_assembler.channel_ids),
+        }
+
+        with open(Path(dirpath)/"trf_config.json", "w") as f:
+            json.dump(trf_config, f, indent=4)
+
+
+
+
     def _load_models(self):
         """Loads everything to vRAM."""
-        self.audioldm = AudioLDM(beta_min=0.0015, beta_max=0.0195)
+        # self.audioldm = AudioLDM(beta_min=0.0015, beta_max=0.0195)
         feature_extractor = create_feature_extractor(self.model_name, shuffled=self.shuffled)
         self.metadata = create_neural_metadata(self.dataset_name)
 
@@ -94,16 +114,23 @@ class StimGenerator:
         # if trf_model is not None:
         #     corr = self.evaluate_model(trf_model)
         # else:
-        lmbdas = np.logspace(-3, 5, 8)
+        lmbdas = np.logspace(-3, 5, 2)
         # lmbdas = None
         trf_obj = TRF(self.model_name, self.data_assembler)        
         corr, opt_lmbda, trf_model = trf_obj.grid_search_CV(
                 lag=self.lag, num_folds=3, lmbdas=lmbdas,
             )
-        self.trf_model = trf_model
-        self.encoder = DeepSpeechsEncoder(
-            layer_id=self.layer_id, trf_model=trf_model,            
+        
+        session_id=0
+        TRF.save_model_parameters(
+            trf_model, self.model_name, self.layer_id, session_id, self.bin_width, shuffled=False,
+            LPF=False, mVocs=self.mVocs, dataset_name=self.dataset_name, tmax=self.lag
             )
+        
+        # self.trf_model = trf_model
+        # self.encoder = DeepSpeechsEncoder(
+        #     layer_id=self.layer_id, trf_model=trf_model,            
+        #     )
         logger.info(f"Encoding model fit successfully.")
         corr_dict = {ch: corr_value for ch, corr_value in zip(self.data_assembler.channel_ids, corr)}
 
@@ -128,7 +155,29 @@ class StimGenerator:
             name = self.metadata.full_session_name(sess_id)
             existing_sessions[sess_id] = name.split('_')[1]
         return existing_sessions
+    
+    def get_visible_gpus(self):
+        return torch.cuda.device_count()
 
+    
+
+class Sampler:
+    def __init__(
+            self, device, model_name='deepspeech2', session_id=0, layer_id=2, 
+            bin_width=50, mVocs=False, lag=200, dataset_name='ucdavisBAK', unit_ids=None
+        ) -> None:
+        self.audioldm = AudioLDM(beta_min=0.0015, beta_max=0.0195, device=device)
+        trf_model = TRF.load_saved_model(
+            model_name, session_id, layer_id, bin_width, mVocs=mVocs,
+            tmax=lag, dataset_name=dataset_name
+            )
+        
+        self.encoder = DeepSpeechsEncoder(
+            layer_id=layer_id, trf_model=trf_model, device=device       
+            )
+        self.channel_ids = unit_ids
+        self.device = device
+        
 
     def generate_and_save_stimuli(
             self, output_dir, unit_id=0, task='stretch', 
@@ -139,9 +188,13 @@ class StimGenerator:
         )
         output_dir = Path(output_dir)
         output_dir.mkdir(exist_ok=True, parents=True)
+
+        files_id = f'unit_{abs(unit_id)}_{task}'
+        count = sum(1 for _ in output_dir.glob(files_id+"*.wav"))
+
         saved_files = []
         for idx, sample in enumerate(generated_samples):
-            filename = f'unit-{unit_id}-{task}-{idx}.wav'
+            filename = f'{files_id}_{count+idx}.wav'
             file_path = output_dir / filename
             save_waveform(file_path, sample, sample_rate=16000)
 
@@ -183,7 +236,7 @@ class StimGenerator:
         # reps = Restart(self.audioldm, self.encoder, latent=True)
         sampler_name = 'reps'
         sampler_config = CONF_DIR / 'reps-config' / 'sampler' / f'{sampler_name}.yaml'
-        sampler = get_sampler(sampler_name, self.audioldm, self.encoder, latent=True)
+        sampler = get_sampler(sampler_name, self.audioldm, self.encoder, latent=True, device=self.device)
         settings = OmegaConf.load(sampler_config).sampler_config
 
         seed_everything(seed)
@@ -195,4 +248,12 @@ class StimGenerator:
         generated_samples = sampler.generate_sample(measurement, **settings)[0]
 
         return generated_samples
+    
+
+
+
+
+
+    
+
 

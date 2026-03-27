@@ -33,8 +33,11 @@ def get_sampler(name, *args, **kwargs):
     raise NotImplemented("Sampler not found!")
 
 class PosteriorSampler(ABC):
-    def __init__(self, diff_model, operator, latent):
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    def __init__(self, diff_model, operator, latent, device=None):
+        if device is None:
+            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        else:
+            self.device = device
 
         self.diff_model = diff_model
         self.operator = operator  # measurement operator
@@ -77,8 +80,8 @@ class PosteriorSampler(ABC):
 
 @register_sampler("reps")
 class Restart(PosteriorSampler):
-    def __init__(self, diff_model, operator, latent=False):
-        super().__init__(diff_model, operator, latent)
+    def __init__(self, diff_model, operator, latent=False, device=None):
+        super().__init__(diff_model, operator, latent, device=device)
         self.name = 'restart-daps'
         self.dtype = diff_model.dtype
 

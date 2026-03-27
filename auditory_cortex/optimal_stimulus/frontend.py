@@ -1,6 +1,8 @@
 from typing import Any
 import streamlit as st
-
+import subprocess
+from pathlib import Path
+import json
 
 # from auditory_cortex.optimal_stimulus.factory import get_generator
 
@@ -11,8 +13,13 @@ class Frontend:
     def __init__(self, working_dir):
 
         self.working_dir = working_dir
-
+    
         self._init_session_state()
+        self.tmp_dir = Path(self.working_dir) / 'tmp'
+        self.tmp_dir.mkdir(exist_ok=True, parents=True)
+
+
+
         self.max_table_height = 250
         self.max_table_rows = 5
 
@@ -59,6 +66,10 @@ class Frontend:
             "session_file_path": None,
             "experiment_config": None,
             "rec_session_name": None,
+            'stimuli_selected': False,
+            'start_generation': False,
+            'generation_done': False,
+            'available_gpus': 0,
         }
 
         for k, v in defaults.items():
@@ -127,12 +138,9 @@ class Frontend:
             }
             with st.spinner("Loading models and features..."):
                 generator = self._get_generator()
-
+                st.session_state.available_gpus = generator.get_visible_gpus()
             st.session_state.generator_ready = True
 
-
-
-    
 
     def _experiment_summary(self):
         if not st.session_state.generator_ready:
@@ -154,6 +162,12 @@ class Frontend:
                 with col3:
                     st.markdown(f"**Bin width**  \n{cfg['Bin width']}")
                     st.markdown(f"**Receptive field**  \n{cfg['Receptive field']}")
+
+            if st.session_state.available_gpus > 0:
+                st.info(f"Running with {st.session_state.available_gpus} GPUs")
+            else:
+                st.error(f"No GPU available...this might not run as expected!")
+            
 
 
     def _upload_session(self):
@@ -237,6 +251,7 @@ class Frontend:
                     st.session_state.session_file_path,
                     st.session_state.session_source
                 )
+                generator.save_trf_config(self.tmp_dir)
 
                 corr = dict(sorted(corr.items(), key=lambda x: x[1], reverse=True))
                 st.session_state.corr_dict = corr
@@ -258,13 +273,6 @@ class Frontend:
                 }
                 for i, (ch, corr) in enumerate(corr_items)
             ]
-
-            n = len(corr_rows)
-            # dynamic height of container
-            if n <= self.max_table_rows:
-                height = None   # auto → fits content
-            else:
-                height = self.max_table_height    # max cap
             with st.container():
                 top_ch, top_corr = corr_items[0]
                 c1, c2 = st.columns([1, 3])
@@ -290,14 +298,14 @@ class Frontend:
                 st.info("Complete experiment setup and session analysis first.")
         else:
             st.caption("Select a channel and generate stimuli.")
-            ch_labels = {
-                f"{ch} (\u03C1={st.session_state.corr_dict[ch]:.3f})":ch
+            
+            possible_tasks = ["stretch", "one-hot"]
+            ch_task_options = {
+                f"{task}, unit: {ch} (\u03C1={st.session_state.corr_dict[ch]:.3f})"+(f", BAK{int(abs(ch)//100)}" if abs(ch) >= 100 else "") :f"{task}_{ch}" 
+                for task in possible_tasks 
                 for ch in list(st.session_state.corr_dict.keys())
             }
-            task_labels = {
-                "maximize firing rate (default)": "stretch",
-                "maximize one, suppress others": "one-hot",
-            }
+
             duration_labels = {
                 "1": 1,
                 "2 (default)": 2,
@@ -312,36 +320,141 @@ class Frontend:
                 "10": 10,
             }
 
-            with st.form("generate_form"):
+            with st.form("stim_selection_form"):
                 col1, col2 = st.columns(2)
                 with col1:
-                    unit_label = st.selectbox("Choose unit", list(ch_labels.keys()), index=0)
+                    # unit_label = st.selectbox("Choose unit", list(ch_labels.keys()), index=0)
                     duration_label = st.selectbox("Duration (sec)", duration_labels, index=1)
                 with col2:
-                    task_label = st.selectbox("Task", task_labels, index=0)
                     n_stimuli_label = st.selectbox("Number of stimuli", n_stimuli_labels, index=2)
 
-                gen_submitted = st.form_submit_button("Generate stimuli")
+                num_gpus = st.session_state.available_gpus
+                selected_units = st.multiselect(
+                    f"Choose {num_gpus} tasks",
+                    list(ch_task_options.keys()),
+                    default=[],
+                )
 
-            if gen_submitted:
-                unit_id = ch_labels[unit_label]
-                task = task_labels[task_label]
+                if st.form_submit_button("Confirm"):   
+                    if len(selected_units) > num_gpus:
+                        st.error(f"Please select at the most {num_gpus} units.")
+                        st.session_state.stimuli_selected = False
+                    else:
+                        if len(selected_units) < num_gpus:
+                            st.info(f"You can select {num_gpus - len(selected_units)} more.")
+                        else:
+                            st.success("Ready to proceed")
+                        st.session_state.stimuli_selected = True
+
+            if st.session_state.get("stimuli_selected", False):
+                st.write("Currrent selections: ", selected_units)
+                st.write("If this is okay, click below to start generation")
+
+                if st.button("Start generation"):
+                    st.session_state.start_generation = True
+
+            if st.session_state.start_generation:
+                # print("-------------------------------------------------------------------")
                 duration = duration_labels[duration_label]
                 n_stimuli = n_stimuli_labels[n_stimuli_label]
+                output_dir = self.working_dir / 'outputs' / st.session_state.rec_session_name
+
+                sel_units = [float(ch_task_options[selected_units[idx]].split('_')[1]) for idx in range(num_gpus)]
+                sel_tasks = [ch_task_options[selected_units[idx]].split('_')[0] for idx in range(num_gpus)]
+
+                for idx in range(num_gpus):
+                    stim_configs = {
+                            'output_dir': str(output_dir),
+                            'unit_id': sel_units[idx],
+                            'task': sel_tasks[idx],
+                            'duration': duration,
+                            'n_stimuli': n_stimuli,
+                        }
+                    with open(self.tmp_dir / f"stim{idx}_config.json", "w") as f:
+                        json.dump(stim_configs, f, indent=4)
+
+
                 with st.spinner("Generating stimuli..."):
-                    generator = self._get_generator()
-                    output_dir = self.working_dir / 'outputs' / st.session_state.rec_session_name
-                    saved_clips = generator.generate_and_save_stimuli(
-                        output_dir,
-                        unit_id=unit_id,
-                        task=task,
-                        duration=duration,
-                        n_stimuli=n_stimuli,
-                        target_audio=n_stimuli,
-                    )
-                st.success(f"{n_stimuli} Stimuli generated for unit: '{unit_id}'")
-                st.session_state.generated_clips = saved_clips
+                    # generator = self._get_generator()
+                    ROOT = Path(__file__).resolve().parent
+                    script_path = ROOT / "sampling_worker.py"
+
+                    processes = []
+                    for gpu_id in range(st.session_state.available_gpus):
+                        p = subprocess.Popen([
+                            "python",
+                            str(script_path),
+                            "--trf_config", str(self.tmp_dir / "trf_config.json"),
+                            "--stim_config", str(self.tmp_dir / f"stim{gpu_id}_config.json"),
+                            "--gpu_id", str(gpu_id),
+                        ])
+                        processes.append(p)
+
+                    # wait for all to finish
+                    for p in processes:
+                        p.wait()
+
+                    # subprocess.run([
+                    #     "python",
+                    #     str(script_path),
+                    #     "--trf_config",  self.tmp_dir / "trf_config.json",
+                    #     "--stim_config", self.tmp_dir / "stim_config.json",
+                    #     "--gpu_id", "0",
+                    # ], check=True)
                 st.session_state.generated_output_dir = str(output_dir)
+                st.session_state.start_generation = False
+                st.session_state.stimuli_selected = False
+                st.rerun()
+                
+
+            # if gen_submitted:
+            #     unit_id = ch_labels[unit_label]
+            #     task = task_labels[task_label]
+            #     duration = duration_labels[duration_label]
+            #     n_stimuli = n_stimuli_labels[n_stimuli_label]
+            #     output_dir = self.working_dir / 'outputs' / st.session_state.rec_session_name
+
+            #     stim_config = {
+            #         'output_dir': str(output_dir),
+            #         'unit_id': unit_id,
+            #         'task': task,
+            #         'duration': duration,
+            #         'n_stimuli': n_stimuli,
+            #     }
+
+            #     with open(self.tmp_dir / "stim_config.json", "w") as f:
+            #         json.dump(stim_config, f, indent=4)
+
+
+            #     with st.spinner("Generating stimuli..."):
+            #         # generator = self._get_generator()
+                    
+
+            #         # file where this code lives
+            #         ROOT = Path(__file__).resolve().parent
+            #         script_path = ROOT / "sampling_worker.py"
+            #         subprocess.run([
+            #             "python",
+            #             str(script_path),
+            #             "--trf_config",  self.tmp_dir / "trf_config.json",
+            #             "--stim_config", self.tmp_dir / "stim_config.json",
+            #             "--gpu_id", "0",
+            #         ], check=True)
+
+
+
+
+                    # saved_clips = generator.generate_and_save_stimuli(
+                    #     output_dir,
+                    #     unit_id=unit_id,
+                    #     task=task,
+                    #     duration=duration,
+                    #     n_stimuli=n_stimuli,
+                    #     target_audio=n_stimuli,
+                    # )
+                # st.success(f"{n_stimuli} Stimuli generated for unit: '{unit_id}'")
+                # # st.session_state.generated_clips = saved_clips
+                # st.session_state.generated_output_dir = str(output_dir)
 
         
 
@@ -350,8 +463,9 @@ class Frontend:
         output_dir = st.session_state.get("generated_output_dir")
 
         if output_dir:
+            st.success(f"Stimuli generated. Select again to generate more or use the download option below.")
             zip_buffer = factory.zip_directory(output_dir)
-
+            # st.session_state.stimuli_selected = False
             st.download_button(
                 label="Download all the generated clips",
                 data=zip_buffer,
