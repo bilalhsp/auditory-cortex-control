@@ -1,3 +1,4 @@
+import os
 import io
 import zipfile
 import streamlit as st
@@ -22,15 +23,29 @@ def _make_zip(file_infos):
     zip_buffer.seek(0)
     return zip_buffer
 
-def zip_directory(dir_path):
+# def zip_directory(dir_path):
+#     zip_buffer = io.BytesIO()
+#     dir_path = Path(dir_path)
+
+#     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+#         for file_path in dir_path.glob("*"):
+#             if file_path.is_file():
+#                 zf.write(file_path, arcname=file_path.name)
+
+#     zip_buffer.seek(0)
+#     return zip_buffer
+
+def zip_directory(directory_path):
     zip_buffer = io.BytesIO()
-    dir_path = Path(dir_path)
-
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        for file_path in dir_path.glob("*"):
-            if file_path.is_file():
-                zf.write(file_path, arcname=file_path.name)
-
+    
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        for root, dirs, files in os.walk(directory_path):
+            for file in files:
+                file_path = os.path.join(root, file)
+                # Preserve folder structure inside the zip
+                arcname = os.path.relpath(file_path, start=directory_path)
+                zip_file.write(file_path, arcname)
+    
     zip_buffer.seek(0)
     return zip_buffer
 

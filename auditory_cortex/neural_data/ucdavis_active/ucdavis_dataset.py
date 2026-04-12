@@ -94,7 +94,13 @@ class UCDavisActiveDataset(BaseDataset):
         self.WM_channels = [k for k in self.data.keys() if re.search(r"^WM_\d+$", k)]
         self.BAK_channels = [k for k in self.data.keys() if re.search(r"^BAK\d+$", k)]
 
-        self.assigned_units = np.concatenate([np.unique(self.data[tet].codes) for tet in self.WM_channels])
+        # no WM channels for real-time experiments, so assigned_units would be empty array in that case
+        if len(self.WM_channels) == 0:
+            self.assigned_units = np.array([])
+        else:
+            self.assigned_units = np.concatenate([np.unique(self.data[tet].codes) for tet in self.WM_channels])
+
+        # self.assigned_units = np.concatenate([np.unique(self.data[tet].codes) for tet in self.WM_channels])
         if len(self.BAK_channels) != 0:
             self.assigned_units = np.concatenate([
                 self.assigned_units, 
@@ -102,11 +108,9 @@ class UCDavisActiveDataset(BaseDataset):
                 ])
 
 
-        # self.tetrodes = ['WM_1', 'WM_2', 'WM_3', 'WM_4' ]  # example tetrode
-        # self.assigned_units = np.concatenate([np.unique(self.data[tet].codes) for tet in self.tetrodes])
-        # all assigned unit ids (SUA and MUA) across all tetrodes
-
     def BAK_channel_id(self, BAK):
+        """BAK channels are assigned ids as multiples of -100 starting from -100 for BAK1, -200 for BAK2 and so on.
+        This is to ensure that there is no overlap between WM codes and BAK codes."""
         return int(re.search(r"\d+$", BAK).group())*(-100)
 
     def exp_name(self, mVocs=False):
@@ -193,16 +197,17 @@ class UCDavisActiveDataset(BaseDataset):
         stim_dur = self.get_stim_duration(stim_id, mVocs)
         # tetrodes = ['WM_1', 'WM_2', 'WM_3', 'WM_4']
         spike_times = {code: [] for code in self.assigned_units}  # dict to hold spike times for each assigned unit
-        for tet in self.WM_channels:
-            all_tet_codes = np.unique(self.data[tet].codes)        # all unique codes for the tetrode
-            # spk_times_all_trials = []
-            for onset in stim_onset:
-                spikes_mask = (self.data[tet].times >= onset) & (self.data[tet].times <= onset + stim_dur)
-                relative_spk_times = self.data[tet].times[spikes_mask] - onset	# relative to stimulus onset
-                tr_codes = self.data[tet].codes[spikes_mask]
-                for code in all_tet_codes:
-                    code_mask = tr_codes == code
-                    spike_times[code].append(relative_spk_times[code_mask]) 
+        if len(self.WM_channels) != 0:                         # explicitly check for WM channels because for real-time experiments there are no WM channels and we want to avoid iterating over empty list of WM channels
+            for tet in self.WM_channels:
+                all_tet_codes = np.unique(self.data[tet].codes)        # all unique codes for the tetrode
+                # spk_times_all_trials = []
+                for onset in stim_onset:
+                    spikes_mask = (self.data[tet].times >= onset) & (self.data[tet].times <= onset + stim_dur)
+                    relative_spk_times = self.data[tet].times[spikes_mask] - onset	# relative to stimulus onset
+                    tr_codes = self.data[tet].codes[spikes_mask]
+                    for code in all_tet_codes:
+                        code_mask = tr_codes == code
+                        spike_times[code].append(relative_spk_times[code_mask]) 
 
         if len(self.BAK_channels) != 0:
             for BAK in self.BAK_channels:

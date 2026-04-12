@@ -21,6 +21,7 @@ import numpy as np
 import matplotlib.pylab as plt
 
 import torch
+import subprocess
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -114,8 +115,8 @@ class StimGenerator:
         # if trf_model is not None:
         #     corr = self.evaluate_model(trf_model)
         # else:
-        lmbdas = np.logspace(-3, 5, 2)
-        # lmbdas = None
+        # lmbdas = np.logspace(-3, 5, 2)
+        lmbdas = None
         trf_obj = TRF(self.model_name, self.data_assembler)        
         corr, opt_lmbda, trf_model = trf_obj.grid_search_CV(
                 lag=self.lag, num_folds=3, lmbdas=lmbdas,
@@ -159,6 +160,14 @@ class StimGenerator:
     def get_visible_gpus(self):
         return torch.cuda.device_count()
 
+    def get_all_gpu_count(self):
+        return self.get_visible_gpus()*len(self.get_hostlist())
+
+    def get_hostlist(self):
+        hosts = subprocess.check_output(["srun", "hostname"], text=True).splitlines()
+        hosts = sorted(set(hosts))  
+        return hosts
+
     
 
 class Sampler:
@@ -181,15 +190,16 @@ class Sampler:
 
     def generate_and_save_stimuli(
             self, output_dir, unit_id=0, task='stretch', 
-            duration=2, n_stimuli=1, target_audio=None, seed=42
+            duration=2, n_stimuli=1, target_audio=None, seed=42,
+            stim_type='timit', **kwargs
             ):
         generated_samples = self.generate_stimuli(
             unit_id=unit_id, task=task, duration=duration, n_stimuli=n_stimuli, target_audio=target_audio, seed=seed
         )
-        output_dir = Path(output_dir)
+        output_dir = Path(output_dir) / stim_type
         output_dir.mkdir(exist_ok=True, parents=True)
 
-        files_id = f'unit_{abs(unit_id)}_{task}'
+        files_id = f'{stim_type}-unit_{abs(unit_id)}_{task}'
         count = sum(1 for _ in output_dir.glob(files_id+"*.wav"))
 
         saved_files = []

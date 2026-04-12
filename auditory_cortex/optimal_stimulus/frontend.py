@@ -3,10 +3,12 @@ import streamlit as st
 import subprocess
 from pathlib import Path
 import json
+from datetime import datetime
 
 # from auditory_cortex.optimal_stimulus.factory import get_generator
 
 import auditory_cortex.optimal_stimulus.factory as factory
+from auditory_cortex.optimal_stimulus.schedular import Schedular
 
 
 class Frontend:
@@ -138,7 +140,7 @@ class Frontend:
             }
             with st.spinner("Loading models and features..."):
                 generator = self._get_generator()
-                st.session_state.available_gpus = generator.get_visible_gpus()
+                st.session_state.available_gpus = generator.get_all_gpu_count()
             st.session_state.generator_ready = True
 
 
@@ -263,6 +265,7 @@ class Frontend:
     def _display_correlations(self):
         if st.session_state.corr_ready:
             st.subheader("Channel correlations")
+            st.caption("Correlation between actual and predicted (using the encoding model) neural responses.")
 
             corr_items = list(st.session_state.corr_dict.items())
             corr_rows = [
@@ -334,6 +337,8 @@ class Frontend:
                     list(ch_task_options.keys()),
                     default=[],
                 )
+                st.write(f"Stretch: maximizes the firing rate for the selected unit")
+                st.write(f"One-hot: maximally activating the selected unit while minimizing activation of others")
 
                 if st.form_submit_button("Confirm"):   
                     if len(selected_units) > num_gpus:
@@ -357,11 +362,14 @@ class Frontend:
                 # print("-------------------------------------------------------------------")
                 duration = duration_labels[duration_label]
                 n_stimuli = n_stimuli_labels[n_stimuli_label]
-                output_dir = self.working_dir / 'outputs' / st.session_state.rec_session_name
+                timestamp = datetime.now().strftime("%Y-%m-%d")
+                output_dir = self.working_dir / 'outputs' / timestamp #st.session_state.rec_session_name
 
                 sel_units = [float(ch_task_options[selected_units[idx]].split('_')[1]) for idx in range(num_gpus)]
                 sel_tasks = [ch_task_options[selected_units[idx]].split('_')[0] for idx in range(num_gpus)]
 
+
+                stim_type = "mVocs" if st.session_state.generator_config["mVocs"] else "timit"
                 for idx in range(num_gpus):
                     stim_configs = {
                             'output_dir': str(output_dir),
@@ -369,6 +377,7 @@ class Frontend:
                             'task': sel_tasks[idx],
                             'duration': duration,
                             'n_stimuli': n_stimuli,
+                            'stim_type': stim_type,
                         }
                     with open(self.tmp_dir / f"stim{idx}_config.json", "w") as f:
                         json.dump(stim_configs, f, indent=4)
@@ -378,6 +387,13 @@ class Frontend:
                     # generator = self._get_generator()
                     ROOT = Path(__file__).resolve().parent
                     script_path = ROOT / "sampling_worker.py"
+
+                    # schedular = Schedular(
+                    #     script_path, 
+                    #     str(self.tmp_dir / "trf_config.json"),
+                    #     [str(self.tmp_dir / f"stim{gpu_id}_config.json") for gpu_id in range(st.session_state.available_gpus)]
+                    #     )
+                    # schedular.launch_on_all_gpus()
 
                     processes = []
                     for gpu_id in range(st.session_state.available_gpus):
@@ -469,7 +485,7 @@ class Frontend:
             st.download_button(
                 label="Download all the generated clips",
                 data=zip_buffer,
-                file_name=f"{st.session_state.rec_session_name}_clips.zip",
+                file_name=f"{Path(output_dir).name}_clips.zip",
                 mime="application/zip",
                 key="download_all_clips",
             )
