@@ -365,12 +365,12 @@ class Frontend:
                 timestamp = datetime.now().strftime("%Y-%m-%d")
                 output_dir = self.working_dir / 'outputs' / timestamp #st.session_state.rec_session_name
 
-                sel_units = [float(ch_task_options[selected_units[idx]].split('_')[1]) for idx in range(num_gpus)]
-                sel_tasks = [ch_task_options[selected_units[idx]].split('_')[0] for idx in range(num_gpus)]
+                sel_units = [float(ch_task_options[selected_units[idx]].split('_')[1]) for idx in range(len(selected_units))]
+                sel_tasks = [ch_task_options[selected_units[idx]].split('_')[0] for idx in range(len(selected_units))]
 
 
                 stim_type = "mVocs" if st.session_state.generator_config["mVocs"] else "timit"
-                for idx in range(num_gpus):
+                for idx in range(len(selected_units)):
                     stim_configs = {
                             'output_dir': str(output_dir),
                             'unit_id': sel_units[idx],
@@ -396,7 +396,7 @@ class Frontend:
                     # schedular.launch_on_all_gpus()
 
                     processes = []
-                    for gpu_id in range(st.session_state.available_gpus):
+                    for gpu_id in range(len(selected_units)):
                         p = subprocess.Popen([
                             "python",
                             str(script_path),
