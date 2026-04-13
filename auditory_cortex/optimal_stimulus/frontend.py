@@ -3,6 +3,7 @@ import streamlit as st
 import subprocess
 from pathlib import Path
 import json
+import shutil
 from datetime import datetime
 
 # from auditory_cortex.optimal_stimulus.factory import get_generator
@@ -14,13 +15,18 @@ from auditory_cortex.optimal_stimulus.schedular import Schedular
 class Frontend:
     def __init__(self, working_dir):
 
-        self.working_dir = working_dir
-    
-        self._init_session_state()
+        self.working_dir = Path(working_dir)  
+
         self.tmp_dir = Path(self.working_dir) / 'tmp'
         self.tmp_dir.mkdir(exist_ok=True, parents=True)
 
-
+        timestamp = datetime.now().strftime("%Y-%m-%d")
+        self.output_dir = self.working_dir / 'outputs' / timestamp 
+        # If exists, wipe it; then create fresh
+        if self.output_dir.exists():
+            shutil.rmtree(self.output_dir)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self._init_session_state()
 
         self.max_table_height = 250
         self.max_table_rows = 5
@@ -363,11 +369,10 @@ class Frontend:
                 duration = duration_labels[duration_label]
                 n_stimuli = n_stimuli_labels[n_stimuli_label]
                 timestamp = datetime.now().strftime("%Y-%m-%d")
-                output_dir = self.working_dir / 'outputs' / timestamp #st.session_state.rec_session_name
+                output_dir = self.output_dir 
 
                 sel_units = [float(ch_task_options[selected_units[idx]].split('_')[1]) for idx in range(len(selected_units))]
                 sel_tasks = [ch_task_options[selected_units[idx]].split('_')[0] for idx in range(len(selected_units))]
-
 
                 stim_type = "mVocs" if st.session_state.generator_config["mVocs"] else "timit"
                 for idx in range(len(selected_units)):
