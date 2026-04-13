@@ -40,10 +40,19 @@ logger = logging.getLogger(__name__)
 
 CONF_DIR = Path(auditory_cortex.__file__).resolve().parents[1] / 'configs' 
 
+def rms_normalize(audio, target_rms=0.1):
+    """Normalize to a consistent RMS level (perceived loudness)."""
+    current_rms = np.sqrt(np.mean(audio**2))
+    if current_rms > 0:
+        audio = audio * (target_rms / current_rms)
+    # Clip to prevent exceeding [-1, 1]
+    return np.clip(audio, -1.0, 1.0)
+
 def save_waveform(file_path, waveform, sample_rate):
     if torch.is_tensor(waveform):
         waveform = waveform.cpu().numpy()
-    waveform = waveform.clip(-1,1).squeeze()
+    # waveform = waveform.clip(-1,1).squeeze()
+    waveform = rms_normalize(waveform)
     sf.write(file_path, waveform, sample_rate, format='WAV', subtype='PCM_16')
 
 class StimGenerator:
