@@ -368,7 +368,7 @@ class Frontend:
                 # print("-------------------------------------------------------------------")
                 duration = duration_labels[duration_label]
                 n_stimuli = n_stimuli_labels[n_stimuli_label]
-                timestamp = datetime.now().strftime("%Y-%m-%d")
+                # timestamp = datetime.now().strftime("%Y-%m-%d")
                 output_dir = self.output_dir 
 
                 sel_units = [float(ch_task_options[selected_units[idx]].split('_')[1]) for idx in range(len(selected_units))]
