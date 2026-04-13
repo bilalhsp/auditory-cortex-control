@@ -173,11 +173,14 @@ class StimGenerator:
         return self.get_visible_gpus()*len(self.get_hostlist())
 
     def get_hostlist(self):
-        hosts = subprocess.check_output(["srun", "hostname"], text=True).splitlines()
-        hosts = sorted(set(hosts))  
-        return hosts
+        try:
+            hosts = subprocess.check_output(["srun", "hostname"], text=True).splitlines()
+            hosts = sorted(set(hosts))  
+            return hosts
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            import socket
+            return [socket.gethostname()]
 
-    
 
 class Sampler:
     def __init__(
