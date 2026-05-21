@@ -26,6 +26,8 @@ class Frontend:
         if self.output_dir.exists():
             shutil.rmtree(self.output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+
+        
         self._init_session_state()
 
         self.max_table_height = 250

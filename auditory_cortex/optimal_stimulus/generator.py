@@ -69,6 +69,8 @@ class StimGenerator:
         self.lag = lag
         self.shuffled = shuffled
 
+        self.sess_id = 0
+
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self._load_models()
@@ -77,7 +79,7 @@ class StimGenerator:
     def save_trf_config(self, dirpath):
         trf_config = {
             'model_name': self.model_name,
-            'session_id': 0,                    # always using 0, coz saving temporary files...
+            'session_id': self.sess_id,                    # always using 0, coz saving temporary files...
             'layer_id': self.layer_id, 
             'bin_width': self.bin_width, 
             'mVocs': self.mVocs, 
@@ -131,9 +133,14 @@ class StimGenerator:
                 lag=self.lag, num_folds=3, lmbdas=lmbdas,
             )
         
-        session_id=0
+        
+        if full_path:
+            self.sess_id=0
+        else:
+            self.sess_id=session_id
+
         TRF.save_model_parameters(
-            trf_model, self.model_name, self.layer_id, session_id, self.bin_width, shuffled=False,
+            trf_model, self.model_name, self.layer_id, self.sess_id, self.bin_width, shuffled=False,
             LPF=False, mVocs=self.mVocs, dataset_name=self.dataset_name, tmax=self.lag
             )
         

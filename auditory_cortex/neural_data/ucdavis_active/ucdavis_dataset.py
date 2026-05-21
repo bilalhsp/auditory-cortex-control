@@ -260,12 +260,12 @@ class UCDavisActiveDataset(BaseDataset):
 
         print(f"all_stim_names: {len(all_stim_names)}")
         timit_mask = all_stim_types == 'timit'
+        mvox_mask = all_stim_types == 'mvox'
 
         timit_stim = all_stim_names[timit_mask]
-        mVocs_stim = all_stim_names[~timit_mask]
+        mVocs_stim = all_stim_names[mvox_mask]
 
         print(f"timit_stimuli: {len(timit_stim)}, mVocs_stimuli: {len(mVocs_stim)}")
-
 
         unique_timit, repeated_timit = self.separate_unique_stimuli(timit_stim, num_repeats)
         unique_mVocs, repeated_mVocs = self.separate_unique_stimuli(mVocs_stim, num_repeats)

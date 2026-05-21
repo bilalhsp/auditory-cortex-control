@@ -11,7 +11,7 @@ sampler_config:
   n_ode_steps: 5
 
   lr: 0.3
-  lam: 0.01
+  lam: 0.01 #10
   num_iters: 5
 
 # sweep path:
