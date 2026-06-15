@@ -109,7 +109,7 @@ class BaseFeatureExtractor(ABC):
                 param.data = param.data*self.scale_factor
 
 
-    def extract_features(self, stim_audios, sampling_rate, stim_durations=None, pad_time=None):
+    def extract_features(self, stim_audios, sampling_rate, stim_durations=None, pad_time=None, rms=0.1):
         """
         Returns raw features for all layers of the DNN..!
 
@@ -131,6 +131,7 @@ class BaseFeatureExtractor(ABC):
                 n_samples = int(audio.size*self.sampling_rate/sampling_rate)
                 audio = resample(audio, n_samples)
             
+            audio = self.rms_normalize(audio, target_rms=rms)
             if pad_time is not None:
                 pad = int(pad_time*self.sampling_rate)
                 padding = np.zeros((pad, ))
@@ -162,6 +163,19 @@ class BaseFeatureExtractor(ABC):
             del stim_features
             collected = gc.collect()
         return features
+    
+    @staticmethod
+    def rms_normalize(waveform, target_rms=0.1):
+        # works for (time,), (batch, time), or (batch, channels, time)
+        if waveform.ndim == 1:
+            rms = np.sqrt(np.mean(waveform**2))
+            rms = np.clip(rms, a_min=1e-8, a_max=None)
+            return waveform * target_rms / rms
+        else:
+            dims = tuple(range(1, waveform.ndim))
+            rms = np.sqrt(np.mean(waveform**2, axis=dims, keepdims=True))
+            rms = np.clip(rms, a_min=1e-8, a_max=None)
+            return waveform * target_rms / rms
 
 
     def register_hooks(self):

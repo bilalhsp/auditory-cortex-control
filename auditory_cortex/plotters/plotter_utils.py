@@ -126,7 +126,8 @@ class PlotterUtils:
     
     @staticmethod
     def plot_spectrogram(
-            spect, cmap=None
+            spect, cmap=None,
+            xticks_step_ms = 400, bin_width = 10
         ):
         """Plots spectrogram"""
         if cmap is None:
@@ -134,8 +135,8 @@ class PlotterUtils:
         plt.imshow(spect, origin='lower', interpolation=None,
            cmap=cmap)
 
-        bin_width = 10
-        xticks_step_ms = 400
+        
+        
         xticks_step_samples = int(xticks_step_ms/bin_width)
         total_bins = spect.shape[1]
         xticks = np.arange(0, total_bins, xticks_step_samples)

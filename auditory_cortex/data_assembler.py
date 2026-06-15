@@ -374,6 +374,90 @@ class DNNDataAssembler(BaseDataAssembler):
         layer_features = all_layer_features[self.layer_id]
         return layer_features
 
+class DNNtoDNNAssembler(BaseDataAssembler):
+    """To fit TRF from DNN features of one model to DNN features of another model, we can use this assembler.
+    """
+    def __init__(
+            self, dataset_obj, 
+            feature_extractor, layer_id, 
+            target_feature_extractor, target_layer_id,
+            bin_width, 
+            mVocs=False,
+            force_reload=False,
+            LPF=False,
+            LPF_analysis_bw=20
+            ):
+        """
+        Args:
+            feature_extractor: FE for input features
+            layer_id: int = layer ID to use for features
+            target_feature_extractor: FE for output features
+            target_layer_id: int = layer ID to use for target features
+            session: int = session ID
+            bin_width: int = bin width in ms
+        """
+        super().__init__(
+            bin_width, dataset_obj, feature_extractor, mVocs=mVocs,
+            LPF=LPF, LPF_analysis_bw=LPF_analysis_bw
+            )       
+
+        self.model_name = self.dataloader.feature_extractor.model_name
+        self.force_reload = force_reload
+        self.layer_id = layer_id
+
+        self.target_dataloader = DataLoader(dataset_obj, target_feature_extractor)
+        self.target_layer_id = target_layer_id
+
+        self.data_cache, self.channel_ids = self.load_sent_wise_features_and_spikes()
+        self.num_channels = len(self.channel_ids)
+        # free up memory
+        # del self.dataloader.DNN_feature_dict
+        # del self.dataloader.DNN_shuffled_feature_dict
+        # del self.dataloader.neural_spikes
+
+    def load_features(self):
+        """same as DNNDataAssembler."""
+        all_layer_features = self.dataloader.get_resampled_DNN_features(
+            bin_width=self.bin_width, mVocs=self.mVocs, 
+            LPF=self.LPF, LPF_analysis_bw=self.LPF_analysis_bw,
+            force_reload=self.force_reload,
+            )
+        layer_features = all_layer_features[self.layer_id]
+        return layer_features
+        
+
+    def load_neural_spikes(self):
+        """Usually neural spikes are the regression targets. For DNNtoDNN 
+        DNN features are the regression targets so this method is adjusted accordingly.
+        Goal is to return the target features in the same form as the neural spikes are usually returned,
+        i.e. a dict of dicts with structure: {stim_id: {channel_id: (1, num_time_bins)}}.
+        
+        """
+        all_layer_features = self.target_dataloader.get_resampled_DNN_features(
+            bin_width=self.bin_width, mVocs=self.mVocs, 
+            LPF=self.LPF, LPF_analysis_bw=self.LPF_analysis_bw,
+            force_reload=self.force_reload,
+            )
+        layer_features = all_layer_features[self.target_layer_id]
+        
+        training_spikes = {}
+        for stim_id in self.get_training_stim_ids():
+            y_all_channels = layer_features[stim_id]
+            training_spikes[stim_id] = {
+                ch_idx:y_all_channels[self.n_offset:,ch_idx][None, :]        # getting rid of padding bins
+                for ch_idx in range(y_all_channels.shape[1])
+            } 
+
+        testing_spikes = {}
+        for stim_id in self.get_testing_stim_ids():
+            y_all_channels = layer_features[stim_id]
+            testing_spikes[stim_id] = {
+                ch_idx:y_all_channels[self.n_offset:,ch_idx][None, :]        # getting rid of padding bins
+                for ch_idx in range(y_all_channels.shape[1])
+            } 
+
+        return training_spikes, testing_spikes
+
 
 class DNNAllLayerAssembler(BaseDataAssembler):
     def __init__(

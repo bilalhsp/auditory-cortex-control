@@ -32,6 +32,7 @@ class DataLoader:
 
         if pad_time is None:
             self.pad_time = config['pad_time'] #0.35 # seconds
+        self.rms = config.get('rms', 0.1) 
         self.neural_spikes = {} 	
         self.num_channels = None	
         self.DNN_feature_dict = {}
@@ -205,7 +206,7 @@ class DataLoader:
             else:
                 logger.info(f"Extracting DNN features for '{model_name}'...")
                 raw_DNN_features = self.feature_extractor.extract_features(
-                    stim_audios, sampling_rate, stim_durations, self.pad_time
+                    stim_audios, sampling_rate, stim_durations, self.pad_time, rms=self.rms
                     )
                 
 

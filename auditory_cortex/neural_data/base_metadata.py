@@ -166,7 +166,7 @@ class BaseMetaData(ABC):
             sessions = []
             for k,v in self.cfg.area_wise_sessions.items():
                 sessions.append(v)
-            return np.sort(np.concatenate(sessions))
+            return np.unique(np.sort(np.concatenate(sessions)))
         else:
-            return np.sort(self.cfg.area_wise_sessions[area])
+            return np.unique(np.sort(self.cfg.area_wise_sessions[area]))
     

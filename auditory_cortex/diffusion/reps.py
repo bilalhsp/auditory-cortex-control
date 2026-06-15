@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 SAMPLER_REGISTRY = {}
 
-
 def register_sampler(name):
     """Register posterior sampler with the given name"""
     def decorater(cls):
@@ -328,8 +327,8 @@ class Restart(PosteriorSampler):
 
 @register_sampler("daps")
 class DAPS(PosteriorSampler):
-    def __init__(self, diff_model, operator, latent=False):
-        super().__init__(diff_model, operator, latent)
+    def __init__(self, diff_model, operator, latent=False, device=None):
+        super().__init__(diff_model, operator, latent, device=device)
         self.name = 'daps'
         self.dtype = diff_model.dtype
 
@@ -379,7 +378,7 @@ class DAPS(PosteriorSampler):
             x0_hat = self.solve_ode(
                 num_steps=n_ode_steps, start_x=xt,
                 sigma_max=sigma_current, sigma_min=ode_sigma_min, rho=rho,
-                measurement=measurement, ratio=step/n_anneal_steps, #needed only for conditioned ODE
+                # measurement=measurement, ratio=step/n_anneal_steps, #needed only for conditioned ODE
                 **kwargs   
                 )
 
@@ -444,9 +443,12 @@ class DAPS(PosteriorSampler):
 
         x_tmp = x.clone().detach().requires_grad_(True)
         if self.latent:
-            measurement_loss =  ((self.operator(self.decode(x_tmp)) - measurement) ** 2).sum()
+            # measurement_loss =  ((self.operator(self.decode(x_tmp)) - measurement) ** 2).sum()
+            decoded = self.decode(x_tmp)
+            measurement_loss = self.operator.compute_loss(decoded, measurement)
         else:
-            measurement_loss =  ((self.operator(x_tmp) - measurement) ** 2).sum()
+            # measurement_loss =  ((self.operator(x_tmp) - measurement) ** 2).sum()
+            measurement_loss = self.operator.compute_loss(decoded, measurement)
         measurement_grad = torch.autograd.grad(measurement_loss, x_tmp)[0]
         x_tmp.detach_()
 

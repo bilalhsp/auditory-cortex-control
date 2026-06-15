@@ -32,6 +32,7 @@ from auditory_cortex.neural_data import create_neural_dataset, create_neural_met
 from auditory_cortex.dnn_feature_extractor import create_feature_extractor
 from auditory_cortex.data_assembler import DNNDataAssembler
 from auditory_cortex.encoding import TRF
+from auditory_cortex.encoding_models import create_encoder
 
 
 
@@ -200,9 +201,12 @@ class Sampler:
             tmax=lag, dataset_name=dataset_name
             )
         
-        self.encoder = DeepSpeechsEncoder(
-            layer_id=layer_id, trf_model=trf_model, device=device       
-            )
+        self.encoder = create_encoder(
+            model_name=model_name, layer_id=layer_id, trf_model=trf_model
+            ).to(device)
+        # self.encoder = DeepSpeechsEncoder(
+        #     layer_id=layer_id, trf_model=trf_model, device=device       
+        #     )
         self.channel_ids = unit_ids
         self.device = device
         
@@ -263,7 +267,8 @@ class Sampler:
             measurement=None
 
         # reps = Restart(self.audioldm, self.encoder, latent=True)
-        sampler_name = 'reps'
+        # sampler_name = 'reps'
+        sampler_name = 'daps'
         sampler_config = CONF_DIR / 'reps-config' / 'sampler' / f'{sampler_name}.yaml'
         sampler = get_sampler(sampler_name, self.audioldm, self.encoder, latent=True, device=self.device)
         settings = OmegaConf.load(sampler_config).sampler_config

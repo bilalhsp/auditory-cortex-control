@@ -32,4 +32,5 @@ dnn_models:
 
 # experiment settings:
 pad_time: 0.35 # seconds 0.35 s was used for auditory cortex
+rms: 0.1       # target RMS for normalizing audio before feeding into DNNs. 0.1 was used for auditory cortex
 # 0.5s for dadarlat lab experiments

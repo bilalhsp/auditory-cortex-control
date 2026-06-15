@@ -1,0 +1,255 @@
+"""
+This script fits the trf model from DNN layers to the DNN features
+
+
+Args:
+    dataset_name: str ['ucsf', 'ucdavis'], -d
+    model_name: str, -m
+    layer_ID: int, -l
+    targ_model_name, --targ_model_name
+    targ_layer_id, --targ_layer_id
+    bin_widths: list of int, -b
+    identifier: str, default='', -i
+    mVocs: bool, default=False, -v
+    shuffled: bool, default=False, -s
+    test_trial: int, default=None, -t
+    LPF: bool, default=False, -L
+    start_ind: int, default=0, --start
+    end_ind: int, default=41, --end
+    save_param: bool, default=False, --save_param
+
+
+Example usage:
+    python run_trf.py -d ucsf -m whisper_tiny -b 50 -l 0 -i plos_test -v -s --targ_model_name deepspeech2 --targ_layer_id 2
+"""
+# ------------------  set up logging ----------------------
+import logging
+from auditory_cortex.utils import set_up_logging
+set_up_logging()
+
+import os
+import pandas as pd
+import numpy as np
+import time
+import argparse
+import gc
+
+# local
+from auditory_cortex import saved_corr_dir
+import auditory_cortex.utils as utils
+from auditory_cortex.io_utils import ResultsManager
+from auditory_cortex.io_utils.io import write_lmbdas
+from auditory_cortex import valid_model_names, NEURAL_DATASETS
+
+from auditory_cortex.neural_data import create_neural_dataset, create_neural_metadata
+from auditory_cortex.dnn_feature_extractor import create_feature_extractor
+from auditory_cortex.data_assembler import DNNDataAssembler, RandProjAssembler, DNNtoDNNAssembler
+from auditory_cortex.encoding import TRF
+
+def compute_and_save_regression(args):
+
+    # bin_widths = config['bin_widths']
+    bin_widths = args.bin_widths
+    dataset_name = args.dataset_name
+    model_name = args.model_name
+    layer_ID = args.layer_ID
+    shuffled = args.shuffled
+    identifier = args.identifier
+    mVocs = args.mVocs
+    LPF = args.LPF
+    save_param = args.save_param
+    lag = args.lag
+    # fixed parameters..
+
+    targ_model_name = args.targ_model_name
+    targ_layer_id = args.targ_layer_id
+    
+    tmin=0
+    delay=0
+    N_sents=500
+    num_folds=3
+    LPF_analysis_bw = 20
+
+    results_identifier = ResultsManager.get_run_id(
+            dataset_name, bin_widths[0], identifier, mVocs=mVocs, shuffled=shuffled, lag=lag,
+        )
+    csv_file_name = model_name + '_' + f'{targ_model_name}_{targ_layer_id}_' + results_identifier + '_corr_results.csv'
+
+    # CSV file to save the results at
+    file_exists = False
+    file_path = os.path.join(saved_corr_dir, csv_file_name)
+    if os.path.exists(file_path):
+        data = pd.read_csv(file_path)
+        file_exists = True
+
+    if shuffled:
+        logging.info(f"Running TRF for 'Untrained' networks...")
+    else:
+        logging.info(f"Running TRF for 'Trained' networks...")
+
+    if not file_exists:
+
+        feature_extractor = create_feature_extractor(model_name, shuffled=shuffled)
+        target_feature_extractor = create_feature_extractor(targ_model_name)
+
+        metadata = create_neural_metadata(dataset_name)
+        sessions = metadata.get_all_available_sessions()
+        sessions = np.sort(sessions)
+        sessions = sessions[:1]
+
+        bin_width = bin_widths[0]
+        session = sessions[0]
+
+        
+
+        neural_dataset = create_neural_dataset(dataset_name)
+
+        data_assembler = DNNtoDNNAssembler(
+            neural_dataset, feature_extractor, layer_ID, 
+            target_feature_extractor=target_feature_extractor, target_layer_id=targ_layer_id,
+            bin_width=bin_width, mVocs=mVocs,
+            LPF=LPF, LPF_analysis_bw=LPF_analysis_bw
+            )
+            
+        trf_obj = TRF(model_name, data_assembler)
+        
+        corr, opt_lmbda, trf_model = trf_obj.grid_search_CV(
+                lag=lag, tmin=tmin, num_folds=num_folds,
+            )
+        
+        # if save_param:
+        #     trf_obj.save_model_parameters(
+        #         trf_model, model_name, layer_ID, session, bin_width, shuffled=shuffled,
+        #     LPF=LPF, mVocs=mVocs, dataset_name=dataset_name, tmax=lag,
+        #     )
+            
+        if mVocs:
+            mVocs_corr = corr
+            timit_corr = np.zeros_like(corr)
+        else:
+            mVocs_corr = np.zeros_like(corr)
+            timit_corr = corr
+
+
+        channel_ids = data_assembler.channel_ids
+        num_channels = len(channel_ids)
+        corr_dict = {
+            'session': num_channels*[session],
+            'layer': num_channels*[layer_ID],
+            'channel': channel_ids,
+            'bin_width': num_channels*[bin_width],
+            'delay': num_channels*[delay],
+            'test_cc_raw': timit_corr.squeeze(),
+            'normalizer': num_channels*[1.0],  # placeholder for normalizer
+            'mVocs_test_cc_raw': mVocs_corr.squeeze(),
+            'mVocs_normalizer': num_channels*[1.0],  # placeholder for mVocs normalizer
+            'opt_lag': num_channels*[lag],
+            'opt_lmbda': np.log10(opt_lmbda).squeeze(),
+            'N_sents': num_channels*[N_sents],
+            }
+
+
+        df = utils.write_to_disk(corr_dict, file_path)
+
+        # make sure to delete the objects to free up memory
+        del trf_obj
+        del trf_model
+        gc.collect()
+
+    else:
+        logging.info(f"File {file_path} already exists. Skipping computation.")
+
+
+
+
+# ------------------  get parser ----------------------#
+
+def get_parser():
+    # create an instance of argument parser
+    parser = argparse.ArgumentParser(
+        description='This is to compute and save regression results for for layers '+
+            'of DNN models and neural areas',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+
+    # add arguments to read from command line
+    parser.add_argument(
+        '-m', '--model_name', dest='model_name', action='store',
+        choices=valid_model_names,
+        required=True,
+        help='model to be used for Regression analysis.'
+    )
+    parser.add_argument(
+        '--targ_model_name', dest='targ_model_name', action='store',
+        choices=valid_model_names,
+        required=True,
+        help='model to be used for Regression analysis.'
+    )
+
+    parser.add_argument(
+        '-d','--dataset_name', dest='dataset_name', type= str, action='store',
+        choices=NEURAL_DATASETS,
+        help = "Name of neural data to be used."
+    )
+    parser.add_argument(
+        '-b','--bin_widths', dest='bin_widths', nargs='+', type= int, action='store',
+        required=True,
+        help="Specify list of bin_widths."
+    )
+    parser.add_argument(
+        '--lag', dest='lag', type=int, action='store', 
+        default=200,
+        help="Specify the maximum lag used for STRF."
+    )
+    parser.add_argument(
+        '-l','--layer', dest='layer_ID', type=int, action='store',
+        required=True,
+        help="Specify the layer ID."
+    )
+    parser.add_argument(
+        '--targ_layer_id', dest='targ_layer_id', type=int, action='store',
+        required=True,
+        help="Specify the target layer ID."
+    )
+    parser.add_argument(
+        '-i','--identifier', dest='identifier', type= str, action='store',
+        default='',
+        help="Specify identifier for saved results."
+    )
+    parser.add_argument(
+        '-s','--shuffle', dest='shuffled', action='store_true', default=False,
+        help="Specify if shuffled (untrained) network to be used."
+    )
+    parser.add_argument(
+        '-v','--mVocs', dest='mVocs', action='store_true', default=False,
+        help="Specify if spikes for mVocs are to be used."
+    )
+    parser.add_argument(
+        '-L','--LPF', dest='LPF', action='store_true', default=False,
+        help="Specify if features are to be low pass filtered."
+    )
+    parser.add_argument(
+        '--save_param', dest='save_param', action='store_true', default=False,
+        help="Specify if parameters to be saved."
+    )
+
+    return parser
+
+
+
+
+# ------------------  main function ----------------------#
+
+if __name__ == '__main__':
+
+    start_time = time.time()
+    parser = get_parser()
+    args = parser.parse_args()
+
+    # display the arguments passed
+    for arg in vars(args):
+        logging.info(f"{arg:15} : {getattr(args, arg)}")
+
+    compute_and_save_regression(args)
+    elapsed_time = time.time() - start_time
+    logging.info(f"It took {elapsed_time/60:.1f} min. to run.")

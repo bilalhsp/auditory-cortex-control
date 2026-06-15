@@ -9,7 +9,8 @@ sampler_config:
   n_anneal_steps: 50
   n_ode_steps: 5
   
-  lr: 6e-6
+  lr: 5e-2
+  n_lang_steps: 25
   lr_min_ratio: 0.01
   tau: 0.01
-  n_lang_steps: 50
+  

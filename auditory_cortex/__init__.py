@@ -16,6 +16,7 @@ cache_dir = Path(config['cache_dir'])
 CACHE_DIR = cache_dir
 normalizers_dir = cache_dir / 'normalizers'
 saved_corr_dir = results_dir / 'cross_validated_correlations' #'ahmed-25' # 
+# saved_corr_dir = results_dir / 'ahmed-25' # Plos paper results
 opt_inputs_dir = results_dir / 'optimal_inputs'
 aux_dir = root_dir / 'dnn_feature_extractor' /'auxilliary' 
 
@@ -23,3 +24,6 @@ aux_dir = root_dir / 'dnn_feature_extractor' /'auxilliary'
 NEURAL_DATASETS = config['neural_datasets']
 DNN_MODELS = config['dnn_models']
 valid_model_names = DNN_MODELS
+
+
+results_dir = Path('/depot/jgmakin/data/bilal/auditory_opt_stim/figures')

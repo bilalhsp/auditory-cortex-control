@@ -1,4 +1,5 @@
 import os
+import math
 import torch
 import logging
 import numpy as np
@@ -178,10 +179,33 @@ class Speech2Text(BaseFeatureExtractor):
         super().__init__(model, config, shuffled=shuffled, sampling_rate=config['sampling_rate'])
 
         self.processor = Speech2TextProcessor.from_pretrained(repo_name, cache_dir=HF_CACHE_DIR)
+        self.fft_length = 512
+        self.num_mel_bins = 80
+        self.sampling_rate = 16000
+        self.min_frequency = 20.0
+        self.max_frequency = 8000.0
+
+        frame_length_ms = 25.0   # → 400 samples at 16 kHz
+        frame_shift_ms = 10.0   # → 160 samples at 16 kHz
+        self.frame_length = int(round(frame_length_ms * self.sampling_rate / 1000))
+        self.hop_length   = int(round(frame_shift_ms  * self.sampling_rate / 1000))
+
+        self.preemphasis_coeff = 0.97
+        self.mel_floor = 1.192092955078125e-07
+        
+        fb = self.build_mel_filterbank()
+        self.mel_filterbank = fb.to(self.device)
+        self.window = self.povey_window().to(self.device)
+        # self.register_buffer('mel_filterbank', fb)
+        # self.register_buffer('window', self.povey_window())
 
 
     def fwd_pass(self, aud):
-        input_features = self.processor(aud,padding=True, sampling_rate=16000, return_tensors="pt").input_features
+        # input_features = self.processor(aud,padding=True, sampling_rate=16000, return_tensors="pt").input_features
+        if not isinstance(aud, torch.Tensor):
+            aud = torch.tensor(aud, dtype=torch.float32, device=self.device)#, requires_grad=True)
+        input_features = self.process_input(aud.unsqueeze(dim=0))
+
         self.model.eval()
         input_features = input_features.to(self.device)
         generated_ids = self.model.generate(input_features, max_new_tokens=200)
@@ -219,13 +243,86 @@ class Speech2Text(BaseFeatureExtractor):
                 
         return predictions
     
-    def process_input(self, aud):
-        """Preprocesses the input audio."""
-        aud = aud.squeeze()
-        spect = self.processor(
-            aud, padding=True, sampling_rate=16000, return_tensors="np"
-            ).input_features[0]
-        return spect
+    # def process_input(self, aud):
+    #     """Preprocesses the input audio."""
+    #     aud = aud.squeeze()
+    #     spect = self.processor(
+    #         aud, padding=True, sampling_rate=16000, return_tensors="np"
+    #         ).input_features[0]
+    #     return spect
+    
+    def process_input(self, y) -> torch.Tensor:                   # (B, num_frames, num_mel_bins)
+        """
+        Differentiable log-mel filterbank spectrogram matching
+        HuggingFace Speech2TextFeatureExtractor._extract_fbank_features.
+
+        Kaldi-style: Povey window, per-frame DC removal, preemphasis,
+        triangular mel filters in mel space, natural log.
+        """
+        if y.dim() == 1:
+            y = y.unsqueeze(0)
+
+        # --- Framing → (B, num_frames, frame_length) ---
+        y = y * (2 ** 15)                          # Kaldi int16 range
+        frames   = y.unfold(-1, self.frame_length, self.hop_length)
+
+        # --- DC removal, preemphasis, windowing ---
+        frames = frames - frames.mean(dim=-1, keepdim=True)
+        frames = torch.cat([frames[..., :1] * (1 - self.preemphasis_coeff),
+                            frames[..., 1:] - self.preemphasis_coeff * frames[..., :-1]], dim=-1)
+        frames = frames * self.window
+
+        # --- Power spectrum → mel → log ---
+        spec    = torch.fft.rfft(frames, n=self.fft_length, dim=-1)
+        power   = spec.real ** 2 + spec.imag ** 2                # (B, num_frames, n_freqs)
+        log_mel = torch.clamp(power @ self.mel_filterbank, min=self.mel_floor).log()   # (B, num_frames, num_mel_bins)
+
+        # CMVN — matches processor's do_ceptral_normalize=True default
+        mean = log_mel.mean(dim=1, keepdim=True)
+        std  = log_mel.std(dim=1, keepdim=True).clamp(min=1e-8)
+        log_mel = (log_mel - mean) / std
+
+        return log_mel
+
+
+
+    def povey_window(self) -> torch.Tensor:
+        """
+        Kaldi Povey window: a Hann window raised to the power 0.85.
+        Non-periodic (symmetric) version, matching kaldi/torchaudio behaviour.
+        """
+        # symmetric Hann
+        n = torch.arange(self.frame_length, dtype=torch.float32)
+        hann = 0.5 - 0.5 * torch.cos(2.0 * math.pi * n / (self.frame_length - 1))
+        return hann.pow(0.85)
+
+
+    def build_mel_filterbank(self):
+        n_freqs = self.fft_length // 2 + 1
+        min_mel = self.hz_to_mel_kaldi(self.min_frequency)
+        max_mel = self.hz_to_mel_kaldi(self.max_frequency)
+        mel_pts = [self.mel_to_hz_kaldi(min_mel + i * (max_mel - min_mel) / (self.num_mel_bins + 1))
+                for i in range(self.num_mel_bins + 2)]
+        fft_freqs = [i * self.sampling_rate / self.fft_length for i in range(n_freqs)]
+        fb = torch.zeros(n_freqs, self.num_mel_bins)
+        for m in range(self.num_mel_bins):
+            fl, fc, fh = mel_pts[m], mel_pts[m + 1], mel_pts[m + 2]
+            for k, f in enumerate(fft_freqs):
+                if fl < f < fh:
+                    fb[k, m] = (f - fl) / (fc - fl) if f <= fc else (fh - f) / (fh - fc)
+        return fb
+
+    # ---------------------------------------------------------------------------
+    # Mel / Hz conversions  (Kaldi / "kaldi" mel scale)
+    # ---------------------------------------------------------------------------
+    @staticmethod
+    def hz_to_mel_kaldi(f: float) -> float:
+        """Kaldi mel scale: 1127 * ln(1 + f/700)."""
+        return 1127.0 * math.log(1.0 + f / 700.0)
+    
+    @staticmethod
+    def mel_to_hz_kaldi(m: float) -> float:
+        return 700.0 * (math.exp(m / 1127.0) - 1.0)
     
     
 class FeatureExtractorWhisper(BaseFeatureExtractor):
@@ -237,7 +334,21 @@ class FeatureExtractorWhisper(BaseFeatureExtractor):
 
         super().__init__(model, config, shuffled=shuffled, sampling_rate=config['sampling_rate'])
         self.processor = AutoProcessor.from_pretrained(repo_name, cache_dir=HF_CACHE_DIR)
+
+        self.n_fft: int = 400
+        self.n_mels: int = 80
+        self.hop_length: int = 160
+        self.sampling_rate: int = 16000
+
+        fb = self.build_mel_filterbank()
+        self.mel_filterbank = fb.to(self.device)
+        self.window = torch.hann_window(self.n_fft).to(self.device)
+        # self.register_buffer('mel_filterbank', fb)
+        # self.register_buffer('window', torch.hann_window(self.n_fft))
+
         
+
+
     def process_input(self, aud):
         """Preprocesses the input audio."""
         aud = aud.squeeze()
@@ -247,7 +358,11 @@ class FeatureExtractorWhisper(BaseFeatureExtractor):
         return spect.transpose(1, 0)
 
     def fwd_pass(self, aud):
-        input_features = self.processor(aud, sampling_rate=16000, return_tensors="pt").input_features
+        if not isinstance(aud, torch.Tensor):
+            aud = torch.tensor(aud, dtype=torch.float32, device=self.device)#, requires_grad=True)
+        spect = self.process_input(aud.unsqueeze(dim=0))
+        input_features = self.pad_mel_spectrogram(spect)
+        # input_features = self.processor(aud, sampling_rate=16000, return_tensors="pt").input_features
         # with torch.no_grad():
         self.model.eval()
         input_features = input_features.to(self.device)
@@ -272,6 +387,69 @@ class FeatureExtractorWhisper(BaseFeatureExtractor):
                 transcription = self.processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
                 predictions.append(self.processor.tokenizer._normalize(transcription))
         return predictions
+    
+    def predict(self, x):
+        """Generate output for the given audio input."""
+        spect = self.process_input(x)
+        padded_spect = self.pad_mel_spectrogram(spect)
+        # padded_spect = self.processor(x.cpu().numpy(), sampling_rate=16000, return_tensors="pt").input_features.to(self.device)
+        generated_ids = self.model.generate(inputs=padded_spect, max_new_tokens=400)
+        return generated_ids
+
+
+    def process_input(self, y) -> torch.Tensor:                            # (B, n_mels, T//hop_length)
+
+        stft = torch.stft(y, self.n_fft, self.hop_length, window=self.window, return_complex=True)
+        magnitudes = stft[..., :-1].abs() ** 2
+
+        mel_spec = self.mel_filterbank.T @ magnitudes
+        log_spec = torch.clamp(mel_spec, min=1e-10).log10()
+        max_val = log_spec.max(dim=2, keepdim=True)[0].max(dim=1, keepdim=True)[0]
+        log_spec = torch.maximum(log_spec, max_val - 8.0)
+        return (log_spec + 4.0) / 4.0
+
+    def build_mel_filterbank(self):
+        n_freqs = 1 + self.n_fft // 2
+        min_mel, max_mel = self.hz_to_mel(0.0), self.hz_to_mel(8000.0)
+        mel_points = [self.mel_to_hz(min_mel + i * (max_mel - min_mel) / (self.n_mels + 1))
+                    for i in range(self.n_mels + 2)]
+        fft_freqs = [i * self.sampling_rate / (2 * (n_freqs - 1)) for i in range(n_freqs)]
+
+        fb = torch.zeros(n_freqs, self.n_mels)
+        for m in range(self.n_mels):
+            fl, fc, fh = mel_points[m], mel_points[m + 1], mel_points[m + 2]
+            for k, f in enumerate(fft_freqs):
+                if fl < f < fh:
+                    fb[k, m] = (f - fl) / (fc - fl) if f <= fc else (fh - f) / (fh - fc)
+            fb[:, m] /= (fh - fl)                # Slaney normalisation
+        return fb
+    
+    @staticmethod
+    def pad_mel_spectrogram(
+        specs: torch.Tensor,                      # (B, n_mels, T')
+        target_length: int = 3000,
+    ) -> torch.Tensor:                            # (B, n_mels, 3000)
+        current_length = specs.shape[-1]
+        if current_length < target_length:
+            pad_amount = target_length - current_length
+            specs = torch.nn.functional.pad(specs, (0, pad_amount))
+        else:
+            specs = specs[..., :target_length]
+        return specs
+
+    @staticmethod
+    def hz_to_mel(f):
+        min_log_hz = 1000.0
+        sp = 200.0 / 3.0
+        return (min_log_hz / sp + math.log(f / min_log_hz) / math.log(6.4) * 27.0
+                if f >= min_log_hz else f / sp)
+
+    @staticmethod
+    def mel_to_hz(m):
+        min_log_hz, min_log_mel = 1000.0, 15.0
+        sp = 200.0 / 3.0
+        return (min_log_hz * math.exp(math.log(6.4) / 27.0 * (m - min_log_mel))
+                if m >= min_log_mel else sp * m)
     
 
 @register_feature_extractor('whisper_tiny')
@@ -323,13 +501,45 @@ class DeepSpeech2(BaseFeatureExtractor):
         if torch.is_tensor(aud):
             aud = aud.cpu().numpy()
         return self.parser.compute_spectrogram(aud)
+    
+
+    def process_input(self, y):
+        """
+        :param y: Audio signal as an array of float numbers
+        :return: Spectrogram of the signal
+        """
+        assert y.ndim < 3, f"expects 1D or 2D inputs, got {y.ndim}-dimensional input"
+        sample_rate = self.config.get('sample_rate', 16000)
+        window_size = self.config.get('window_size', 0.02)
+        window_stride = self.config.get('window_stride', 0.01)
+        normalize = self.config.get('normalize', True)
+
+        n_fft = int(sample_rate * window_size)
+        win_length = n_fft
+        hop_length = int(sample_rate * window_stride)
+        # STFT
+        D = torch.stft(
+            y, n_fft=n_fft, hop_length=hop_length, win_length=win_length,
+            window=torch.hamming_window(win_length, device=self.device), 
+            return_complex=True,
+            pad_mode='constant', center=True, normalized=False, onesided=True 
+            )
+        spect = torch.abs(D)
+        spect = torch.log1p(spect)
+        if normalize:
+            spect = (spect - spect.mean()) / (spect.std() + 1e-5)
+        return spect.unsqueeze(1)  # add channel dimension
 
     def fwd_pass(self, aud):
 
         # test if input is 1 dimensional (audio signal)
-        if aud.ndim == 1:
-            spect = self.get_spectrogram(aud)
-        spect = spect.unsqueeze(dim=0).unsqueeze(dim=0)
+        # if aud.ndim == 1:
+        #     spect = self.get_spectrogram(aud)
+        # spect = spect.unsqueeze(dim=0).unsqueeze(dim=0)
+
+        if not isinstance(aud, torch.Tensor):
+            aud = torch.tensor(aud, dtype=torch.float32, device=self.device)#, requires_grad=True)
+        spect = self.process_input(aud.unsqueeze(dim=0))
 
         # length of the spect along time
         lengths = torch.tensor([spect.shape[-1]], dtype=torch.int64, device=self.device)

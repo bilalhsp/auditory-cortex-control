@@ -699,27 +699,10 @@ def compute_avg_test_corr(y_all_trials, y_pred, n_test_trials=None):
     trial_corr = np.mean(trial_corr, axis=0)
     return trial_corr
 
-# def cc_norm_cp(y, y_hat, sp=1, normalize=False):
-#     """
-#     Args:   
-#         y_hat (ndarray): (n_samples, channels) or (n_samples, channels, repeats) for null dist
-#         y (ndarray): (n_samples, channels)  
-#         sp & normalize are redundant...! 
-#     """
-#     # if 'normalize' = True, use signal power as factor otherwise use normalize CC formula i.e. 'un-normalized'
-#     try:
-#         n_channels = y.shape[1]
-#     except:
-#         n_channels=1
-#         y = cp.expand_dims(y,axis=1)
-#         y_hat = cp.expand_dims(y_hat,axis=1)
-        
-#     corr_coeff = cp.zeros(y_hat.shape[1:])
-#     for ch in range(n_channels):
-#         corr_coeff[ch] = cc_single_channel_cp(y[:,ch],y_hat[:,ch])
-#     return corr_coeff
+# Claud thinks there is a bug in the the following function, and the way it is computing the correlation,
+# so I have commented it out and given another implementation below...
 
-# def cc_single_channel_cp(y, y_hat):
+# def cc_single_channel(y, y_hat):
 #     """
 #     computes correlations for the given spikes and predictions 'single channel'
 
@@ -730,34 +713,36 @@ def compute_avg_test_corr(y_all_trials, y_pred, n_test_trials=None):
 #     Returns:  
 #         ndarray: (1,) or (repeats, ) correlation value or array (for repeats). 
 #     """
+#     #check if incoming array is np or cp,
+#     #and decide which module to use...!
+#     if type(y).__module__ == np.__name__:
+#         module = np
+#     else:
+#         module = cp
 #     try:
-#         y_hat = cp.transpose(y_hat,(1,0))
+#         y_hat = module.transpose(y_hat,(1,0))
 #     except:
-#         y_hat = cp.expand_dims(y_hat, axis=0)
-#     return cp.cov(y, y_hat)[0,1:] / (cp.sqrt(cp.var(y)*cp.var(y_hat, axis=1)) + 1.0e-8)
+#         y_hat = module.expand_dims(y_hat, axis=0)
+#     return module.cov(y, y_hat)[0,1:] / (module.sqrt(module.var(y)*module.var(y_hat, axis=1)) + 1.0e-8)
 
 def cc_single_channel(y, y_hat):
-    """
-    computes correlations for the given spikes and predictions 'single channel'
-
-    Args:   
-        y_hat (ndarray): (n_sampes,) or (n_samples,repeats) spike predictions
-        y (ndarray): (n_samples) actual spikes for single channel 
-
-    Returns:  
-        ndarray: (1,) or (repeats, ) correlation value or array (for repeats). 
-    """
-    #check if incoming array is np or cp,
-    #and decide which module to use...!
     if type(y).__module__ == np.__name__:
         module = np
     else:
         module = cp
+
     try:
-        y_hat = module.transpose(y_hat,(1,0))
+        y_hat = module.transpose(y_hat, (1, 0))   # (repeats, n_samples)
     except:
-        y_hat = module.expand_dims(y_hat, axis=0)
-    return module.cov(y, y_hat)[0,1:] / (module.sqrt(module.var(y)*module.var(y_hat, axis=1)) + 1.0e-8)
+        y_hat = module.expand_dims(y_hat, axis=0)  # (1, n_samples)
+
+    cov_matrix = module.cov(y, y_hat)             # uses ddof=1
+    covariance  = cov_matrix[0, 1:]               # (repeats,)
+
+    std_y     = module.std(y,            ddof=1)
+    std_y_hat = module.std(y_hat, axis=1, ddof=1)  # (repeats,)
+
+    return covariance / (std_y * std_y_hat + 1e-8)
     
 
 # def regression_param(X, y):

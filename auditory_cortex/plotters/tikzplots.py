@@ -1025,7 +1025,7 @@ def plot_peak_layer_histograms_all_models(
             # f"peak-layer-histogram-{stim}-{bin_width}ms-{model_name}.tex"
             )
         # PlotterUtils.save_tikz(filepath)
-        plt.savefig(filepath, bbox_inches='tight')
+        plt.savefig(filepath, bbox_inches='tight', dpi=600)
         logger.info(f"Saved: {filepath}")
             
     
