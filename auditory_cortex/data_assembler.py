@@ -10,7 +10,7 @@ import torch.nn as nn
 from collections import OrderedDict
 
 import librosa
-from pycochleagram import cochleagram as cgram
+# from pycochleagram import cochleagram as cgram
 from auditory_cortex.dataloader import DataLoader
 from auditory_cortex.dnn_feature_extractor import create_feature_extractor
 

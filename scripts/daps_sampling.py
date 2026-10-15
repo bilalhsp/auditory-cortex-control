@@ -51,16 +51,36 @@ parser = argparse.ArgumentParser(description='Run reps sampling for a given sess
 # parser.add_argument('--unit_id', type=int, default=3002, help='Unit ID to target for sampling')
 parser.add_argument('--lr', type=float, default=0.05, help='Learning rate for sampling')
 parser.add_argument(
-        '-m', '--model_name', dest='model_name', action='store',
-        choices=valid_model_names,
-        required=True,
-        help='model to be used for Regression analysis.'
-    )
+    '-m', '--model_name', dest='model_name', action='store',
+    choices=valid_model_names,
+    required=True,
+    help='model to be used for Regression analysis.'
+)
 parser.add_argument(
-        '-l','--layer', dest='layer_id', type=int, action='store',
-        required=True,
-        help="Specify the layer ID."
-    )
+    '-l','--layer', dest='layer_id', type=int, action='store',
+    required=True,
+    help="Specify the layer ID."
+)
+parser.add_argument(
+    '-s', '--session_id', dest='session_id', type=int, action='store',
+    default=5, help="Specify the session ID."
+)
+# mVocs or timit?
+parser.add_argument(
+    '-v', '--mVocs', dest='mVocs', action='store_true', default=False,
+    help="Whether to use mVocs dataset (default is timit)."
+)   
+# task: stretch or one-hot
+parser.add_argument(
+    '-t', '--task', dest='task', type=str, action='store',
+    choices=['stretch', 'one-hot'], default='stretch',
+    help="Task for optimal stimulus generation: 'stretch' or 'onehot' (default is 'stretch')."
+)
+# unid id
+parser.add_argument(
+    '-u', '--unit_id', dest='unit_id', type=int, action='store',
+    default=3002, help="Specify the unit ID to target for sampling."
+) 
 
 args = parser.parse_args()
 
@@ -77,8 +97,15 @@ dataset_name = 'ucdavisAct'
 model_name = args.model_name
 layer_id = args.layer_id
 
+session_id = args.session_id
+mVocs=args.mVocs
+task=args.task
+unit_id = args.unit_id
 
-mVocs=False
+base_output_dir = Path("/depot/jgmakin/data/bilal/auditory_opt_stim")
+
+duration=2
+n_stimuli=10
 bin_width=50
 lag=200
 generator = StimGenerator(
@@ -86,7 +113,7 @@ generator = StimGenerator(
     mVocs=mVocs, bin_width=bin_width, lag=lag
     )
 
-session_id = 5
+
 
 logging.info(f"Loading TRF model for \n\tsession_id: {session_id}, \n\tlayer_id: {layer_id}, \n\tbin_width: {bin_width}, \n\tmVocs: {mVocs}, \n\tlag: {lag}")
 trf_model = TRF.load_saved_model(
@@ -122,14 +149,13 @@ test_features, test_spikes = generator.data_assembler.get_testing_data()
 predicted_response = trf_model.predict(X=test_features, n_offset=generator.data_assembler.n_offset)
 
 
-task='stretch'
-unit_id = 3002
-duration=2
-n_stimuli=10
-
 unit_ids = np.array(sampler.channel_ids)
 matches = np.where(unit_ids == unit_id)[0]
-ch_idx = matches[0] if len(matches) > 0 else 0    # to avoid mismatch for wrong id....better way to handle it?
+if len(matches) == 0:
+    raise ValueError(
+        f"unit_id {unit_id} was not found in the available channel IDs for session {session_id}."
+    )
+ch_idx = matches[0]
 sampler.encoder.set_target(task, ch_idx)
 latent_t = compute_latent_t(duration)
 z_ch = 8
@@ -173,10 +199,21 @@ outputs = posterior_sampler.generate_sample(measurement, **settings)[0]
 outputs = peak_normalize(outputs)
 
 sub_dir = "lr-{:.1e}".format(args.lr)
+stim = 'mVocs' if mVocs else 'timit'
 
-output_dir = Path(f"/depot/jgmakin/data/bilal/auditory_opt_stim/{sampler_name}/{model_name}/{session_id}-{unit_id}")/sub_dir
+output_dir = (
+    base_output_dir
+    / sampler_name
+    / model_name
+    / f"layer-{layer_id}"
+    / stim
+    / f"session-{session_id}"
+    / f"unit-{unit_id}"
+    / f"task-{task}"
+    / sub_dir
+)
 output_dir.mkdir(parents=True, exist_ok=True)
-logging.info(f"Stimuli saved to: {output_dir}")
+logging.info(f"Stimuli saved to: \n {output_dir}")
 
 for i, output in enumerate(outputs):
     output_path = output_dir / f'{task}_stimulus_{i}.wav'

@@ -148,3 +148,29 @@ wandb/
 
 # slurm .out files
 *.out
+
+
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# Python cache and build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Conda migration files
+python-version.txt
+conda-explicit.txt
+environment-backup.yml
+conda-packages.json
+requirements-frozen.txt
+requirements-frozen.txt.bak
+fix_requirements.py
+
+# Local environment files
+.env
+.env.*pycochleagram/
