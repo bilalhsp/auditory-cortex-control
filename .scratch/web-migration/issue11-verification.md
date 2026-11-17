@@ -13,7 +13,7 @@ calendar remain excluded.
 | Both families and both recording sources; fit/correlations; both objectives and repeated generation; scoped persisted downloads | `backend/tests/test_acceptance.py`: four combinations, three distinct generations each, closure and zero-GPU API restart | Controlled HTTP matrix passed |
 | TIMIT fit scientific parity, both sources | `issue05-parity.json`, `issue06-parity.json`, `issue09-native.json` | 18 correlations match baseline exactly; max delta 0.0 |
 | TIMIT audio scientific parity, both objectives | `issue07-parity.json`, approved controlled initialization/RNG comparison | Byte-identical, max/RMS PCM delta 0.0; historical cross-process variability retained |
-| mVocs scientific parity | `issue11_native_probe.py` | Real fits passed: 18 correlations per source, max delta 0.0; controlled real audio probe running |
+| mVocs scientific parity | `issue11_native_probe.py` | Real fits passed: 18 correlations per source, max delta 0.0; stretch audio passes byte-exact; one-hot comparison running |
 | GPU count admission, bounded target waves, idle reservations, contention/isolation | Existing batch/subprocess/lifecycle HTTP tests; `issue08-benchmark.json` | Controlled multi-device checks and real single-GPU two-target batch passed |
 | Browser reconnect, retry, disconnect/history/download, close with preserved partial samples, mobile | `issue11_browser_probe.py`, `issue11_browser_api.py`, `issue11_browser.mjs` | Passed against built frontend on 127.0.0.1:5173 and independent API on 127.0.0.1:8765 |
 | Separate builds/runtime API configuration/CORS/credentials and zero-GPU metadata readiness | Frontend build; archive probe; browser route-injected runtime API configuration; API suite | Frontend and backend archive builds passed; standalone archive recovery/closure check passed |
@@ -21,6 +21,14 @@ calendar remain excluded.
 | Authentication on all commands/status/history/downloads, safe temporary cleanup, retained artifacts | Issue 10 HTTP tests and upload/batch/lifecycle regression cases | Passed again in full regression |
 | Rollback runtime and retained artifacts | `issue11_rollback_probe.py`, `issue11-rollback.json` | Legacy server health and isolated legacy UI passed; all five retained artifact hashes unchanged |
 | Operator pilot/release sign-off, public proxy checks, actual cutover and retirement | `docs/deployment/web-cutover.md` checklist | Pending; no production traffic changed |
+
+A second local deployment check (`issue11_deployed_probe.py` and
+`issue11_deployed_browser.mjs`) launches the actual backend archive from outside
+the repository on port 8765 and serves a copied frontend build on port 5173.
+Its real served `config.js` points to that API; no request interception supplies
+configuration. Browser sign-in and history show all 18 real mVocs correlations
+from the native database. This passed. The probe is read-only and does not start
+new scientific work. Fresh loopback-only credentials are ephemeral and not logged.
 
 ## Reproduction
 
@@ -34,6 +42,7 @@ uv run --no-sync python .scratch/web-migration/issue11_generation_probe.py
 uv run --no-sync python .scratch/web-migration/issue11_rollback_probe.py
 uv run --no-sync python .scratch/web-migration/issue11_archive_probe.py
 uv run --no-sync python .scratch/web-migration/issue11_browser_probe.py
+uv run --no-sync python .scratch/web-migration/issue11_deployed_probe.py
 ```
 
 All large artifacts/logs/screenshots remain under the configured cache. The

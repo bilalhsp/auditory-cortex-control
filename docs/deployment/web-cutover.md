@@ -50,6 +50,13 @@ saved downloads, session closure with partial saved targets, history after reloa
 late-reply selection protection, and mobile layout. This is automated acceptance,
 not operator release sign-off.
 
+For a second check against the actual saved native results, run
+`issue11_deployed_probe.py` after native fitting succeeds. It serves a copied
+frontend production build and the real backend archive from outside the repo on
+the same two local ports, uses a real served runtime `config.js`, and verifies
+all 18 mVocs correlations in browser history. It uses fresh ephemeral credentials,
+performs no compute submissions, and shuts down both services when done.
+
 Run the HTTP release matrix for both TIMIT/mVocs and existing/uploaded recordings:
 
 ```bash
