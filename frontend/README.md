@@ -50,5 +50,15 @@ again. Older in-flight responses cannot overwrite a newer recording revision or
 a different experiment. Upload availability is capability-driven so older API
 deployments can continue supporting setup without the upload panel.
 
-Fitting, generation, and session history remain subsequent slices.
-Signing out drops in-memory credentials.
+An existing recording enables "Fit encoding model" when at least one GPU was
+selected. A fit submission returns immediately; the panel polls its persisted
+queued/loading/fitting/writing state and displays ranked channel correlations
+and the best finite channel after successful artifact publication. Signed and
+decimal channel identities are preserved; unavailable numeric values are labeled.
+The backend requires its separate fit worker, described in `backend/README.md`.
+Failed/interrupted fits expose a retry through a new fit attempt; recording or
+experiment changes clear dependent UI without deleting earlier server artifacts.
+
+Signing out drops in-memory credentials and leaves accepted work running.
+Uploaded-recording fitting, generation, session history/reconnection, and explicit
+Stop/Close remain subsequent slices.
