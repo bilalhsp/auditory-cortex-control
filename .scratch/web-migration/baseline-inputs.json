@@ -1,0 +1,68 @@
+{
+  "deepspeech.pytorch": {
+    "revision": "b88a631ef6b96553e16bbaa5bd6a621435bed278",
+    "working_diff_sha256": "26bfda407e223a39470f39722cdf8114d4b4a9885a9d232603780624111059aa",
+    "modified": true
+  },
+  "Wav2Letter": {
+    "revision": "c6f598779e6f15f6214f2508f6ed406c5bef6373",
+    "working_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "modified": false
+  },
+  "utils_jgm": {
+    "revision": "f546e461116f64e0d019b8ba44a3306740791f8b",
+    "working_diff_sha256": "50d9de62bc17e5b617b3e10143587f2f41ab25be1721b80c008d8e522d48bf6a",
+    "modified": true
+  },
+  "pycochleagram": {
+    "revision": "38548920befa6bf5a9c60fc1386e6bb15953e871",
+    "working_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "modified": false
+  },
+  "recording": {
+    "filename": "psydwaze_2026-01-14a_boilermaker.mat",
+    "sha256": "ef4a55d57e568419d0bd2c829393f857bbf8fa94e3e928ebed836fbd60d274fd",
+    "existing_session_id": 0,
+    "uploaded_fixture": "same file through full_path=True; no fabricated upload format"
+  },
+  "checkpoints": {
+    "deepspeech2/librispeech_pretrained_v3.ckpt": {
+      "bytes": 1039540147,
+      "sha256": "762701a432e68cc9ed6f8baa74d911b7d942729e6c3740c8d78febcee8a496fd"
+    },
+    "audioldm/audioldm-s-full.ckpt": {
+      "bytes": 2558947469,
+      "sha256": "8f8d1923410622be823279b61967d27a2df3fd03ddd764afb298e7c20ef8877d"
+    }
+  },
+  "settings": {
+    "dataset_name": "ucdavisBAK",
+    "model_name": "deepspeech2",
+    "layer_id": 2,
+    "mVocs": false,
+    "bin_width_ms": 50,
+    "lag_ms": 200,
+    "shuffled": false,
+    "fit_seed": 42,
+    "generation_seed": 42,
+    "generation_duration_requested_s": 1,
+    "clips_per_target": 1,
+    "objectives": [
+      "stretch",
+      "one-hot"
+    ],
+    "sampler": "daps",
+    "sampler_config_sha256": "522211e18af550c907975e0a96dc9452cf6a01725cf24440f924a4e758d6e144"
+  },
+  "scientific_tree": "8446c24b7f1d76f8310dfeaa9a05f43a41d4191d",
+  "environment": {
+    "python": "3.8.5",
+    "torch": "2.0.1+cu117",
+    "torch_cuda_build": "11.7",
+    "cupy": "12.0.0",
+    "fastapi": "0.111.0",
+    "uv": "0.13.1",
+    "gpu": "NVIDIA A100-SXM4-40GB",
+    "policy": "Use existing .venv; no environment creation or upgrades"
+  }
+}
