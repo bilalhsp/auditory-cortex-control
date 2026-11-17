@@ -5,6 +5,10 @@ for recorded neural responses.
 
 ## Language
 
+**Experiment**:
+A fixed selection of stimulus family, neural dataset, encoding model, temporal
+settings, and requested compute resources for a scientific workflow.
+
 **Application session**:
 An operator's work period grouping computations and their generated results.
 _Avoid_: Recording session when referring to operator activity

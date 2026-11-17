@@ -84,7 +84,9 @@ implicitly accepted.
 ## Release and verification gates
 
 - Use the accepted FastAPI seam for new workflow tests and actual scientific
-  entry points for baseline experiments. No new production API exists yet.
+  entry points for baseline experiments. The setup API now supports authenticated
+  capabilities and persisted experiment configuration; compute workflows remain
+  subsequent slices.
 - Pilot with the single operator only after workflow parity, authentication,
   artifact isolation, cancellation, recovery, and history acceptance checks pass.
 - Retain the legacy launcher/environment and its compatible artifacts until the

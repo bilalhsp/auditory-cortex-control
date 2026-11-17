@@ -35,6 +35,7 @@ export default function App() {
       const connection = makeApi(username, password);
       const result = await connection.capabilities();
       setApi(connection);
+      setExperiment(null);
       setCaps(result);
       setFamily(result.settings.stimulus_families[0]);
       setGpuCount(result.gpu.available_count);
@@ -128,7 +129,7 @@ export default function App() {
             <strong>New experiment</strong>
           </span>
           {api && (
-            <button className="text-button" onClick={logout}>
+            <button className="text-button" onClick={logout} disabled={busy}>
               Sign out
             </button>
           )}
