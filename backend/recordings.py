@@ -22,6 +22,14 @@ class RecordingCatalog:
     def __init__(self, settings: Settings):
         self.settings = settings
 
+    @staticmethod
+    def _resolved_path(path: Path) -> Path:
+        try:
+            return path.resolve()
+        except RuntimeError as error:
+            # Python 3.8 reports cyclic filesystem links as RuntimeError.
+            raise ValueError("Cannot resolve recording location") from error
+
     def _locations(self) -> Tuple[Path, Path]:
         repository = Path(__file__).resolve().parents[1]
         data = self.settings.neural_data_dir
@@ -69,7 +77,7 @@ class RecordingCatalog:
     def list(self, dataset: str) -> RecordingCatalogResult:
         try:
             data, metadata = self._locations()
-            directory = (data / dataset / "Data").resolve()
+            directory = self._resolved_path(data / dataset / "Data")
             if not directory.is_dir():
                 raise ValueError("Recording directory unavailable")
             rows = yaml.safe_load(metadata.read_text())["sessions_info"]
@@ -85,8 +93,8 @@ class RecordingCatalog:
                         or not isinstance(repeats, int) or repeats < 1):
                     raise ValueError("Invalid catalog entry")
                 identities.add(session)
-                path = (directory / name).resolve()
                 try:
+                    path = self._resolved_path(directory / name)
                     path.relative_to(directory)
                     families = self._stimulus_families(path, repeats)
                 except (OSError, ValueError, TypeError, KeyError, AttributeError, NotImplementedError):

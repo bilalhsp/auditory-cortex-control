@@ -139,6 +139,16 @@ class RecordingApiTests(unittest.TestCase):
         self.assertEqual(len(response.json()["recordings"]), 1)
         self.assertEqual(response.json()["unavailable_count"], 1)
 
+    def test_cyclic_symlink_does_not_hide_other_recordings(self):
+        cyclic = self.data_dir / "monkey_2026-02-09b_recording.mat"
+        cyclic.unlink()
+        cyclic.symlink_to(cyclic.name)
+        prefix = "/api/v1/experiments/" + self.create_experiment()
+        response = self.client.get(prefix + "/recordings")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()["recordings"]), 1)
+        self.assertEqual(response.json()["unavailable_count"], 1)
+
     def test_target_only_stimuli_are_not_offered_as_training_recordings(self):
         scipy.io.savemat(str(self.data_dir / "monkey_2026-02-09b_recording.mat"), {
             "TrialStimData": {"StimulusName": "C:\\Stimuli\\TIMIT\\target.wav", "StimulusType": "S2"}

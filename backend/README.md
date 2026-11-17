@@ -92,6 +92,9 @@ Selections are persisted per experiment. Selecting the same recording is
 idempotent; changing it increments `recording_revision` without deleting any
 data or artifacts. Later fit/generation resources must pin experiment identity
 and recording revision so a changed selection cannot silently retarget old work.
+Fit construction must resolve the opaque recording ID back to the existing
+catalog's native dataset session on the server; never derive a session ID or
+filesystem location from the display name supplied to the browser.
 
 Current supported settings are TIMIT/mVocs, ucdavisBAK, deepspeech2, layer 2,
 50-ms bins, and 200-ms receptive field. Unknown settings/fields and non-integer
