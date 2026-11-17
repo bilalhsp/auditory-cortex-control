@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import type { Fit, Generation, makeApi } from "./api";
+import type { Capabilities, Fit, Generation, makeApi } from "./api";
 
 export default function GenerationPanel({
   api,
   fit,
+  options,
 }: {
   api: ReturnType<typeof makeApi>;
   fit: Fit;
+  options: NonNullable<Capabilities["generation"]>;
 }) {
   const [channel, setChannel] = useState(fit.best_channel?.channel_id ?? "");
   const [objective, setObjective] = useState<"stretch" | "one-hot">("stretch");
@@ -136,8 +138,11 @@ export default function GenerationPanel({
               changed();
             }}
           >
-            <option value="stretch">Stretch</option>
-            <option value="one-hot">One-hot</option>
+            {options.objectives.map((value) => (
+              <option key={value} value={value}>
+                {value === "one-hot" ? "One-hot" : "Stretch"}
+              </option>
+            ))}
           </select>
         </label>
         <label>
@@ -150,7 +155,7 @@ export default function GenerationPanel({
               changed();
             }}
           >
-            {[1, 2, 3, 4].map((value) => (
+            {options.durations.map((value) => (
               <option key={value} value={value}>
                 {value} seconds
               </option>
@@ -167,7 +172,7 @@ export default function GenerationPanel({
               changed();
             }}
           >
-            {[1, 2, 4, 8, 10].map((value) => (
+            {options.clip_counts.map((value) => (
               <option key={value}>{value}</option>
             ))}
           </select>

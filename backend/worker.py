@@ -1,4 +1,4 @@
-"""Single-owner persistent fit queue. Run separately from the HTTP server."""
+"""Single-owner persistent fit and generation queue. Run separately from the HTTP server."""
 import argparse
 import fcntl
 import json
@@ -142,6 +142,6 @@ def run_worker(settings: Settings, once: bool = False, runner: FitRunner = scien
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--once', action='store_true', help='Process one queued fit then exit')
+    parser.add_argument('--once', action='store_true', help='Process one queued fit or generation then exit')
     args = parser.parse_args()
     run_worker(Settings.from_environment(), once=args.once)

@@ -1,4 +1,4 @@
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, get_args
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator
@@ -80,19 +80,25 @@ class Fit(BaseModel):
     best_channel: Optional[ChannelCorrelation] = None
 
 
+GenerationObjective = Literal['stretch', 'one-hot']
+GENERATION_OBJECTIVES = get_args(GenerationObjective)
+GENERATION_DURATIONS = (1, 2, 3, 4)
+GENERATION_CLIP_COUNTS = (1, 2, 4, 8, 10)
+
+
 class GenerationSubmission(BaseModel):
     model_config = ConfigDict(extra='forbid')
     request_id: UUID
     channel_id: str = Field(min_length=1)
-    objective: Literal['stretch', 'one-hot']
-    duration_seconds: StrictInt = Field(default=2, ge=1, le=4)
+    objective: GenerationObjective
+    duration_seconds: StrictInt = Field(default=2, ge=GENERATION_DURATIONS[0], le=GENERATION_DURATIONS[-1])
     clip_count: StrictInt = Field(default=4, ge=1, le=10)
     seed: StrictInt = Field(default=42, ge=0, le=4294967295)
 
     @field_validator('clip_count')
     @classmethod
     def supported_clip_count(cls, value: int) -> int:
-        if value not in (1, 2, 4, 8, 10):
+        if value not in GENERATION_CLIP_COUNTS:
             raise ValueError('Choose 1, 2, 4, 8, or 10 clips')
         return value
 
@@ -116,7 +122,7 @@ class Generation(BaseModel):
     experiment_id: str
     configuration: ExperimentConfiguration
     channel_id: str
-    objective: Literal['stretch', 'one-hot']
+    objective: GenerationObjective
     duration_seconds: int
     clip_count: int
     seed: int

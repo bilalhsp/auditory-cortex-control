@@ -11,7 +11,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from backend.auth import password_matches
 from backend.config import Settings
-from backend.models import Experiment, ExperimentConfiguration, RecordingCatalogResult, RecordingSelection, UploadResult, Fit, FitSubmission, Generation, GenerationSubmission
+from backend.models import Experiment, ExperimentConfiguration, RecordingCatalogResult, RecordingSelection, UploadResult, Fit, FitSubmission, Generation, GenerationSubmission, GENERATION_OBJECTIVES, GENERATION_DURATIONS, GENERATION_CLIP_COUNTS
 from backend.recordings import CatalogUnavailable, RecordingCatalog
 from backend.store import ExperimentStore
 from backend.uploads import UploadError, receive_upload
@@ -80,7 +80,7 @@ def create_app(
             "gpu": capacity(),
             "upload": {"max_bytes": settings.max_upload_bytes, "formats": [".mat"]},
             "fit": {"supported_sources": ["existing", "upload"], "default_seed": 42},
-            "generation": {"objectives": ["stretch", "one-hot"], "durations": [1, 2, 3, 4], "clip_counts": [1, 2, 4, 8, 10]},
+            "generation": {"objectives": GENERATION_OBJECTIVES, "durations": GENERATION_DURATIONS, "clip_counts": GENERATION_CLIP_COUNTS},
         }
 
     @app.post("/api/v1/experiments", response_model=Experiment, status_code=201,

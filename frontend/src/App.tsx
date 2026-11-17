@@ -415,7 +415,7 @@ export default function App() {
                     api={api}
                     experiment={experiment}
                     seed={caps.fit.default_seed}
-                    generationEnabled={Boolean(caps.generation)}
+                    generationOptions={caps.generation}
                   />
                 )}
             </>
