@@ -1,5 +1,7 @@
 # Runtime verification for issue 01
 
+## Initial checks (historical)
+
 Read-only checks during issue 01:
 
 - uv reports version 0.13.1.
@@ -19,7 +21,7 @@ Read-only checks during issue 01:
 The existing environment and dependency lockfile have not been modified.
 Target runtime selection and scientific parity remain open acceptance criteria.
 
-## Follow-up checks in the existing environment
+## Current checks in the existing environment
 
 The user requires continuing with the existing environment, without creating a
 replacement or upgrading dependencies. Both API and scientific worker processes
@@ -46,8 +48,14 @@ of the browser connection.
   through both existing-session and full-path upload paths with matching session
   identity and channel list. It contains 267 unique/10 repeated TIMIT stimuli
   and 865 unique/18 repeated mVocs stimuli.
-- The first fit produced finite correlations for 18 units. Full repeatability
-  and generation results are recorded separately once completed.
+- Three fits produced finite correlations for 18 units with maximum absolute
+  differences of 0.0 across repeats and existing/uploaded source paths.
+- The real worker CLI imports and prints --help with exit status zero.
+- All four real DAPS generations passed: two stretch and two one-hot WAVs, with
+  repeated outputs byte-identical per objective and zero measured PCM error.
+  The full results and measured equality baseline are recorded in the fit and
+  generation summaries and baseline report. Gradio and a SoX executable were
+  unnecessary for these active workflows.
 - An earlier cache write exhausted the home-directory quota. Only the temporary
   generated caches were removed; all subsequent scientific artifacts use the
   configured cache directory. Original fitted models remain untouched.

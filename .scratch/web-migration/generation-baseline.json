@@ -1,0 +1,62 @@
+{
+  "completed": true,
+  "phase": "one-hot_1",
+  "outputs": [
+    {
+      "objective": "stretch",
+      "repeat": 0,
+      "path": "/scratch/gilbreth/ahmedb/cache/web-migration-baseline/issue-01/audio/stretch/0/timit/timit-unit_12.03_stretch_0.wav",
+      "frames": 15392,
+      "rate": 16000,
+      "subtype": "PCM_16",
+      "seconds": 182.2453877790831,
+      "sha256": "ee042f8904cdf919733a01ee1dfc6e252b037582162d6d0965b050e77fcc8ecd",
+      "effective_duration_seconds": 0.962
+    },
+    {
+      "objective": "stretch",
+      "repeat": 1,
+      "path": "/scratch/gilbreth/ahmedb/cache/web-migration-baseline/issue-01/audio/stretch/1/timit/timit-unit_12.03_stretch_0.wav",
+      "frames": 15392,
+      "rate": 16000,
+      "subtype": "PCM_16",
+      "seconds": 177.15206828899682,
+      "sha256": "ee042f8904cdf919733a01ee1dfc6e252b037582162d6d0965b050e77fcc8ecd",
+      "effective_duration_seconds": 0.962
+    },
+    {
+      "objective": "one-hot",
+      "repeat": 0,
+      "path": "/scratch/gilbreth/ahmedb/cache/web-migration-baseline/issue-01/audio/one-hot/0/timit/timit-unit_12.03_one-hot_0.wav",
+      "frames": 15392,
+      "rate": 16000,
+      "subtype": "PCM_16",
+      "seconds": 180.80208486597985,
+      "sha256": "bf4320c81b00f4488aa36546168b56d587b145b5749d753dbeefe4f3bed90abd",
+      "effective_duration_seconds": 0.962
+    },
+    {
+      "objective": "one-hot",
+      "repeat": 1,
+      "path": "/scratch/gilbreth/ahmedb/cache/web-migration-baseline/issue-01/audio/one-hot/1/timit/timit-unit_12.03_one-hot_0.wav",
+      "frames": 15392,
+      "rate": 16000,
+      "subtype": "PCM_16",
+      "seconds": 180.0139685217291,
+      "sha256": "bf4320c81b00f4488aa36546168b56d587b145b5749d753dbeefe4f3bed90abd",
+      "effective_duration_seconds": 0.962
+    }
+  ],
+  "initialization_seconds": 42.68356462800875,
+  "repeatability": {
+    "stretch": {
+      "max_absolute_pcm_difference": 0.0,
+      "rms_pcm_difference": 0.0
+    },
+    "one-hot": {
+      "max_absolute_pcm_difference": 0.0,
+      "rms_pcm_difference": 0.0
+    }
+  },
+  "total_seconds": 762.8974955263548
+}

@@ -21,6 +21,8 @@ then run the generation probe after the fit report indicates completion. The
 probes use existing local dependency checkouts; input hashes, revisions, effective
 settings, and pre-existing dependency modifications are captured in
 baseline-inputs.json and dependency-patches. They do not install packages.
+The patch JSON files contain base64-encoded git diffs and checksums to preserve
+the original dependency line endings without rewriting those checkouts.
 
 The baseline probe redirects only newly fitted TRF artifact writes into its
 isolated subdirectory of the configured cache. Feature caches use the repository's
@@ -60,10 +62,18 @@ portable numerical tolerance.
 
 Real DAPS generation is run with the unmodified 50-step sampler configuration,
 seed 42, one nominal one-second sample, and the best-correlated unit (12.03),
-twice for each of stretch and one-hot. Completion and repeatability are recorded
-after all four samples pass finite-value, sample-rate, and PCM-format checks.
+twice for each of stretch and one-hot. All four samples completed and passed
+finite-value, sample-rate, and PCM-format checks. Each objective's repeated WAVs
+are byte-identical; maximum absolute and RMS PCM differences are both 0.0.
+generation-baseline.json records the complete measurements, paths, and hashes.
 
-The first completed stretch output contains 15,392 frames at 16 kHz (0.962 seconds)
+The observed unchanged-runtime audio tolerance is exact PCM equality for these
+seeded fixtures, with identical WAV hashes as an additional integrity check.
+This does not establish portable determinism across GPU types, new dependency
+versions, or other recordings. Keep the baseline inputs fixed for migration
+comparisons and remeasure if that runtime changes.
+
+All four completed outputs contain 15,392 frames at 16 kHz (0.962 seconds)
 despite a nominal one-second request. Preserve and report this native output
 behavior during migration; do not silently alter the sampler to force duration.
 
@@ -73,7 +83,7 @@ behavior during migration; do not silently alter the sampler to force duration.
   source revisions and pre-existing patches are part of this runtime's provenance.
 - `uv pip check` reports AudioLDM's missing Gradio requirement, matching the
   explicit existing uv exclusion. The frontend is React; do not install Gradio
-  to silence this check. Real generation, not import alone, validates that path.
+  to silence this check. All four real generations completed without Gradio.
 - SoX is absent and emits an import warning. Existing recording parsing, fitting,
   and the completed sample used no SoX executable. Other untested scientific
   workflows may still need it.
