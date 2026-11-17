@@ -29,13 +29,7 @@ def verify_fit(workspace: Path) -> dict:
     return manifest
 
 
-def submit_generation(settings: Settings, store: ExperimentStore, fit_id: str,
-                      request: GenerationSubmission, available_gpus: int) -> Generation:
-    previous = store.generation_for_request(fit_id, str(request.request_id))
-    if previous is not None:
-        if any(getattr(previous, key) != getattr(request, key) for key in request.context_fields()):
-            raise FitRequestError(409, 'Request identity was already used for different generation settings.')
-        return previous
+def ready_fit(store: ExperimentStore, fit_id: str):
     fit = store.get_fit(fit_id)
     if fit is None:
         raise FitRequestError(404, 'Fit not found.')
@@ -45,10 +39,6 @@ def submit_generation(settings: Settings, store: ExperimentStore, fit_id: str,
     if (experiment is None or experiment.recording is None or
             (experiment.recording.id, experiment.recording_revision) != (fit.recording.id, fit.recording_revision)):
         raise FitRequestError(409, 'Fit belongs to an earlier recording selection. Fit the current recording first.')
-    if not any(row.channel_id == request.channel_id and row.correlation is not None for row in fit.correlations):
-        raise FitRequestError(422, 'Choose an available channel from this fit.')
-    if fit.configuration.gpu_count < 1 or available_gpus < 1:
-        raise FitRequestError(409, 'No GPU is available. Refresh capacity and retry.')
     fit_workspace = store.fit_workspace(fit_id)
     try:
         if fit_workspace is None:
@@ -56,6 +46,20 @@ def submit_generation(settings: Settings, store: ExperimentStore, fit_id: str,
         manifest = verify_fit(fit_workspace)
     except (OSError, ValueError, KeyError, TypeError) as error:
         raise FitRequestError(409, 'Fitted model artifacts are missing or changed. Fit again before generating.') from error
+    return fit, fit_workspace, manifest
+
+def submit_generation(settings: Settings, store: ExperimentStore, fit_id: str,
+                      request: GenerationSubmission, available_gpus: int) -> Generation:
+    previous = store.generation_for_request(fit_id, str(request.request_id))
+    if previous is not None:
+        if any(getattr(previous, key) != getattr(request, key) for key in request.context_fields()):
+            raise FitRequestError(409, 'Request identity was already used for different generation settings.')
+        return previous
+    fit, fit_workspace, manifest = ready_fit(store, fit_id)
+    if not any(row.channel_id == request.channel_id and row.correlation is not None for row in fit.correlations):
+        raise FitRequestError(422, 'Choose an available channel from this fit.')
+    if fit.configuration.gpu_count < 1 or available_gpus < 1:
+        raise FitRequestError(409, 'No GPU is available. Refresh capacity and retry.')
     generation = Generation(id=str(uuid4()), job_id=str(uuid4()), fit_id=fit.id,
                             experiment_id=fit.experiment_id, configuration=fit.configuration,
                             unused_gpu_count=max(0, fit.configuration.gpu_count - 1),

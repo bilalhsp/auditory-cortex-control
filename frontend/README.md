@@ -67,3 +67,16 @@ download without putting credentials in a URL. The actual native audio length is
 displayed with the completed clip count. Unused requested GPUs are explained;
 only one target runs in this slice. New generations retain earlier server output.
 Session history/reconnection and explicit Stop/Close remain subsequent slices.
+
+When the backend advertises batch support, completed fits expose a batch panel
+with channel/objective checkboxes. Each selected pair becomes a separate target.
+The batch GPU selector starts with the saved setup choice (whose initial default
+is maximum available); refreshing preserves a valid smaller choice. An invalidated
+choice is cleared for explicit reselection, never silently reduced. Capacity is
+rechecked atomically on submission and again before worker allocation.
+
+The panel shows per-target states, requested GPUs, parallel slots, and idle GPUs
+when targets are fewer than selected devices. Partial batches offer a ZIP of
+completed targets plus a public manifest; failed/incomplete target files are
+excluded. New batches preserve earlier server results. A batch count can be
+explicitly changed without changing the fit's scientific configuration.

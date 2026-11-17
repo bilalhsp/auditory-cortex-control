@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import type { Capabilities, Experiment, Fit, makeApi } from "./api";
 
 import GenerationPanel from "./GenerationPanel";
+import BatchPanel from "./BatchPanel";
 
 interface Props {
+  batchEnabled?: boolean;
   generationOptions?: Capabilities["generation"];
   api: ReturnType<typeof makeApi>;
   experiment: Experiment;
@@ -15,6 +17,7 @@ export default function FitPanel({
   experiment,
   seed,
   generationOptions,
+  batchEnabled,
 }: Props) {
   const [fit, setFit] = useState<Fit | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -188,6 +191,14 @@ export default function FitPanel({
               </tbody>
             </table>
           </div>
+          {batchEnabled && generationOptions && (
+            <BatchPanel
+              key={`batch-${fit.id}`}
+              api={api}
+              fit={fit}
+              options={generationOptions}
+            />
+          )}
           {generationOptions && (
             <GenerationPanel
               key={fit.id}

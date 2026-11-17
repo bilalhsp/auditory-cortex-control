@@ -10,21 +10,19 @@ from pathlib import Path
 from typing import Callable
 
 from backend.models import Generation
+from backend.gpu import device_environment
 
 
 @dataclass(frozen=True)
 class GenerationTask:
     generation: Generation
     workspace: Path
+    device_index: int = 0
 
 
 def subprocess_generation(task: GenerationTask, progress: Callable[[str], None]) -> int:
     progress('generating')
-    env = dict(os.environ)
-    # This serial single-target slice always binds the first permitted device.
-    visible = env.get('CUDA_VISIBLE_DEVICES')
-    if visible is not None:
-        env['CUDA_VISIBLE_DEVICES'] = visible.split(',')[0]
+    env = device_environment(task.device_index)
     with (task.workspace / 'diagnostics.log').open('a') as log:
         result = subprocess.run([sys.executable, '-m', 'backend.generation_compute', str(task.workspace.resolve()), str(os.getpid())],
                                 env=env, stdout=log, stderr=subprocess.STDOUT)

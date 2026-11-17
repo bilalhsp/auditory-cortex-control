@@ -577,3 +577,17 @@ footer span {
   display: grid;
   gap: 6px;
 }
+
+.batch-channels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.batch-channels label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.batch-channels input {
+  width: auto;
+}

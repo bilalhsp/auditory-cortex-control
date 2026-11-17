@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 from uuid import uuid4
 
-from backend.models import Experiment, ExperimentConfiguration, Recording, Fit, Generation, GenerationSubmission
+from backend.models import Experiment, ExperimentConfiguration, Recording, Fit, Generation, GenerationSubmission, Batch
 
 
 @dataclass(frozen=True)
@@ -25,6 +25,7 @@ class ExperimentStore:
         path.parent.mkdir(parents=True, exist_ok=True)
         with sqlite3.connect(str(path)) as connection:
             connection.execute("PRAGMA journal_mode=WAL")
+            connection.execute("BEGIN IMMEDIATE")
             connection.execute(
                 "CREATE TABLE IF NOT EXISTS experiments "
                 "(id TEXT PRIMARY KEY, created_at TEXT NOT NULL, configuration TEXT NOT NULL)"
@@ -50,6 +51,103 @@ class ExperimentStore:
                 'fit_id TEXT NOT NULL, request_id TEXT NOT NULL, state TEXT NOT NULL, '
                 'data TEXT NOT NULL, workspace TEXT NOT NULL, UNIQUE(fit_id, request_id))'
             )
+
+            columns = {row[1] for row in connection.execute('PRAGMA table_info(generations)')}
+            if 'batch_id' not in columns:
+                connection.execute('ALTER TABLE generations ADD COLUMN batch_id TEXT')
+            connection.execute(
+                'CREATE TABLE IF NOT EXISTS batches (id TEXT PRIMARY KEY, job_id TEXT UNIQUE NOT NULL, '
+                'fit_id TEXT NOT NULL, request_id TEXT NOT NULL, state TEXT NOT NULL, gpu_count INTEGER NOT NULL, '
+                'devices TEXT NOT NULL, visibility TEXT NOT NULL, data TEXT NOT NULL, workspace TEXT NOT NULL, '
+                'request TEXT NOT NULL, UNIQUE(fit_id, request_id))'
+            )
+
+    @staticmethod
+    def _reserved_devices(connection):
+        used = {0} if any(connection.execute('SELECT 1 FROM ' + table + " WHERE state = 'running'" + (' AND batch_id IS NULL' if table == 'generations' else '')).fetchone() for table in ('fits', 'generations')) else set()
+        for row in connection.execute("SELECT devices FROM batches WHERE state IN ('queued', 'running')"):
+            used.update(json.loads(row[0]))
+        return used
+
+    def batch_for_request(self, fit_id: str, request_id: str):
+        with sqlite3.connect(str(self.path)) as connection:
+            row = connection.execute('SELECT id, request FROM batches WHERE fit_id = ? AND request_id = ?', (fit_id, request_id)).fetchone()
+        return (self.require_batch(row[0])[0], json.loads(row[1])) if row else None
+
+    def batch_record(self, identity: str, by_job: bool = False):
+        column = 'job_id' if by_job else 'id'
+        with sqlite3.connect(str(self.path)) as connection:
+            row = connection.execute('SELECT id, data, workspace FROM batches WHERE ' + column + ' = ?', (identity,)).fetchone()
+            if row is None: return None
+            targets = [Generation.model_validate_json(target[0]) for target in connection.execute('SELECT data FROM generations WHERE batch_id = ? ORDER BY rowid', (row[0],))]
+        return Batch(**json.loads(row[1]), targets=targets), Path(row[2])
+
+    def require_batch(self, identity: str) -> Tuple[Batch, Path]:
+        record = self.batch_record(identity)
+        if record is None:
+            raise ValueError('Batch metadata is unavailable')
+        return record
+
+    def enqueue_batch(self, batch: Batch, request: dict, workspace: Path, visible_count: int, visibility) -> Batch:
+        with sqlite3.connect(str(self.path)) as connection:
+            connection.execute('BEGIN IMMEDIATE')
+            prior = connection.execute('SELECT id, request FROM batches WHERE fit_id = ? AND request_id = ?', (batch.fit_id, request['request_id'])).fetchone()
+            if prior:
+                if json.loads(prior[1]) != request: raise ValueError('Request identity was already used for different batch settings.')
+                # The caller reloads after the transaction closes.
+                return batch.model_copy(update={'id': prior[0]})
+            free = [index for index in range(visible_count) if index not in self._reserved_devices(connection)]
+            if len(free) < batch.gpu_count:
+                raise ValueError('GPU capacity changed. Refresh capacity and choose again; the requested count was not reduced.')
+            experiment = self._get(connection, batch.experiment_id)
+            fit_row = connection.execute('SELECT data FROM fits WHERE id = ?', (batch.fit_id,)).fetchone()
+            fit = Fit.model_validate_json(fit_row[0]) if fit_row else None
+            if (fit is None or fit.state != 'succeeded' or not fit.artifacts_ready or experiment is None or experiment.recording is None
+                    or (experiment.recording.id, experiment.recording_revision) != (fit.recording.id, fit.recording_revision)):
+                raise ValueError('Fit context changed. Fit the current recording first.')
+            connection.execute('INSERT INTO batches VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                (batch.id, batch.job_id, batch.fit_id, request['request_id'], batch.state, batch.gpu_count,
+                 json.dumps(free[:batch.gpu_count]), json.dumps(visibility), batch.model_dump_json(exclude={'targets'}), str(workspace), json.dumps(request)))
+            for target in batch.targets:
+                connection.execute('INSERT INTO generations (id,job_id,fit_id,request_id,state,data,workspace,batch_id) VALUES (?,?,?,?,?,?,?,?)',
+                    (target.id, target.job_id, target.fit_id, target.id, target.state, target.model_dump_json(), str(workspace / target.id), batch.id))
+        return batch
+
+    def update_batch(self, batch: Batch):
+        with sqlite3.connect(str(self.path)) as connection:
+            connection.execute('UPDATE batches SET state = ?, data = ? WHERE id = ?', (batch.state, batch.model_dump_json(exclude={'targets'}), batch.id))
+
+    def claim_batch(self):
+        with sqlite3.connect(str(self.path)) as connection:
+            connection.execute('BEGIN IMMEDIATE')
+            if (connection.execute("SELECT 1 FROM fits WHERE state = 'running'").fetchone()
+                    or connection.execute("SELECT 1 FROM generations WHERE state = 'running' AND batch_id IS NULL").fetchone()
+                    or connection.execute("SELECT 1 FROM batches WHERE state = 'running'").fetchone()): return None
+            row = connection.execute("SELECT id, workspace, devices, visibility FROM batches WHERE state = 'queued' ORDER BY rowid LIMIT 1").fetchone()
+            if row is None: return None
+            connection.execute("UPDATE batches SET state = 'running' WHERE id = ?", (row[0],))
+        batch = self.require_batch(row[0])[0]
+        batch.state = 'running'
+        batch.started_at = datetime.now(timezone.utc).isoformat()
+        self.update_batch(batch)
+        return batch, Path(row[1]), json.loads(row[2]), json.loads(row[3])
+
+    def interrupt_running_batches(self):
+        with sqlite3.connect(str(self.path)) as connection:
+            rows = connection.execute("SELECT id FROM batches WHERE state = 'running'").fetchall()
+        for row in rows:
+            batch = self.require_batch(row[0])[0]
+            for target in batch.targets:
+                if target.state in ('queued', 'running'):
+                    target.state, target.stage = 'interrupted', 'interrupted'
+                    target.error = 'Compute worker restarted. Submit a new batch to retry.'
+                    target.finished_at = datetime.now(timezone.utc).isoformat()
+                    self.update_generation(target)
+            batch.state = 'interrupted'
+            batch.artifacts_ready = any(target.state == 'succeeded' for target in batch.targets)
+            batch.finished_at = datetime.now(timezone.utc).isoformat()
+            batch.error = 'Compute worker restarted. Submit a new batch to retry.'
+            self.update_batch(batch)
 
     def fit_workspace(self, identity: str) -> Optional[Path]:
         with sqlite3.connect(str(self.path)) as connection:
@@ -82,7 +180,7 @@ class ExperimentStore:
             if (fit is None or fit.state != 'succeeded' or not fit.artifacts_ready or experiment is None
                     or experiment.recording is None or (experiment.recording.id, experiment.recording_revision) != (fit.recording.id, fit.recording_revision)):
                 raise ValueError('Fit context changed. Select and fit the current recording again.')
-            connection.execute('INSERT INTO generations VALUES (?, ?, ?, ?, ?, ?, ?)',
+            connection.execute('INSERT INTO generations (id,job_id,fit_id,request_id,state,data,workspace) VALUES (?, ?, ?, ?, ?, ?, ?)',
                                (generation.id, generation.job_id, generation.fit_id, request_id, generation.state, generation.model_dump_json(), str(workspace)))
         return generation
 
@@ -93,14 +191,14 @@ class ExperimentStore:
 
     def active_compute_count(self) -> int:
         with sqlite3.connect(str(self.path)) as connection:
-            return sum(connection.execute('SELECT COUNT(*) FROM ' + table + " WHERE state = 'running'").fetchone()[0] for table in ('fits', 'generations'))
+            return len(self._reserved_devices(connection))
 
     def claim_generation(self):
         with sqlite3.connect(str(self.path)) as connection:
             connection.execute('BEGIN IMMEDIATE')
-            if any(connection.execute('SELECT 1 FROM ' + table + " WHERE state = 'running'").fetchone() for table in ('fits', 'generations')):
+            if self._reserved_devices(connection):
                 return None
-            row = connection.execute("SELECT data, workspace FROM generations WHERE state = 'queued' ORDER BY rowid LIMIT 1").fetchone()
+            row = connection.execute("SELECT data, workspace FROM generations WHERE state = 'queued' AND batch_id IS NULL ORDER BY rowid LIMIT 1").fetchone()
             if row is None:
                 return None
             generation = Generation.model_validate_json(row[0])
@@ -112,7 +210,7 @@ class ExperimentStore:
     def interrupt_running_generations(self) -> None:
         with sqlite3.connect(str(self.path)) as connection:
             connection.execute('BEGIN IMMEDIATE')
-            for row in connection.execute("SELECT data FROM generations WHERE state = 'running'").fetchall():
+            for row in connection.execute("SELECT data FROM generations WHERE state = 'running' AND batch_id IS NULL").fetchall():
                 generation = Generation.model_validate_json(row[0])
                 generation.state, generation.stage = 'interrupted', 'interrupted'
                 generation.error = 'Compute worker restarted. Submit a new generation to retry.'
@@ -230,7 +328,7 @@ class ExperimentStore:
     def claim_fit(self) -> Optional[Tuple[Fit, Path]]:
         with sqlite3.connect(str(self.path)) as connection:
             connection.execute("BEGIN IMMEDIATE")
-            if any(connection.execute("SELECT 1 FROM " + table + " WHERE state = 'running'").fetchone() for table in ("fits", "generations")):
+            if self._reserved_devices(connection):
                 return None
             row = connection.execute("SELECT data, workspace FROM fits WHERE state = 'queued' ORDER BY rowid LIMIT 1").fetchone()
             if row is None:

@@ -281,3 +281,70 @@ fresh legacy processes also differ from those WAVs. The operator approved
 controlled legacy/web comparisons with identical initialization/RNG state as the
 migration acceptance check. Historical evidence is retained separately; this is
 not a claim of portable audio determinism across processes or GPU/runtime changes.
+
+## Batches and GPU reservations
+
+`POST /api/v1/fits/{id}/batches` accepts a client `request_id`, an explicit
+`gpu_count`, a nonempty list of unique `{channel_id, objective}` targets, and
+shared `duration_seconds`, `clip_count`, and `seed` settings with the same defaults
+as single-target generation. The batch GPU count is an explicit resource choice;
+scientific settings remain pinned to the completed fit. Target devices are never
+accepted from the browser. Unknown/duplicate/unavailable targets or invalid
+settings return 422; stale fits and insufficient capacity return 409.
+
+SQLite serializes reservation admission under `BEGIN IMMEDIATE`. Submission
+reserves the full requested count, including idle devices when there are fewer
+targets than GPUs. The capacity endpoint subtracts queued/running reservations.
+Concurrent requests cannot reserve the same logical device. No count is silently
+reduced. A repeated identical request UUID returns its original batch even when
+capacity is now occupied; conflicting reuse returns 409.
+
+The single allocator processes one batch group at a time. Each used GPU owns one
+worker slot; that slot takes the next pending target after its current target
+exits. At most the selected count runs concurrently, with excess targets queued
+in waves. Other accepted batch groups retain their disjoint reservations while
+waiting. Standalone fits/generations wait behind reserved batches. This is a
+single-host allocator with dedicated backend GPUs, not a remote-host scheduler.
+
+Allocation rechecks actual local count and the runtime visibility signature.
+Changed/insufficient capacity fails the attempt explicitly before launching;
+visibility/device loss before later targets also fails those targets. Each child
+receives exactly its reserved runtime device through `CUDA_VISIBLE_DEVICES` and
+uses logical CUDA device zero inside that restricted process. Physical device
+identifiers stay private. Every target reuses issue 07's sampler, artifact
+verification, seeded initialization, exit-code checks, and WAV validation.
+
+`GET /api/v1/batches/{id}` exposes overall and per-target outcomes, and the common
+job endpoint accepts the batch job ID. Target IDs/job IDs also use the existing
+generation/status/download endpoints. `GET /api/v1/batches/{id}/manifest` exposes
+public target/clip metadata. All routes require operator authentication.
+
+Overall states distinguish `succeeded`, `partial`, and `failed`. Validated output
+from successful targets remains available when another target fails; unmanifested
+or nonzero-exit target files stay private and are excluded. A finished batch with
+completed targets can be downloaded from `/api/v1/batches/{id}/download` as a ZIP
+with `manifest.json` plus `{target_id}/clip-NNN.wav` entries. This ZIP is built on
+private disk and removed after the response; sample files remain untouched.
+Changed/missing successful output rejects download rather than silently omitting
+it. Per-target downloads can be used once that target succeeds.
+
+Target UUID directories isolate inputs, output, provenance, and diagnostics.
+Batch diagnostics record the batch identity and reserved logical slots privately.
+Reservations release only after target workers exit and the batch reaches its
+terminal outcome. Worker restart interrupts unfinished targets, preserves completed
+targets and their downloadable files, and releases the interrupted reservation.
+Retries are explicit new attempts. Session Stop/Close remains issue 09.
+
+Deploy the API and worker together. Stop the prior worker/API before installing
+this backend version, then start the new API and worker against the same database
+and files. Startup migrates metadata transactionally by adding the batch table and
+nullable `generations.batch_id` column. Do not keep a pre-batch worker running
+against the new API: its queue interpretation predates grouped targets. Completed
+scientific files are preserved; stopping running work follows the documented
+interrupted/manual-retry policy. Frontend static assets remain independently
+deployable and use the advertised batch capability.
+
+Real execution was benchmarked on the available single GPU with two targets in
+waves; multi-GPU scheduling, admission, and device mapping are covered using
+controlled external compute and the real subprocess launcher. See
+`.scratch/web-migration/issue08-benchmark.json`. No latency threshold was imposed.

@@ -1,0 +1,36 @@
+{
+  "completed": true,
+  "root": "/scratch/gilbreth/ahmedb/cache/auditory-web-checks/issue08-real/da1c2521-566a-415f-9d92-de7625a68f0e",
+  "batch_id": "0186c50a-0e90-4f41-9c9c-c54c2707858b",
+  "gpu_count": 1,
+  "targets": 2,
+  "total_seconds": 570.1804746091366,
+  "peak_observed_gpu_memory_mib": 5497,
+  "sequential_wave_order_verified": true,
+  "capacity_released": true,
+  "physical_multi_gpu_benchmark_available": false,
+  "latency_threshold": "User declined latency targets; report measurements only",
+  "zip_members": [
+    "a6dca948-37e8-4737-b7c0-849883cf4ed4/clip-001.wav",
+    "f839434e-aa06-4e91-b421-f3873324d382/clip-001.wav",
+    "manifest.json"
+  ],
+  "target_results": [
+    {
+      "id": "a6dca948-37e8-4737-b7c0-849883cf4ed4",
+      "objective": "stretch",
+      "state": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-11-17T17:01:17.817036+00:00",
+      "finished_at": "2026-11-17T17:05:58.361521+00:00"
+    },
+    {
+      "id": "f839434e-aa06-4e91-b421-f3873324d382",
+      "objective": "one-hot",
+      "state": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-11-17T17:05:58.367589+00:00",
+      "finished_at": "2026-11-17T17:10:43.590319+00:00"
+    }
+  ]
+}

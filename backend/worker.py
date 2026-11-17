@@ -81,6 +81,14 @@ def run_next_generation(settings: Settings, runner=subprocess_generation) -> boo
     if claimed is None:
         return False
     generation, workspace = claimed
+    execute_generation(store, generation, workspace, runner)
+    return True
+
+
+def execute_generation(store, generation, workspace, runner=subprocess_generation, device_index=0):
+    generation.state = 'running'
+    generation.started_at = generation.started_at or datetime.now(timezone.utc).isoformat()
+    store.update_generation(generation)
     try:
         snapshot = json.loads((workspace / 'input.json').read_text())
         from pathlib import Path
@@ -91,7 +99,7 @@ def run_next_generation(settings: Settings, runner=subprocess_generation) -> boo
                 raise ValueError('Unknown generation phase')
             generation.stage = stage
             store.update_generation(generation)
-        generation.exit_code = runner(GenerationTask(generation, workspace), progress)
+        generation.exit_code = runner(GenerationTask(generation, workspace, device_index), progress)
         if generation.exit_code != 0:
             raise RuntimeError('Generation process exited unsuccessfully')
         progress('writing')
@@ -117,10 +125,9 @@ def run_next_generation(settings: Settings, runner=subprocess_generation) -> boo
     finally:
         generation.finished_at = datetime.now(timezone.utc).isoformat()
         store.update_generation(generation)
-    return True
 
 
-def run_worker(settings: Settings, once: bool = False, runner: FitRunner = scientific_fit, generation_runner=subprocess_generation) -> None:
+def run_worker(settings: Settings, once: bool = False, runner: FitRunner = scientific_fit, generation_runner=subprocess_generation, gpu_count=None) -> None:
     # Kernel-owned lock survives API restarts and releases only when this compute
     # process exits. A killed worker cannot leave a separate child using GPUs.
     lock_path = settings.database_path.resolve().with_suffix('.fit-worker.lock')
@@ -132,8 +139,12 @@ def run_worker(settings: Settings, once: bool = False, runner: FitRunner = scien
             raise RuntimeError('A fit worker already owns this database') from error
         ExperimentStore(settings.database_path).interrupt_running_fits()
         ExperimentStore(settings.database_path).interrupt_running_generations()
+        ExperimentStore(settings.database_path).interrupt_running_batches()
         while True:
-            did_work = run_next_fit(settings, runner) or run_next_generation(settings, generation_runner)
+            from backend.batches import run_next_batch
+            from backend.gpu import local_gpu_count
+            did_work = (run_next_batch(settings, generation_runner, gpu_count or local_gpu_count)
+                        or run_next_fit(settings, runner) or run_next_generation(settings, generation_runner))
             if once:
                 return
             if not did_work:

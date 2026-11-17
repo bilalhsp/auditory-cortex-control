@@ -8,21 +8,19 @@ from uuid import UUID
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
+from backend.batches import submit_batch, build_batch_zip, batch_manifest
+from backend.gpu import local_gpu_count
 
 from backend.auth import password_matches
 from backend.config import Settings
-from backend.models import Experiment, ExperimentConfiguration, RecordingCatalogResult, RecordingSelection, UploadResult, Fit, FitSubmission, Generation, GenerationSubmission, GENERATION_OBJECTIVES, GENERATION_DURATIONS, GENERATION_CLIP_COUNTS
+from backend.models import Experiment, ExperimentConfiguration, RecordingCatalogResult, RecordingSelection, UploadResult, Fit, FitSubmission, Generation, GenerationSubmission, Batch, BatchSubmission, GENERATION_OBJECTIVES, GENERATION_DURATIONS, GENERATION_CLIP_COUNTS
 from backend.recordings import CatalogUnavailable, RecordingCatalog
 from backend.store import ExperimentStore
 from backend.uploads import UploadError, receive_upload
 from backend.fits import FitRequestError, submit_fit
 from backend.generations import submit_generation, download_zip
-
-
-def local_gpu_count() -> int:
-    # Lazy import respects CUDA_VISIBLE_DEVICES without loading any model.
-    import torch
-    return torch.cuda.device_count()
 
 
 def create_app(
@@ -80,6 +78,7 @@ def create_app(
             "gpu": capacity(),
             "upload": {"max_bytes": settings.max_upload_bytes, "formats": [".mat"]},
             "fit": {"supported_sources": ["existing", "upload"], "default_seed": 42},
+            "batch": {"supported": True},
             "generation": {"objectives": GENERATION_OBJECTIVES, "durations": GENERATION_DURATIONS, "clip_counts": GENERATION_CLIP_COUNTS},
         }
 
@@ -187,9 +186,10 @@ def create_app(
         if fit is not None:
             return fit
         record = store.generation_record(str(identity), by_job=True)
-        if record is None:
-            raise HTTPException(404, 'Job not found')
-        return record[0]
+        if record is not None: return record[0]
+        batch = store.batch_record(str(identity), by_job=True)
+        if batch is None: raise HTTPException(404, 'Job not found')
+        return batch[0]
 
     @app.post('/api/v1/fits/{identity}/generations', response_model=Generation, status_code=202,
               dependencies=[Depends(operator)])
@@ -219,5 +219,35 @@ def create_app(
             'Content-Disposition': 'attachment; filename="generation-' + str(identity) + '.zip"',
             'Cache-Control': 'no-store',
         })
+
+    @app.post('/api/v1/fits/{identity}/batches', response_model=Batch, status_code=202, dependencies=[Depends(operator)])
+    def create_batch(identity: UUID, submission: BatchSubmission) -> Batch:
+        try:
+            return submit_batch(settings, store, str(identity), submission, capacity()['visible_count'])
+        except FitRequestError as error:
+            raise HTTPException(error.status, str(error)) from error
+
+    @app.get('/api/v1/batches/{identity}', response_model=Batch, dependencies=[Depends(operator)])
+    def read_batch(identity: UUID) -> Batch:
+        record = store.batch_record(str(identity))
+        if record is None: raise HTTPException(404, 'Batch not found')
+        return record[0]
+
+    @app.get('/api/v1/batches/{identity}/manifest', dependencies=[Depends(operator)])
+    def read_batch_manifest(identity: UUID):
+        return batch_manifest(read_batch(identity))
+
+    @app.get('/api/v1/batches/{identity}/download', dependencies=[Depends(operator)])
+    def download_batch(identity: UUID):
+        record = store.batch_record(str(identity))
+        if record is None: raise HTTPException(404, 'Batch not found')
+        try:
+            path = build_batch_zip(*record)
+        except FitRequestError as error:
+            raise HTTPException(error.status, str(error)) from error
+        except OSError as error:
+            raise HTTPException(503, 'Download storage is unavailable. Retry after storage is restored.') from error
+        return FileResponse(path, media_type='application/zip', filename='batch-' + str(identity) + '.zip',
+                            headers={'Cache-Control': 'no-store'}, background=BackgroundTask(path.unlink, missing_ok=True))
 
     return app

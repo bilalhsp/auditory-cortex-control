@@ -416,6 +416,7 @@ export default function App() {
                     experiment={experiment}
                     seed={caps.fit.default_seed}
                     generationOptions={caps.generation}
+                    batchEnabled={Boolean(caps.batch?.supported)}
                   />
                 )}
             </>

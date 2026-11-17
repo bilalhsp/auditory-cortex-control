@@ -86,6 +86,12 @@ GENERATION_DURATIONS = (1, 2, 3, 4)
 GENERATION_CLIP_COUNTS = (1, 2, 4, 8, 10)
 
 
+def validate_clip_count(value: int) -> int:
+    if value not in GENERATION_CLIP_COUNTS:
+        raise ValueError('Choose 1, 2, 4, 8, or 10 clips')
+    return value
+
+
 class GenerationSubmission(BaseModel):
     model_config = ConfigDict(extra='forbid')
     request_id: UUID
@@ -98,9 +104,7 @@ class GenerationSubmission(BaseModel):
     @field_validator('clip_count')
     @classmethod
     def supported_clip_count(cls, value: int) -> int:
-        if value not in GENERATION_CLIP_COUNTS:
-            raise ValueError('Choose 1, 2, 4, 8, or 10 clips')
-        return value
+        return validate_clip_count(value)
 
     @staticmethod
     def context_fields():
@@ -137,3 +141,49 @@ class Generation(BaseModel):
     exit_code: Optional[int] = None
     artifacts_ready: bool = False
     clips: List[GeneratedClip] = Field(default_factory=list)
+
+
+class GenerationTarget(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    channel_id: str = Field(min_length=1)
+    objective: GenerationObjective
+
+
+class BatchSubmission(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    request_id: UUID
+    gpu_count: StrictInt = Field(ge=1)
+    targets: List[GenerationTarget] = Field(min_length=1)
+    duration_seconds: StrictInt = Field(default=2, ge=GENERATION_DURATIONS[0], le=GENERATION_DURATIONS[-1])
+    clip_count: StrictInt = Field(default=4, ge=1, le=10)
+    seed: StrictInt = Field(default=42, ge=0, le=4294967295)
+
+    @field_validator('clip_count')
+    @classmethod
+    def supported_clip_count(cls, value: int) -> int:
+        return validate_clip_count(value)
+
+    @field_validator('targets')
+    @classmethod
+    def unique_targets(cls, values):
+        if len({(value.channel_id, value.objective) for value in values}) != len(values):
+            raise ValueError('Targets must be unique channel/objective pairs')
+        return values
+
+
+class Batch(BaseModel):
+    id: str
+    job_id: str
+    fit_id: str
+    experiment_id: str
+    configuration: ExperimentConfiguration
+    gpu_count: int
+    used_gpu_count: int
+    unused_gpu_count: int
+    targets: List[Generation]
+    state: Literal['queued', 'running', 'succeeded', 'partial', 'failed', 'interrupted'] = 'queued'
+    created_at: str
+    started_at: Optional[str] = None
+    finished_at: Optional[str] = None
+    error: Optional[str] = None
+    artifacts_ready: bool = False

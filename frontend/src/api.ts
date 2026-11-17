@@ -1,4 +1,5 @@
 export interface Capabilities {
+  batch?: { supported: boolean };
   generation?: {
     objectives: string[];
     durations: number[];
@@ -97,6 +98,29 @@ export interface Generation extends Omit<GenerationSubmission, "request_id"> {
   clips: { filename: string; frames: number; sample_rate: number }[];
 }
 
+export interface BatchSubmission {
+  request_id: string;
+  gpu_count: number;
+  targets: { channel_id: string; objective: string }[];
+  duration_seconds: number;
+  clip_count: number;
+  seed: number;
+}
+
+export interface Batch {
+  id: string;
+  job_id: string;
+  fit_id: string;
+  gpu_count: number;
+  used_gpu_count: number;
+  unused_gpu_count: number;
+  state:
+    "queued" | "running" | "succeeded" | "partial" | "failed" | "interrupted";
+  error: string | null;
+  artifacts_ready: boolean;
+  targets: Generation[];
+}
+
 interface FitSubmission {
   request_id: string;
   recording_id: string;
@@ -134,7 +158,8 @@ export function makeApi(username: string, password: string) {
       | { recording_id: string }
       | File
       | FitSubmission
-      | GenerationSubmission,
+      | GenerationSubmission
+      | BatchSubmission,
   ): Promise<T> {
     const file = body instanceof File ? body : null;
     const response = await fetch(`${base}/api/v1${path}`, {
@@ -165,6 +190,25 @@ export function makeApi(username: string, password: string) {
     return response.json() as Promise<T>;
   }
   return {
+    startBatch: (fitId: string, submission: BatchSubmission) =>
+      request<Batch>(`/fits/${encodeURIComponent(fitId)}/batches`, submission),
+    batch: (id: string) => request<Batch>(`/batches/${encodeURIComponent(id)}`),
+    downloadBatch: async (id: string) => {
+      const response = await fetch(
+        `${base}/api/v1/batches/${encodeURIComponent(id)}/download`,
+        { headers: { Authorization: `Basic ${encoded}` }, cache: "no-store" },
+      );
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new ApiError(
+          typeof data.detail === "string"
+            ? data.detail
+            : "Could not download batch.",
+          response.status,
+        );
+      }
+      return response.blob();
+    },
     startGeneration: (fitId: string, submission: GenerationSubmission) =>
       request<Generation>(
         `/fits/${encodeURIComponent(fitId)}/generations`,
