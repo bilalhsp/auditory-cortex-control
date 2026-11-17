@@ -29,6 +29,21 @@ export interface Experiment {
   id: string;
   created_at: string;
   configuration: Configuration;
+  recording: Recording | null;
+  recording_revision: number;
+}
+
+export interface Recording {
+  id: string;
+  display_name: string;
+  dataset_name: string;
+  source: "existing";
+  stimulus_families: string[];
+}
+
+export interface RecordingCatalog {
+  recordings: Recording[];
+  unavailable_count: number;
 }
 
 declare global {
@@ -54,7 +69,10 @@ export function makeApi(username: string, password: string) {
     ).join(""),
   );
   const base = (window.AUDITORY_CONFIG?.apiBaseUrl ?? "").replace(/\/$/, "");
-  async function request<T>(path: string, body?: Configuration): Promise<T> {
+  async function request<T>(
+    path: string,
+    body?: Configuration | { recording_id: string },
+  ): Promise<T> {
     const response = await fetch(`${base}/api/v1${path}`, {
       method: body ? "POST" : "GET",
       headers: {
@@ -79,5 +97,14 @@ export function makeApi(username: string, password: string) {
     capabilities: () => request<Capabilities>("/capabilities"),
     createExperiment: (configuration: Configuration) =>
       request<Experiment>("/experiments", configuration),
+    recordings: (experimentId: string) =>
+      request<RecordingCatalog>(
+        `/experiments/${encodeURIComponent(experimentId)}/recordings`,
+      ),
+    selectRecording: (experimentId: string, recordingId: string) =>
+      request<Experiment>(
+        `/experiments/${encodeURIComponent(experimentId)}/recording-selection`,
+        { recording_id: recordingId },
+      ),
   };
 }

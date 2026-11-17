@@ -35,10 +35,15 @@ separate, later workflow; signing out does not stop accepted work.
 | `AUDITORY_PASSWORD_HASH` | Required output of the interactive hash command |
 | `AUDITORY_DATABASE_PATH` | SQLite file; default is `web/sessions.sqlite3` inside the repository's configured cache |
 | `AUDITORY_ALLOWED_ORIGINS` | Comma-separated frontend origins; default `http://localhost:5173`; wildcards rejected |
+| `AUDITORY_NEURAL_DATA_DIR` | Dataset root; defaults to `neural_data_dir` in the existing research configuration |
+| `AUDITORY_RECORDINGS_METADATA` | Existing ucdavisBAK YAML session catalog; defaults to the research package's `ucdavisBAK_config.yml` |
 | `CUDA_VISIBLE_DEVICES` | Devices permitted to the backend; honored by torch detection |
 
 When deploying the backend artifact without the research repository, explicitly set
-`AUDITORY_DATABASE_PATH`. Production origins must match the frontend's HTTPS
+`AUDITORY_DATABASE_PATH`. For recording discovery outside the repository, also
+set `AUDITORY_NEURAL_DATA_DIR` and `AUDITORY_RECORDINGS_METADATA`; the archive
+does not bundle research data or a duplicate session catalog.
+Production origins must match the frontend's HTTPS
 origin exactly. An HTTPS proxy may expose the frontend and API at one origin;
 they remain independent build artifacts and processes.
 
@@ -52,7 +57,9 @@ uv run --no-sync python -m backend.build /path/to/artifacts/auditory-api.pyz
 
 The archive contains the backend code, not Python dependencies or model weights.
 It runs using the same existing Python environment with FastAPI, Uvicorn, and
-PyYAML installed. Supply the required environment variables, then launch it
+PyYAML, NumPy, and SciPy installed. Exact current direct versions are recorded in
+`requirements.txt`; this slice continues using the existing environment. Supply
+the required environment variables, then launch it
 from any working directory:
 
 ```bash
@@ -67,6 +74,24 @@ from any working directory:
 - `POST /api/v1/experiments`: validated configuration with `gpu_count`; returns
   HTTP 201 and stable experiment identity, creation time, and effective settings.
 - `GET /api/v1/experiments/{id}`: saved experiment; persists across API restart.
+- `GET /api/v1/experiments/{id}/recordings`: compatible existing recordings,
+  with opaque IDs, display names, and a count of unavailable catalog entries.
+- `POST /api/v1/experiments/{id}/recording-selection`: attach an opaque
+  `recording_id`; returns the experiment with its selected recording and revision.
+
+Discovery reuses the research dataset's YAML session catalog and reads only MAT
+`TrialStimData`. It follows the legacy TIMIT/mvox folder and trial-type conventions,
+excluding S2 target-only trials. It never constructs a generator or loads model
+weights. Only catalogued files within the configured dataset's `Data` directory
+are visible; browser contracts never accept a filesystem path. Missing or
+unreadable files are skipped with a count; unavailable catalog/storage returns
+503, distinct from a valid empty list. Selection rechecks availability and stimulus
+compatibility (404 for unavailable recording, 409 for incompatible stimulus family).
+
+Selections are persisted per experiment. Selecting the same recording is
+idempotent; changing it increments `recording_revision` without deleting any
+data or artifacts. Later fit/generation resources must pin experiment identity
+and recording revision so a changed selection cannot silently retarget old work.
 
 Current supported settings are TIMIT/mVocs, ucdavisBAK, deepspeech2, layer 2,
 50-ms bins, and 200-ms receptive field. Unknown settings/fields and non-integer

@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { ApiError, makeApi } from "./api";
 import type { Capabilities, Experiment } from "./api";
+import RecordingSelector from "./RecordingSelector";
 
 export default function App() {
   const [api, setApi] = useState<ReturnType<typeof makeApi> | null>(null);
@@ -185,10 +186,10 @@ export default function App() {
           ) : (
             <>
               <div className="workflow" aria-label="Experiment workflow">
-                <span className="current">
+                <span className={!experiment ? "current" : ""}>
                   1 <b>Configure</b>
                 </span>
-                <span>2 Recording</span>
+                <span className={experiment ? "current" : ""}>2 Recording</span>
                 <span>3 Fit model</span>
                 <span>4 Generate</span>
               </div>
@@ -373,6 +374,18 @@ export default function App() {
                   </p>
                   <code>{experiment.id}</code>
                 </section>
+              )}
+              {experiment && (
+                <RecordingSelector
+                  key={experiment.id}
+                  api={api}
+                  experiment={experiment}
+                  onSelected={(updated) =>
+                    setExperiment((current) =>
+                      current?.id === updated.id ? updated : current,
+                    )
+                  }
+                />
               )}
               <p className="footnote">
                 GPU capacity is checked again when you save. Saving a setup does

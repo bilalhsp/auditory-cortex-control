@@ -4,6 +4,15 @@
   background: #f6f8f7;
   font-synthesis: none;
 }
+.recording-card {
+  margin-top: 24px;
+}
+.selected-recording {
+  background: #edf6ef;
+  color: #326046;
+  border: 1px solid #cde0d0;
+  margin: 24px 0 0;
+}
 * {
   box-sizing: border-box;
 }

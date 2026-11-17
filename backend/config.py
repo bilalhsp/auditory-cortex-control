@@ -1,7 +1,7 @@
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Tuple
+from typing import Optional, Tuple
 
 import yaml
 
@@ -12,6 +12,8 @@ class Settings:
     operator: str
     password_hash: str
     allowed_origins: Tuple[str, ...] = ("http://localhost:5173",)
+    neural_data_dir: Optional[Path] = None
+    recording_metadata_path: Optional[Path] = None
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -31,4 +33,8 @@ class Settings:
         )
         if "*" in origins:
             raise RuntimeError("Use explicit frontend origins, not a wildcard")
-        return cls(Path(database), operator, password_hash, origins)
+        data_dir = os.environ.get("AUDITORY_NEURAL_DATA_DIR")
+        metadata_path = os.environ.get("AUDITORY_RECORDINGS_METADATA")
+        return cls(Path(database), operator, password_hash, origins,
+                   Path(data_dir) if data_dir else None,
+                   Path(metadata_path) if metadata_path else None)

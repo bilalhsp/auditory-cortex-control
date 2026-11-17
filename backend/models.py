@@ -1,4 +1,5 @@
-from typing import Literal
+from typing import List, Literal, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt
 
@@ -15,7 +16,28 @@ class ExperimentConfiguration(BaseModel):
     gpu_count: StrictInt = Field(ge=0)
 
 
+class Recording(BaseModel):
+    id: str
+    display_name: str
+    dataset_name: str
+    source: Literal["existing"] = "existing"
+    stimulus_families: List[Literal["TIMIT", "mVocs"]]
+
+
+class RecordingCatalogResult(BaseModel):
+    recordings: List[Recording]
+    unavailable_count: int = 0
+
+
+class RecordingSelection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    recording_id: UUID
+
+
 class Experiment(BaseModel):
     id: str
     created_at: str
     configuration: ExperimentConfiguration
+    recording: Optional[Recording] = None
+    recording_revision: int = 0

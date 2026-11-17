@@ -33,7 +33,13 @@ an explicit valid choice. If capacity invalidates it, choose again; requests
 are never silently reduced. With no GPUs, setup can still be saved, but GPU
 generation remains unavailable. Saving a setup reserves no GPU and starts no job.
 
-Changing stimulus family or GPU selection clears the saved setup display.
-Experiments remain persisted in the backend. Recording selection, fitting,
-generation, and session history are delivered by subsequent issues; this release
-only configures experiments. Signing out drops in-memory credentials.
+After saving an experiment, select a compatible existing recording and choose
+"Use this recording" to persist the attachment. Refresh reloads the catalog;
+missing/unreadable entries are reported separately from a valid empty list.
+
+Changing stimulus family or GPU selection clears the current setup and recording
+display. Previous experiments and selections remain persisted in the backend.
+Changing the selected recording advances its revision without deleting prior
+results. Late requests from an old experiment cannot replace the current setup.
+Fitting, generation, uploads, and session history remain subsequent slices.
+Signing out drops in-memory credentials.

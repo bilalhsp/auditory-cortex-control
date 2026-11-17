@@ -11,7 +11,8 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from backend.auth import password_matches
 from backend.config import Settings
-from backend.models import Experiment, ExperimentConfiguration
+from backend.models import Experiment, ExperimentConfiguration, RecordingCatalogResult, RecordingSelection
+from backend.recordings import CatalogUnavailable, RecordingCatalog
 from backend.store import ExperimentStore
 
 
@@ -31,6 +32,7 @@ def create_app(
     # Validate the configured hash once, failing closed on invalid configuration.
     password_matches("", settings.password_hash)
     store = ExperimentStore(settings.database_path)
+    catalog = RecordingCatalog(settings)
     app = FastAPI(title="Auditory Cortex Control", docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(
         CORSMiddleware, allow_origins=list(settings.allowed_origins),
@@ -94,5 +96,35 @@ def create_app(
         if experiment is None:
             raise HTTPException(404, "Experiment not found")
         return experiment
+
+    def available_recordings(experiment: Experiment) -> RecordingCatalogResult:
+        try:
+            return catalog.list(experiment.configuration.dataset_name)
+        except CatalogUnavailable as error:
+            raise HTTPException(503, str(error)) from error
+
+    @app.get("/api/v1/experiments/{identity}/recordings", response_model=RecordingCatalogResult,
+             dependencies=[Depends(operator)])
+    def recordings(identity: UUID) -> RecordingCatalogResult:
+        experiment = read_experiment(identity)
+        result = available_recordings(experiment)
+        result.recordings = [recording for recording in result.recordings
+                             if experiment.configuration.stimulus_family in recording.stimulus_families]
+        return result
+
+    @app.post("/api/v1/experiments/{identity}/recording-selection", response_model=Experiment,
+              dependencies=[Depends(operator)])
+    def select_recording(identity: UUID, selection: RecordingSelection) -> Experiment:
+        experiment = read_experiment(identity)
+        result = available_recordings(experiment)
+        recording = next((item for item in result.recordings if item.id == str(selection.recording_id)), None)
+        if recording is None:
+            raise HTTPException(404, "Recording is missing or no longer available. Refresh the list.")
+        if experiment.configuration.stimulus_family not in recording.stimulus_families:
+            raise HTTPException(409, "Recording is incompatible with this experiment's stimulus family.")
+        selected = store.select_recording(str(identity), recording)
+        if selected is None:
+            raise HTTPException(404, "Experiment not found")
+        return selected
 
     return app
