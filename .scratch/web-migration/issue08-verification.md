@@ -17,6 +17,8 @@ scientific cache were reused without environment creation or upgrades.
   their respective reserved device, not guessed remote/host identifiers.
 - Complete backend suite: 58 tests pass. Existing standalone generation, fit,
   upload, recording, and authentication regressions pass after metadata migration.
+- Standalone backend archive, launched from `/tmp` against an isolated metadata
+  fixture, reserves a batch and reads its job without importing scientific models.
 - Python Pyright: 0 errors; React TypeScript and production build pass. Backend
   source artifact builds successfully.
 - Chromium with real API/SQLite and controlled compute passes initial maximum
@@ -41,4 +43,22 @@ scientific adapter and validation. API/worker upgrade instructions require a
 coordinated stop/start so pre-batch workers do not consume grouped target rows.
 Session history/Stop/Close remain issue 09.
 
-Independent Standards and Spec review results will be appended before resolution.
+## Standards
+
+Fresh review of `cad7de2` against fixed base
+`45b815a30186b96e989fc6d795becac80caf8324` found no documented violations. One
+nonblocking duplication/recovery finding in frontend polling/download handling was
+addressed in `aa38891` using shared helpers. A browser check injects a transient
+503, confirms batch polling recovers and clears the error, and rechecks batch and
+single-target downloads. Production build/typecheck pass. Follow-up Standards
+review confirms no outstanding finding.
+
+## Spec
+
+Fresh independent review found no concrete spec violation or scope creep. The
+review confirmed the reservation, queue, visibility, partial-result, and recovery
+contracts. Queued batches survive restart consistently with existing queued-job
+semantics; running batches become interrupted with completed targets preserved.
+The physical multi-GPU benchmark limitation remains explicitly disclosed.
+
+Review totals: Standards 1 heuristic addressed, 0 outstanding; Spec 0 findings.

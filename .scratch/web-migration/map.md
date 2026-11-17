@@ -3,7 +3,7 @@
 ## Notes
 
 Implementation tickets live in [issues/](issues/); the approved requirements are
-in [spec.md](spec.md). Issues 01–07 are resolved.
+in [spec.md](spec.md). Issues 01–08 are resolved.
 
 ## Decisions-so-far
 
@@ -28,10 +28,14 @@ in [spec.md](spec.md). Issues 01–07 are resolved.
   Both objectives match controlled legacy outputs exactly under the user-approved
   initialization/RNG comparison. Fresh legacy processes also vary from historical
   WAVs; retain that evidence instead of claiming cross-process determinism.
-  See [verification](issue07-verification.md). Issue 08 is the next ready issue.
+  See [verification](issue07-verification.md).
+- [Issue 08](issues/08-generate-batches-with-gpu-allocation.md) adds transactional
+  full-count reservations, per-device target waves, and partial-result ZIPs.
+  Controlled multi-device scheduling/binding tests and a real one-GPU/two-target
+  benchmark pass. Physical multi-GPU throughput is not claimed on this one-GPU
+  server. See [verification](issue08-verification.md). Issue 09 is next.
 
 ## Fog
 
-Later slices implement multi-GPU batches (08), history/Stop/reconnection (09),
-lifecycle hardening (10), and final parity/cutover (11). No new user decisions
-block issue 08.
+Later slices implement history/Stop/reconnection (09), lifecycle hardening (10),
+and final parity/cutover (11). No new user decisions block issue 09.
