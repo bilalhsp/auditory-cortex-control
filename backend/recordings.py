@@ -40,7 +40,7 @@ class RecordingCatalog:
             # Python 3.8 reports cyclic filesystem links as RuntimeError.
             raise ValueError("Cannot resolve recording location") from error
 
-    def _locations(self) -> Tuple[Path, Path]:
+    def locations(self) -> Tuple[Path, Path]:
         repository = Path(__file__).resolve().parents[1]
         data = self.settings.neural_data_dir
         if data is None:
@@ -86,7 +86,7 @@ class RecordingCatalog:
 
     def _scan(self, dataset: str) -> Tuple[List[ResolvedRecording], int]:
         try:
-            data, metadata = self._locations()
+            data, metadata = self.locations()
             directory = self._resolved_path(data / dataset / "Data")
             if not directory.is_dir():
                 raise ValueError("Recording directory unavailable")

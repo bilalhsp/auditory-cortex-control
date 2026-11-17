@@ -406,14 +406,17 @@ export default function App() {
                 GPU capacity is checked again when you save. Saving a setup does
                 not reserve GPUs or start computation.
               </p>
-              {experiment?.recording?.source === "existing" && caps.fit && (
-                <FitPanel
-                  key={`fit-${experiment.id}-${experiment.recording_revision}`}
-                  api={api}
-                  experiment={experiment}
-                  seed={caps.fit.default_seed}
-                />
-              )}
+              {experiment?.recording &&
+                caps.fit?.supported_sources.includes(
+                  experiment.recording.source,
+                ) && (
+                  <FitPanel
+                    key={`fit-${experiment.id}-${experiment.recording_revision}`}
+                    api={api}
+                    experiment={experiment}
+                    seed={caps.fit.default_seed}
+                  />
+                )}
             </>
           )}
         </main>

@@ -78,7 +78,7 @@ def create_app(
             },
             "gpu": capacity(),
             "upload": {"max_bytes": settings.max_upload_bytes, "formats": [".mat"]},
-            "fit": {"supported_sources": ["existing"], "default_seed": 42},
+            "fit": {"supported_sources": ["existing", "upload"], "default_seed": 42},
         }
 
     @app.post("/api/v1/experiments", response_model=Experiment, status_code=201,

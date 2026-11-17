@@ -1,0 +1,35 @@
+# Issue 06 verification
+
+The approved boundary is authenticated FastAPI HTTP with real application/SQLite
+services and controlled external compute, plus separate real GPU parity runs.
+The existing `.venv` and configured cache were used without dependency changes.
+
+- First acceptance test failed with HTTP 409 (existing recordings only), then
+  passed after uploads entered the shared workflow.
+- Four uploaded-fit acceptance tests pass: upload → fit → ranked correlations;
+  same-named replacements with two queued fits and isolated session-zero models;
+  invalid/missing/modified/foreign upload rejection; model loading/fitting failures
+  without successful or ready output and without private error content.
+- Full backend suite: 44 tests pass, including all existing-recording regressions.
+- Backend Pyright: 0 errors; React TypeScript and Vite production build pass.
+- Chromium with real API/SQLite and controlled worker passes uploaded fit queued,
+  running, success, sorted signed/decimal channel IDs, unavailable values, failure,
+  same-named replacement invalidation, and desktop/mobile layout, with no page errors.
+  Screenshots remain under configured cache `auditory-web-checks/issue06-*`.
+- Two separate real MAT uploads named `same.mat` were fitted through HTTP and the
+  scientific worker on CUDA, using seed 42, TIMIT/deepspeech2 layer 2, 50-ms bins,
+  200-ms lag, and unchanged three-fold cross-validation. Both fit all 18 channels
+  with maximum absolute delta 0.0 against the issue 01 existing/upload baseline,
+  satisfying exact equality in the unchanged runtime. Best channel: 12.03,
+  correlation 0.2760693717950025. Native session-zero configuration remains private
+  inside distinct fit UUID workspaces. First artifacts remain unchanged after the
+  second fit. Evidence: [issue06-parity.json](issue06-parity.json).
+- Scientific application code and algorithms are unchanged in this issue. The
+  worker invokes the existing full-path reader for uploads and reuses all fitting,
+  result sorting, persistence, provenance, and artifact publication from issue 05.
+- Existing missing-SoX warning remains nonblocking for these successful fits.
+
+Large recordings/model files and runtime diagnostics remain in the configured
+scientific cache, outside the source repository. No new environment was created.
+
+Independent review results will be recorded before issue resolution.

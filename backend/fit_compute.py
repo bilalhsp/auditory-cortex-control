@@ -46,7 +46,9 @@ def scientific_fit(task: FitTask, progress: Callable[[str], None]) -> FitOutput:
     if file_sha256(recording) != snapshot['recording_sha256'] or file_sha256(metadata) != snapshot['metadata_sha256']:
         raise RuntimeError('Pinned recording inputs changed')
     cfg = task.fit.configuration
-    dataset = create_neural_dataset(cfg.dataset_name, snapshot['native_session_id'],
+    uploaded = task.fit.recording.source == 'upload'
+    dataset = create_neural_dataset(cfg.dataset_name, recording if uploaded else snapshot['native_session_id'],
+                                    full_path=uploaded,
                                     recording_path=recording, metadata_config_path=metadata)
     checkpoint_name = load_dnn_config(model_name=cfg.model_name)['saved_checkpoint']
     checkpoint = auditory_cortex.pretrained_dir / cfg.model_name / checkpoint_name
@@ -59,6 +61,7 @@ def scientific_fit(task: FitTask, progress: Callable[[str], None]) -> FitOutput:
         torch.manual_seed(task.fit.seed)
         progress('fitting')
         _, correlations = generator.fit_encoding_model(snapshot['native_session_id'], neural_dataset=dataset,
+                                                       session_source='upload' if uploaded else 'existing',
                                                        artifact_path=task.workspace / 'model.pkl')
         progress('writing')
         generator.save_trf_config(task.workspace)

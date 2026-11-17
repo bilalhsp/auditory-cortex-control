@@ -1,0 +1,41 @@
+{
+  "completed": true,
+  "root": "/scratch/gilbreth/ahmedb/cache/auditory-web-checks/issue06-real/096355dd-8048-4dda-8392-c958d680f1c5",
+  "attempts": [
+    {
+      "fit_id": "a1717a43-b044-4dcb-b17d-57d8c510f993",
+      "job_id": "7049e455-fce5-4cf6-aa66-be17299cbab2",
+      "recording_id": "b0668e70-496c-453e-a8fc-f7e593d4edcc",
+      "seconds": 134.2308823382482,
+      "channels": 18,
+      "max_absolute_baseline_delta": 0.0,
+      "best_channel": {
+        "channel_id": "12.03",
+        "correlation": 0.2760693717950025
+      },
+      "manifest": {
+        "model.pkl": "0c075e6e20bda90e52b60c9b32bdd31abb5c12b659013739d286bc969e67edbf",
+        "trf_config.json": "3a1e6351a42427e8e6c75a29a484bbf164f09223d1fafe84ca2f1c5a72e383b0",
+        "provenance.json": "f081359150c08fd654d7f1a4902d04b3e25e30239d6da12d0fe3a97556691aac"
+      }
+    },
+    {
+      "fit_id": "aabce45d-7081-4d10-bdb3-f7905d6d9c28",
+      "job_id": "7b5c5a79-99e2-4a28-a7b2-d5a4af896c04",
+      "recording_id": "412ab4cd-6282-4661-882f-54643a7181f2",
+      "seconds": 136.10506548918784,
+      "channels": 18,
+      "max_absolute_baseline_delta": 0.0,
+      "best_channel": {
+        "channel_id": "12.03",
+        "correlation": 0.2760693717950025
+      },
+      "manifest": {
+        "model.pkl": "e28a23947054dedfd6ef10b08cf6b146f9518ff3085a4ddd303bad43ffab0fce",
+        "trf_config.json": "3a1e6351a42427e8e6c75a29a484bbf164f09223d1fafe84ca2f1c5a72e383b0",
+        "provenance.json": "c289e365a1253a5b302be082d1ebc43fb33ce0820d4c6fece4243214a6b0a0b7"
+      }
+    }
+  ],
+  "original_artifact_unchanged_after_second_fit": true
+}

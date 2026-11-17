@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from backend.config import Settings
 from backend.models import Fit, FitSubmission, Experiment
-from backend.recordings import RecordingCatalog
+from backend.recordings import RecordingCatalog, ResolvedRecording
 from backend.store import ExperimentStore
 
 
@@ -36,11 +36,17 @@ def submit_fit(settings: Settings, store: ExperimentStore, catalog: RecordingCat
     if (experiment.recording is None or experiment.recording.id != str(request.recording_id)
             or experiment.recording_revision != request.recording_revision):
         raise FitRequestError(409, 'Recording selection changed. Reload and submit again.')
-    if experiment.recording.source != 'existing':
-        raise FitRequestError(409, 'Select an existing recording to fit this model.')
     if experiment.configuration.gpu_count < 1 or available_gpus < 1:
         raise FitRequestError(409, 'No GPU is available for fitting. Refresh capacity and retry.')
-    resolved = catalog.resolve(experiment.configuration.dataset_name, experiment.recording.id)
+    uploaded = None
+    if experiment.recording.source == 'upload':
+        uploaded = store.get_upload(experiment.recording.id, experiment.id)
+        if uploaded is None or not uploaded.path.is_file():
+            raise FitRequestError(404, 'Uploaded recording is missing. Upload it again.')
+        data_root, metadata_path = catalog.locations()
+        resolved = ResolvedRecording(uploaded.recording, 0, uploaded.path, metadata_path, data_root)
+    else:
+        resolved = catalog.resolve(experiment.configuration.dataset_name, experiment.recording.id)
     if resolved is None:
         raise FitRequestError(404, 'Recording is missing or no longer available.')
     if experiment.configuration.stimulus_family not in resolved.recording.stimulus_families:
@@ -63,8 +69,11 @@ def submit_fit(settings: Settings, store: ExperimentStore, catalog: RecordingCat
         metadata = inputs / 'sessions.yml'
         shutil.copyfile(str(resolved.path), str(recording))
         shutil.copyfile(str(resolved.metadata_path), str(metadata))
+        recording_hash = file_sha256(recording)
+        if uploaded is not None and (recording_hash != uploaded.sha256 or recording.stat().st_size != uploaded.size_bytes):
+            raise FitRequestError(409, 'Uploaded recording changed after validation. Upload it again.')
         snapshot = {'native_session_id': resolved.session_id, 'recording_file': str(recording.relative_to(workspace)),
-                    'metadata_file': 'input/sessions.yml', 'recording_sha256': file_sha256(recording),
+                    'metadata_file': 'input/sessions.yml', 'recording_sha256': recording_hash,
                     'metadata_sha256': file_sha256(metadata), 'neural_data_dir': str(resolved.data_root.resolve())}
         (workspace / 'input.json').write_text(json.dumps(snapshot, indent=2))
         accepted = store.enqueue_fit(fit, str(request.request_id), workspace)

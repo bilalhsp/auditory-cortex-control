@@ -87,7 +87,7 @@ from any working directory:
   run before consuming the body; streamed byte counting also enforces the limit
   when Content-Length is absent or inaccurate. Proxy request limits should align
   with the configured byte limit.
-- `POST /api/v1/experiments/{id}/fits`: queue an existing-recording fit; send
+- `POST /api/v1/experiments/{id}/fits`: queue an existing or validated uploaded recording fit; send
   `request_id` (client UUID), `recording_id`, `recording_revision`, and optional
   `seed` (default 42). HTTP 202 returns immutable fit/job identities and context.
 - `GET /api/v1/fits/{id}` and `GET /api/v1/jobs/{id}`: authenticated persisted
@@ -178,7 +178,17 @@ rejects a concurrently changed selection. Reusing a request UUID with identical
 context returns its existing fit, including after a lost response; conflicting
 reuse returns 409. New attempts require new request UUIDs. Unknown/missing
 recordings return 404, stale/incompatible/no-GPU context 409, unavailable catalog
-or storage 503. Uploaded-recording fitting follows in issue 06.
+or storage 503.
+
+Validated uploads use the same fit endpoint and lifecycle. The server resolves
+the upload only within its original experiment and checks the pinned bytes against
+the checksum and size registered during validation. Missing uploads require
+re-upload (404); changed files are rejected (409) before a job is accepted. Browser
+filenames never resolve paths. Unvalidated files have no selectable recording ID.
+Upload fitting uses the legacy full-path parser and internal session zero, while
+the fit UUID controls every model/configuration output path. Two uploads with the
+same display name therefore retain distinct recording, fit, and artifact IDs.
+Replacing a selection leaves earlier accepted fits and their pinned inputs intact.
 
 The worker persists `queued` → `running` (loading/fitting/writing) → `succeeded`
 or `failed`. It reuses three-fold TRF cross-validation and the original data
@@ -211,4 +221,5 @@ uv run --no-sync python -m unittest discover -s backend/tests -v
 The approved test boundary is HTTP with real SQLite/application services and a
 controlled external GPU-count provider and compute runner. No scientific model
 downloads or GPU computations are needed for these contract tests. Real GPU parity
-evidence is recorded separately in `.scratch/web-migration/issue05-parity.json`.
+evidence is recorded separately in `.scratch/web-migration/issue05-parity.json`
+and `.scratch/web-migration/issue06-parity.json`.
