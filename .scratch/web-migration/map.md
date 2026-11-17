@@ -3,7 +3,7 @@
 ## Notes
 
 Implementation tickets live in [issues/](issues/); the approved requirements are
-in [spec.md](spec.md). Issues 01–09 are resolved.
+in [spec.md](spec.md). Issues 01–10 are resolved.
 
 ## Decisions-so-far
 
@@ -39,9 +39,15 @@ in [spec.md](spec.md). Issues 01–09 are resolved.
   retries. Committed results survive closure and restart; retries keep source
   ownership and skip completed batch targets. Inherited allocator locks prevent
   premature GPU reallocation after owner failure. See
-  [verification](issue09-verification.md). Issue 10 is next.
+  [verification](issue09-verification.md).
+
+- [Issue 10](issues/10-enforce-access-and-data-lifecycle.md) verifies authentication
+  across all API routes and retained downloads, adds no-store API responses, and
+  documents private storage/public HTTPS proxy boundaries. Indefinite retention
+  remains enforced; backups and multi-user sharing are explicitly excluded.
+  All 73 backend tests pass; see [verification](issue10-verification.md).
 
 ## Fog
 
-Later slices implement access/data lifecycle hardening (10) and final
-parity/cutover (11). No new user decisions block issue 10.
+Issue 11 is next for final parity/cutover. Public HTTPS proxy checks remain a
+deployment gate; no new user decisions block selecting issue 11.
