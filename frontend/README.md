@@ -89,3 +89,10 @@ when targets are fewer than selected devices. Partial batches offer a ZIP of
 completed targets plus a public manifest; failed/incomplete target files are
 excluded. New batches preserve earlier server results. A batch count can be
 explicitly changed without changing the fit's scientific configuration.
+
+Recovery controls use the advertised session capability. Older backends can keep
+serving the original fit/generation workflow without recovery requests. Saved-job
+views use job identities for polling; changing the selected session discards late
+responses from the previous view. Retry eligibility comes from the server, so an
+interrupted batch whose targets all completed offers its saved download instead
+of an empty retry.

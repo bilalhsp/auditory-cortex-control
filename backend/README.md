@@ -411,3 +411,9 @@ registration, or multi-user collaboration. Session lifecycle never deletes saved
 scientific results. Access/retention hardening and final cutover remain later
 slices. Upgrade API and worker together using the existing coordinated-deployment
 procedure; lifecycle metadata migration is transactional.
+
+Retry command ownership is bound durably before enqueueing. The public retry UUID
+selects one source job and a private enqueue identity; original command IDs cannot
+be adopted as new attempts. Retry provenance commits with the new job. An
+interrupted batch with every target already saved returns 409 for Retry and
+remains downloadable. The session capability advertises these recovery routes.
