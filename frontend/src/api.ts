@@ -1,4 +1,5 @@
 export interface Capabilities {
+  upload?: { max_bytes: number; formats: string[] };
   settings: {
     stimulus_families: string[];
     datasets: string[];
@@ -37,13 +38,18 @@ export interface Recording {
   id: string;
   display_name: string;
   dataset_name: string;
-  source: "existing";
+  source: "existing" | "upload";
   stimulus_families: string[];
 }
 
 export interface RecordingCatalog {
   recordings: Recording[];
   unavailable_count: number;
+}
+
+export interface UploadResult {
+  validation_status: "valid";
+  experiment: Experiment;
 }
 
 declare global {
@@ -71,15 +77,23 @@ export function makeApi(username: string, password: string) {
   const base = (window.AUDITORY_CONFIG?.apiBaseUrl ?? "").replace(/\/$/, "");
   async function request<T>(
     path: string,
-    body?: Configuration | { recording_id: string },
+    body?: Configuration | { recording_id: string } | File,
   ): Promise<T> {
+    const file = body instanceof File ? body : null;
     const response = await fetch(`${base}/api/v1${path}`, {
       method: body ? "POST" : "GET",
       headers: {
         Authorization: `Basic ${encoded}`,
-        ...(body ? { "Content-Type": "application/json" } : {}),
+        ...(file
+          ? {
+              "Content-Type": "application/octet-stream",
+              "X-Recording-Filename": encodeURIComponent(file.name),
+            }
+          : body
+            ? { "Content-Type": "application/json" }
+            : {}),
       },
-      ...(body ? { body: JSON.stringify(body) } : {}),
+      ...(body ? { body: file ?? JSON.stringify(body) } : {}),
       cache: "no-store",
     });
     if (!response.ok) {
@@ -105,6 +119,11 @@ export function makeApi(username: string, password: string) {
       request<Experiment>(
         `/experiments/${encodeURIComponent(experimentId)}/recording-selection`,
         { recording_id: recordingId },
+      ),
+    uploadRecording: (experimentId: string, file: File) =>
+      request<UploadResult>(
+        `/experiments/${encodeURIComponent(experimentId)}/recording-upload`,
+        file,
       ),
   };
 }

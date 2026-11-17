@@ -14,6 +14,8 @@ class Settings:
     allowed_origins: Tuple[str, ...] = ("http://localhost:5173",)
     neural_data_dir: Optional[Path] = None
     recording_metadata_path: Optional[Path] = None
+    upload_dir: Optional[Path] = None
+    max_upload_bytes: int = 50 * 1024 * 1024
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -35,6 +37,11 @@ class Settings:
             raise RuntimeError("Use explicit frontend origins, not a wildcard")
         data_dir = os.environ.get("AUDITORY_NEURAL_DATA_DIR")
         metadata_path = os.environ.get("AUDITORY_RECORDINGS_METADATA")
+        upload_dir = os.environ.get("AUDITORY_UPLOAD_DIR")
+        maximum = int(os.environ.get("AUDITORY_MAX_UPLOAD_BYTES", str(50 * 1024 * 1024)))
+        if maximum < 1:
+            raise RuntimeError("AUDITORY_MAX_UPLOAD_BYTES must be positive")
         return cls(Path(database), operator, password_hash, origins,
                    Path(data_dir) if data_dir else None,
-                   Path(metadata_path) if metadata_path else None)
+                   Path(metadata_path) if metadata_path else None,
+                   Path(upload_dir) if upload_dir else None, maximum)

@@ -14,7 +14,9 @@ export default function RecordingSelector({
   onSelected,
 }: Props) {
   const [catalog, setCatalog] = useState<RecordingCatalog | null>(null);
-  const [candidate, setCandidate] = useState(experiment.recording?.id ?? "");
+  const [candidate, setCandidate] = useState(
+    experiment.recording?.source === "existing" ? experiment.recording.id : "",
+  );
   const [refresh, setRefresh] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -27,6 +29,10 @@ export default function RecordingSelector({
       mounted.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (experiment.recording?.source === "upload") setCandidate("");
+  }, [experiment.recording?.id, experiment.recording?.source]);
 
   useEffect(() => {
     let active = true;
@@ -148,7 +154,7 @@ export default function RecordingSelector({
           {saving ? "Attaching…" : "Use this recording →"}
         </button>
       </div>
-      {experiment.recording && (
+      {experiment.recording?.source === "existing" && (
         <div className="notice selected-recording" role="status">
           <strong>Recording attached</strong>
           <p>{experiment.recording.display_name}</p>

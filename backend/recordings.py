@@ -42,7 +42,7 @@ class RecordingCatalog:
         return data, metadata
 
     @staticmethod
-    def _stimulus_families(path: Path, repeats: int) -> List[Literal["TIMIT", "mVocs"]]:
+    def stimulus_families(path: Path, repeats: int) -> List[Literal["TIMIT", "mVocs"]]:
         import numpy as np
         from scipy.io import loadmat
         from scipy.io.matlab import MatReadError
@@ -96,7 +96,7 @@ class RecordingCatalog:
                 try:
                     path = self._resolved_path(directory / name)
                     path.relative_to(directory)
-                    families = self._stimulus_families(path, repeats)
+                    families = self.stimulus_families(path, repeats)
                 except (OSError, ValueError, TypeError, KeyError, AttributeError, NotImplementedError):
                     result.unavailable_count += 1
                     continue

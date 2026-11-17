@@ -5,15 +5,16 @@ from datetime import datetime, timezone
 from typing import Callable, Optional
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from backend.auth import password_matches
 from backend.config import Settings
-from backend.models import Experiment, ExperimentConfiguration, RecordingCatalogResult, RecordingSelection
+from backend.models import Experiment, ExperimentConfiguration, RecordingCatalogResult, RecordingSelection, UploadResult
 from backend.recordings import CatalogUnavailable, RecordingCatalog
 from backend.store import ExperimentStore
+from backend.uploads import UploadError, receive_upload
 
 
 def local_gpu_count() -> int:
@@ -29,6 +30,8 @@ def create_app(
     settings = settings or Settings.from_environment()
     if not settings.operator or not settings.password_hash:
         raise RuntimeError("Operator authentication must be configured")
+    if settings.max_upload_bytes < 1:
+        raise RuntimeError("Upload size limit must be positive")
     # Validate the configured hash once, failing closed on invalid configuration.
     password_matches("", settings.password_hash)
     store = ExperimentStore(settings.database_path)
@@ -36,7 +39,7 @@ def create_app(
     app = FastAPI(title="Auditory Cortex Control", docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(
         CORSMiddleware, allow_origins=list(settings.allowed_origins),
-        allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"],
+        allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type", "X-Recording-Filename"],
     )
     security = HTTPBasic()
 
@@ -73,6 +76,7 @@ def create_app(
                 "bin_width_ms": 50, "receptive_field_ms": 200,
             },
             "gpu": capacity(),
+            "upload": {"max_bytes": settings.max_upload_bytes, "formats": [".mat"]},
         }
 
     @app.post("/api/v1/experiments", response_model=Experiment, status_code=201,
@@ -116,8 +120,12 @@ def create_app(
               dependencies=[Depends(operator)])
     def select_recording(identity: UUID, selection: RecordingSelection) -> Experiment:
         experiment = read_experiment(identity)
-        result = available_recordings(experiment)
-        recording = next((item for item in result.recordings if item.id == str(selection.recording_id)), None)
+        uploaded = store.get_upload(str(selection.recording_id), str(identity))
+        if uploaded is not None:
+            recording = uploaded.recording if uploaded.path.is_file() else None
+        else:
+            result = available_recordings(experiment)
+            recording = next((item for item in result.recordings if item.id == str(selection.recording_id)), None)
         if recording is None:
             raise HTTPException(404, "Recording is missing or no longer available. Refresh the list.")
         if experiment.configuration.stimulus_family not in recording.stimulus_families:
@@ -126,5 +134,29 @@ def create_app(
         if selected is None:
             raise HTTPException(404, "Experiment not found")
         return selected
+
+    @app.post("/api/v1/experiments/{identity}/recording-upload", response_model=UploadResult,
+              status_code=201, dependencies=[Depends(operator)])
+    async def upload_recording(identity: UUID, request: Request,
+                               filename: str = Header(..., alias="X-Recording-Filename")) -> UploadResult:
+        experiment = read_experiment(identity)
+        if request.headers.get("content-type", "").split(";")[0].strip() != "application/octet-stream":
+            raise HTTPException(415, {"validation_status": "invalid", "message": "Send MAT recording bytes as application/octet-stream."})
+        try:
+            length = request.headers.get("content-length")
+            if length is not None:
+                try:
+                    byte_count = int(length)
+                except ValueError as error:
+                    raise UploadError(400, "Invalid upload length.") from error
+                if byte_count < 0:
+                    raise UploadError(400, "Invalid upload length.")
+                if byte_count > settings.max_upload_bytes:
+                    raise UploadError(413, "Recording exceeds the configured upload size limit.")
+            return await receive_upload(request.stream(), filename, experiment, settings, store)
+        except UploadError as error:
+            raise HTTPException(error.status, {
+                "validation_status": "invalid" if error.status < 500 else "error", "message": str(error),
+            }) from error
 
     return app

@@ -20,7 +20,7 @@ class Recording(BaseModel):
     id: str
     display_name: str
     dataset_name: str
-    source: Literal["existing"] = "existing"
+    source: Literal["existing", "upload"] = "existing"
     stimulus_families: List[Literal["TIMIT", "mVocs"]]
 
 
@@ -41,3 +41,8 @@ class Experiment(BaseModel):
     configuration: ExperimentConfiguration
     recording: Optional[Recording] = None
     recording_revision: int = 0
+
+
+class UploadResult(BaseModel):
+    validation_status: Literal["valid"] = "valid"
+    experiment: Experiment

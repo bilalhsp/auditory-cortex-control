@@ -41,5 +41,14 @@ Changing stimulus family or GPU selection clears the current setup and recording
 display. Previous experiments and selections remain persisted in the backend.
 Changing the selected recording advances its revision without deleting prior
 results. Late requests from an old experiment cannot replace the current setup.
-Fitting, generation, uploads, and session history remain subsequent slices.
+The upload panel accepts MAT recordings up to the backend's advertised limit.
+It shows upload/validation progress and server errors, and attaches only valid,
+compatible recordings. Same-named uploads receive different identities; replacing
+one retains its earlier artifact. Failed validation preserves the saved selection.
+The file input resets after success, allowing the same filename to be uploaded
+again. Older in-flight responses cannot overwrite a newer recording revision or
+a different experiment. Upload availability is capability-driven so older API
+deployments can continue supporting setup without the upload panel.
+
+Fitting, generation, and session history remain subsequent slices.
 Signing out drops in-memory credentials.

@@ -37,6 +37,8 @@ separate, later workflow; signing out does not stop accepted work.
 | `AUDITORY_ALLOWED_ORIGINS` | Comma-separated frontend origins; default `http://localhost:5173`; wildcards rejected |
 | `AUDITORY_NEURAL_DATA_DIR` | Dataset root; defaults to `neural_data_dir` in the existing research configuration |
 | `AUDITORY_RECORDINGS_METADATA` | Existing ucdavisBAK YAML session catalog; defaults to the research package's `ucdavisBAK_config.yml` |
+| `AUDITORY_UPLOAD_DIR` | Persistent private upload directory; defaults to `uploads/` beside the SQLite database |
+| `AUDITORY_MAX_UPLOAD_BYTES` | Positive byte limit; defaults to 50 MiB and is exposed in capabilities |
 | `CUDA_VISIBLE_DEVICES` | Devices permitted to the backend; honored by torch detection |
 
 When deploying the backend artifact without the research repository, explicitly set
@@ -78,6 +80,38 @@ from any working directory:
   with opaque IDs, display names, and a count of unavailable catalog entries.
 - `POST /api/v1/experiments/{id}/recording-selection`: attach an opaque
   `recording_id`; returns the experiment with its selected recording and revision.
+- `POST /api/v1/experiments/{id}/recording-upload`: upload raw MAT bytes using
+  `Content-Type: application/octet-stream` and a percent-encoded UTF-8
+  `X-Recording-Filename` display name. Authentication and declared size checks
+  run before consuming the body; streamed byte counting also enforces the limit
+  when Content-Length is absent or inaccurate. Proxy request limits should align
+  with the configured byte limit.
+
+Uploads validate synchronously before selection: the UI reports pending while
+the request runs; HTTP 201 returns `validation_status: valid` and the updated
+experiment with a stable recording identity. Invalid files return 415/422,
+incompatible stimulus families 409, and oversize files 413, with structured
+`validation_status: invalid` feedback. Invalid uploads are not registered,
+their staged files are removed, and prior selections remain unchanged. Storage
+failures return 503 with `validation_status: error`. This is not a durable
+background-validation job.
+
+Validation uses SciPy's MAT parser and the shared trial-family reader, never
+pickle/model-checkpoint loading. Uploaded ucdavisBAK recordings must have the
+legacy full-path reader's S1T trials (optional S2 targets), one-dimensional
+stimulus names/types/onsets, and finite WM/BAK spike times; WM codes must match
+their spike times. Validation establishes format and stimulus-family
+compatibility, not eventual fit quality or GPU readiness.
+
+Each upload uses a private server-generated directory and canonical filename;
+the supplied filename is reduced to a display basename only. The generated
+filename preserves the legacy underscore-separated session-label convention.
+SQLite retains artifact path, size, checksum, and experiment ownership privately;
+public responses never serialize those paths. Publishing the validated artifact
+precedes an atomic metadata/selection transaction. Replacing an upload increments
+the recording revision and retains previous files. Older registered uploads may
+be reselected by ID only within their original experiment. Put upload storage
+on persistent filesystem storage; no automatic retention cleanup is implemented.
 
 Discovery reuses the research dataset's YAML session catalog and reads only MAT
 `TrialStimData`. It follows the legacy TIMIT/mvox folder and trial-type conventions,

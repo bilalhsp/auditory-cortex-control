@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { ApiError, makeApi } from "./api";
 import type { Capabilities, Experiment } from "./api";
 import RecordingSelector from "./RecordingSelector";
+import RecordingUpload from "./RecordingUpload";
 
 export default function App() {
   const [api, setApi] = useState<ReturnType<typeof makeApi> | null>(null);
@@ -100,6 +101,14 @@ export default function App() {
     setExperiment(null);
     setPassword("");
     setError("");
+  }
+  function recordingSelected(updated: Experiment) {
+    setExperiment((current) =>
+      current?.id === updated.id &&
+      updated.recording_revision >= current.recording_revision
+        ? updated
+        : current,
+    );
   }
   const available = caps?.gpu.available_count ?? 0;
   const invalidGpu = gpuCount > available || (gpuCount === 0 && available > 0);
@@ -380,11 +389,16 @@ export default function App() {
                   key={experiment.id}
                   api={api}
                   experiment={experiment}
-                  onSelected={(updated) =>
-                    setExperiment((current) =>
-                      current?.id === updated.id ? updated : current,
-                    )
-                  }
+                  onSelected={recordingSelected}
+                />
+              )}
+              {experiment && caps.upload && (
+                <RecordingUpload
+                  key={`upload-${experiment.id}`}
+                  api={api}
+                  experiment={experiment}
+                  maxBytes={caps.upload.max_bytes}
+                  onSelected={recordingSelected}
                 />
               )}
               <p className="footnote">
