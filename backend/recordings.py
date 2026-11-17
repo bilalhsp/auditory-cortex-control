@@ -41,15 +41,18 @@ class RecordingCatalog:
             raise ValueError("Cannot resolve recording location") from error
 
     def locations(self) -> Tuple[Path, Path]:
-        repository = Path(__file__).resolve().parents[1]
-        data = self.settings.neural_data_dir
-        if data is None:
-            config = yaml.safe_load((repository / "auditory_cortex/config.yml").read_text())
-            data = Path(config["neural_data_dir"])
-        metadata = self.settings.recording_metadata_path or (
-            repository / "auditory_cortex/neural_data/ucdavis_active/configs/ucdavisBAK_config.yml"
-        )
-        return data, metadata
+        try:
+            repository = Path(__file__).resolve().parents[1]
+            data = self.settings.neural_data_dir
+            if data is None:
+                config = yaml.safe_load((repository / "auditory_cortex/config.yml").read_text())
+                data = Path(config["neural_data_dir"])
+            metadata = self.settings.recording_metadata_path or (
+                repository / "auditory_cortex/neural_data/ucdavis_active/configs/ucdavisBAK_config.yml"
+            )
+            return data, metadata
+        except (OSError, ValueError, TypeError, KeyError, yaml.YAMLError) as error:
+            raise CatalogUnavailable("Recording configuration is unavailable. Check the server's dataset and metadata settings.") from error
 
     @staticmethod
     def stimulus_families(path: Path, repeats: int) -> List[Literal["TIMIT", "mVocs"]]:

@@ -1,5 +1,9 @@
 import json
+import os
+import subprocess
+import sys
 import unittest
+from pathlib import Path
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -116,6 +120,40 @@ class UploadedFitApiTests(unittest.TestCase):
             self.assertEqual(result['correlations'], [])
             self.assertNotIn('/depot', response.text)
             self.assertNotIn('private recording content', response.text)
+
+    def test_standalone_backend_without_scientific_configuration_returns_actionable_error(self):
+        self.upload()
+        archive = self.fixture.root / 'backend.pyz'
+        subprocess.run([sys.executable, '-m', 'backend.build', str(archive)],
+                       cwd=str(Path(__file__).resolve().parents[2]), check=True, capture_output=True)
+        script = '''
+import json, sys
+from pathlib import Path
+from uuid import uuid4
+from fastapi.testclient import TestClient
+from backend.app import create_app
+from backend.config import Settings
+data = json.load(sys.stdin)
+settings = Settings(Path(data['database']), 'operator', data['password_hash'])
+client = TestClient(create_app(settings, lambda: 1), raise_server_exceptions=False)
+client.auth = ('operator', 'test-password')
+experiment = data['experiment']
+response = client.post('/api/v1/experiments/' + experiment['id'] + '/fits', json={
+    'request_id': str(uuid4()), 'recording_id': experiment['recording']['id'],
+    'recording_revision': experiment['recording_revision'], 'seed': 42,
+})
+print(json.dumps({'status': response.status_code, 'body': response.text}))
+'''
+        result = subprocess.run([sys.executable, '-c', script], cwd=str(self.fixture.root),
+                                env=dict(os.environ, PYTHONPATH=str(archive)), text=True,
+                                input=json.dumps({'database': str(self.settings.database_path),
+                                                  'password_hash': self.settings.password_hash,
+                                                  'experiment': self.experiment}),
+                                check=True, capture_output=True)
+        response = json.loads(result.stdout)
+        self.assertEqual(response['status'], 503, response['body'])
+        self.assertIn('configuration', response['body'])
+        self.assertNotIn(str(self.fixture.root), response['body'])
 
 
 if __name__ == '__main__':
