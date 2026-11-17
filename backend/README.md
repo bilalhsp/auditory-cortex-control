@@ -24,8 +24,7 @@ hash. Production requires an HTTPS reverse proxy and authentication request-rate
 limits. Keep the API's direct HTTP listener private to that proxy. Protect all
 API endpoints; only `/healthz` is intentionally unauthenticated and reveals no
 experiment or compute data. The frontend holds credentials in memory and drops
-them on sign-out; reloading requires sign-in again. Stop/Close computation is a
-separate, later workflow; signing out does not stop accepted work.
+them on sign-out; reloading requires sign-in again. Signing out does not stop accepted work; use the explicit Stop/Close actions.
 
 ## Configuration
 
@@ -408,8 +407,7 @@ retargeting an old command. No automatic scientific retries occur.
 Declined/out-of-scope guarantees remain unchanged: no seamless checkpoint
 continuation, automatic scientific retry, backup implementation, public
 registration, or multi-user collaboration. Session lifecycle never deletes saved
-scientific results. Access/retention hardening and final cutover remain later
-slices. Upgrade API and worker together using the existing coordinated-deployment
+scientific results. Final parity and cutover remain a later slice. Upgrade API and worker together using the existing coordinated-deployment
 procedure; lifecycle metadata migration is transactional.
 
 Retry command ownership is bound durably before enqueueing. The public retry UUID
@@ -417,3 +415,48 @@ selects one source job and a private enqueue identity; original command IDs cann
 be adopted as new attempts. Retry provenance commits with the new job. An
 interrupted batch with every target already saved returns 409 for Retry and
 remains downloadable. The session capability advertises these recovery routes.
+
+
+## Access and retained data (issue 10)
+
+One configured operator can access all application sessions. There are no tenant
+accounts, sharing links, anonymous artifact URLs, or public registration. UUIDs
+identify resources; they do not grant access. Every `/api/v1/` command, status,
+catalog, history, manifest, upload, and download requires the configured Basic
+credentials. Responses, including authentication errors, use `Cache-Control:
+no-store`. CORS controls browser origins and does not replace authentication.
+
+Deploy only frontend `dist/` as static content. Never expose the repository,
+SQLite database (including WAL/SHM), configured cache, upload/fit directories,
+model weights, worker workspaces, or diagnostic logs through a static-file alias
+or directory listing. Downloads must pass through the authenticated API. Run the
+API/worker as a dedicated OS user with access to private persistent data; give
+that user ownership of storage and restrict directory access (for example umask
+077). Keep secrets in the server environment, not Vite variables or build output.
+
+Public deployment requires HTTPS for both frontend and API, an exact production
+`AUDITORY_ALLOWED_ORIGINS`, and a reverse proxy with authentication request-rate
+limits. Bind the upstream API to loopback or a private connection reachable only
+by that proxy. Forward Authorization, avoid logging credentials or request bodies,
+disable proxy caching for `/api/`, and route that prefix only to FastAPI. Configure
+TLS/HSTS at the public proxy according to the deployment's certificate setup.
+The repository cannot verify a future external proxy: before publishing, check
+that HTTP redirects to HTTPS, direct upstream ports and data directories are
+unreachable, and unauthenticated API/download requests return 401. Repeat with a
+wrong password and wrong username. Health alone is intentionally public.
+
+There is no automatic expiry, startup cleanup, session-close deletion, or deletion
+API in this release. Keep metadata and all referenced recordings/models/samples
+on persistent filesystem storage across deployments. Completed artifacts remain
+available after closure and restart, including completed targets of partial or
+cancelled batches. Incomplete/failed output remains private and is excluded from
+downloads. Never sweep workspaces based on age or browser connection state:
+accepted queued/running work and historical references must remain intact.
+Rejected upload staging and per-request temporary download ZIPs are cleaned up;
+those temporary files are distinct from retained scientific artifacts. Initialization
+never deletes shared research results. Any future explicit deletion feature needs
+its own reference/active-work policy; do not add an ad hoc cleanup cron job.
+
+Backup implementation and backup/restore acceptance were explicitly excluded by
+the operator. Restart/recovery tests verify persistence against the same database
+and filesystem; they are not evidence of disaster recovery or a tested backup.

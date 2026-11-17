@@ -45,6 +45,13 @@ def create_app(
         CORSMiddleware, allow_origins=list(settings.allowed_origins),
         allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type", "X-Recording-Filename"],
     )
+    @app.middleware("http")
+    async def protect_api_cache(request: Request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/api/"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
+
     security = HTTPBasic()
 
     def operator(credentials: HTTPBasicCredentials = Depends(security)) -> str:
