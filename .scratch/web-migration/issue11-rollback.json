@@ -1,0 +1,15 @@
+{
+  "completed": true,
+  "root": "/scratch/gilbreth/ahmedb/cache/auditory-web-checks/issue11-rollback/b5b084a5-484e-478e-a344-07b3dfd0d9b0",
+  "production_traffic_changed": false,
+  "legacy_launcher_health": "passed",
+  "isolated_legacy_ui": "passed",
+  "retained_artifact_sha256": {
+    "/scratch/gilbreth/ahmedb/cache/web-migration-baseline/issue-01/audio/stretch/0/timit/timit-unit_12.03_stretch_0.wav": "ee042f8904cdf919733a01ee1dfc6e252b037582162d6d0965b050e77fcc8ecd",
+    "/scratch/gilbreth/ahmedb/cache/web-migration-baseline/issue-01/audio/stretch/1/timit/timit-unit_12.03_stretch_0.wav": "ee042f8904cdf919733a01ee1dfc6e252b037582162d6d0965b050e77fcc8ecd",
+    "/scratch/gilbreth/ahmedb/cache/web-migration-baseline/issue-01/audio/one-hot/0/timit/timit-unit_12.03_one-hot_0.wav": "bf4320c81b00f4488aa36546168b56d587b145b5749d753dbeefe4f3bed90abd",
+    "/scratch/gilbreth/ahmedb/cache/web-migration-baseline/issue-01/audio/one-hot/1/timit/timit-unit_12.03_one-hot_0.wav": "bf4320c81b00f4488aa36546168b56d587b145b5749d753dbeefe4f3bed90abd",
+    "/scratch/gilbreth/ahmedb/cache/web-migration-baseline/issue-01/fit-cache/trf/deepspeech2/ucdavisBAK/deepspeech2_layer_2_sess_0_trf200_50ms.pkl": "d09772536a3cc06c578093855a5415c0e1441762a4d5e83ae39e6ad17c7ba63e"
+  },
+  "seconds": 22.97978841420263
+}
