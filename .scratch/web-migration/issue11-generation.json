@@ -1,0 +1,59 @@
+{
+  "completed": true,
+  "family": "mVocs",
+  "root": "/scratch/gilbreth/ahmedb/cache/auditory-web-checks/issue11-native/1eb4a458-af37-4953-9ad3-2261742a75c3",
+  "results": [
+    {
+      "objective": "stretch",
+      "source": "existing",
+      "fit_id": "806ece3d-c4cd-4065-bc97-316390117580",
+      "generation_id": "7e7b9edb-bf53-4637-8b09-adf6a675e795",
+      "job_id": "2a244a26-05d0-444e-816f-62cb74372e8c",
+      "channel_id": "12.03",
+      "legacy_seconds": 188.0815571830608,
+      "web_seconds": 204.39001716813073,
+      "queue_wait_seconds": 0.218103,
+      "max_fit_parameter_delta": 0.0,
+      "initialization_rng": {
+        "cpu_sha256": "5feb54a46230d321d888e9b43cf5a57492665f199e4377408d79ee460e36679c",
+        "cuda_sha256": "d77fb61ef1844a93ae98982359cb188ea3cfdcd3547d036946a1aebaa7a2949c"
+      },
+      "frames": 15392,
+      "rate": 16000,
+      "subtype": "PCM_16",
+      "web_sha256": "c026351a29628ec2db09fd9e5bef3687965bac5f9b686391cc248f28acfdb01f",
+      "legacy_sha256": "c026351a29628ec2db09fd9e5bef3687965bac5f9b686391cc248f28acfdb01f",
+      "max_absolute_pcm_difference": 0.0,
+      "rms_pcm_difference": 0.0,
+      "byte_identical": true,
+      "exit_code": 0
+    },
+    {
+      "objective": "one-hot",
+      "source": "upload",
+      "fit_id": "e6c09720-c26e-4f8b-bf17-370b0dc23231",
+      "generation_id": "5fd110be-3242-4009-be0d-264a97ca0ba4",
+      "job_id": "908f55ab-c351-489d-ac58-c9159db1460b",
+      "channel_id": "12.03",
+      "legacy_seconds": 177.41041825711727,
+      "web_seconds": 203.36093780724332,
+      "queue_wait_seconds": 0.271411,
+      "max_fit_parameter_delta": 0.0,
+      "initialization_rng": {
+        "cpu_sha256": "5feb54a46230d321d888e9b43cf5a57492665f199e4377408d79ee460e36679c",
+        "cuda_sha256": "d77fb61ef1844a93ae98982359cb188ea3cfdcd3547d036946a1aebaa7a2949c"
+      },
+      "frames": 15392,
+      "rate": 16000,
+      "subtype": "PCM_16",
+      "web_sha256": "0d5bbefd6f628fceefbfb1f5043c12f4dfd5950d4557f99bc80dbdd27898991f",
+      "legacy_sha256": "0d5bbefd6f628fceefbfb1f5043c12f4dfd5950d4557f99bc80dbdd27898991f",
+      "max_absolute_pcm_difference": 0.0,
+      "rms_pcm_difference": 0.0,
+      "byte_identical": true,
+      "exit_code": 0
+    }
+  ],
+  "acceptance": "Approved controlled legacy/web initialization and RNG comparison",
+  "total_seconds": 778.2095968630165
+}

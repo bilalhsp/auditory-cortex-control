@@ -47,7 +47,16 @@ in [spec.md](spec.md). Issues 01–10 are resolved.
   remains enforced; backups and multi-user sharing are explicitly excluded.
   All 73 backend tests pass; see [verification](issue10-verification.md).
 
+- [Issue 11](issues/11-verify-parity-and-cut-over.md) automated local acceptance
+  passes: all 74 HTTP/workflow tests, independently deployed production artifacts,
+  real mVocs fits for both sources (18 correlations exactly equal), both mVocs
+  objectives byte-identical under the approved controlled comparison, and isolated
+  legacy rollback rehearsal. See [verification](issue11-verification.md) and the
+  [release runbook](../../docs/deployment/web-cutover.md). Operator pilot/release
+  sign-off remain pending; no production switch or Streamlit retirement occurred.
+
 ## Fog
 
-Issue 11 is next for final parity/cutover. Public HTTPS proxy checks remain a
-deployment gate; no new user decisions block selecting issue 11.
+Issue 11 awaits operator pilot and release sign-off. Local URL/port acceptance is
+approved and passed. Public HTTPS/proxy validation is required before public
+exposure. Streamlit remains available until separately approved retirement.
