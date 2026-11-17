@@ -99,7 +99,7 @@ background-validation job.
 Validation uses SciPy's MAT parser and the shared trial-family reader, never
 pickle/model-checkpoint loading. Uploaded ucdavisBAK recordings must have the
 legacy full-path reader's S1T trials (optional S2 targets), one-dimensional
-stimulus names/types/onsets, and finite WM/BAK spike times; WM codes must match
+stimulus names/types/onsets, Windows-style backslash stimulus paths, and finite WM/BAK spike times; WM codes must match
 their spike times. Validation establishes format and stimulus-family
 compatibility, not eventual fit quality or GPU readiness.
 
@@ -112,6 +112,10 @@ precedes an atomic metadata/selection transaction. Replacing an upload increment
 the recording revision and retains previous files. Older registered uploads may
 be reselected by ID only within their original experiment. Put upload storage
 on persistent filesystem storage; no automatic retention cleanup is implemented.
+Once validation completes, a protected finalizer owns artifact publication,
+metadata commit, and failure cleanup together. Cancelling the HTTP request cannot
+delete an artifact while its commit is still running. Earlier interruptions
+discard only the incomplete upload; completed earlier uploads remain untouched.
 
 Discovery reuses the research dataset's YAML session catalog and reads only MAT
 `TrialStimData`. It follows the legacy TIMIT/mvox folder and trial-type conventions,

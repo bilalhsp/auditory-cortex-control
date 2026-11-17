@@ -1,6 +1,8 @@
 """Bounded recording ingestion. Private artifact paths never enter API models."""
 
 import hashlib
+import asyncio
+import logging
 import os
 import re
 import sqlite3
@@ -15,6 +17,8 @@ from backend.config import Settings
 from backend.models import Experiment, Recording, UploadResult
 from backend.recordings import RecordingCatalog
 from backend.store import ExperimentStore, StoredUpload
+
+logger = logging.getLogger(__name__)
 
 
 class UploadError(Exception):
@@ -46,6 +50,11 @@ def validate_recording(path: Path, stimulus_family: str) -> List[Literal['TIMIT'
                 raise ValueError('Invalid trial fields')
             if not set(str(kind) for kind in kinds).issubset({'S1T', 'S2'}):
                 raise ValueError('Unsupported full-path trial types')
+            for name, kind in zip(stimuli, kinds):
+                if str(kind) == 'S1T':
+                    parts = str(name).split('\\')
+                    if '/' in str(name) or len(parts) < 2 or parts[-2].lower() not in {'timit', 'mvox'}:
+                        raise ValueError('Stimulus names require the legacy backslash path convention')
             has_s1t = has_s1t or bool(np.any(kinds == 'S1T'))
         if not has_s1t:
             raise ValueError('Uploaded recordings require S1T trials for the legacy full-path reader')
@@ -63,10 +72,37 @@ def validate_recording(path: Path, stimulus_family: str) -> List[Literal['TIMIT'
             raise ValueError('No neural spikes')
         families = RecordingCatalog.stimulus_families(path, 3)
     except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, MatReadError, NotImplementedError) as error:
-        raise UploadError(422, 'Invalid recording. Upload a readable MAT recording with S1T stimulus names, trial onsets, and WM/BAK neural spike data.') from error
+        raise UploadError(422, 'Invalid recording. Upload a readable MAT recording with Windows-style S1T stimulus paths, trial onsets, and WM/BAK neural spike data.') from error
     if stimulus_family not in families:
         raise UploadError(409, "Recording is incompatible with this experiment's stimulus family.")
     return families
+
+
+def _discard(staged: Path, final: Path) -> None:
+    try:
+        staged.unlink(missing_ok=True)
+        final.unlink(missing_ok=True)
+        staged.parent.rmdir()
+    except OSError:
+        # Cleanup must not replace the original validation/storage failure.
+        logger.exception('Could not clean an incomplete upload')
+
+
+def _publish(store: ExperimentStore, experiment_id: str, artifact: StoredUpload) -> UploadResult:
+    staged = artifact.path.parent / 'recording.part'
+    published = False
+    try:
+        staged.rename(artifact.path)
+        selected = store.register_upload(experiment_id, artifact)
+        if selected is None:
+            raise UploadError(404, 'Experiment not found.')
+        published = True
+        return UploadResult(experiment=selected)
+    except (OSError, sqlite3.Error) as error:
+        raise UploadError(503, 'Recording storage is unavailable. Retry after the server storage is restored.') from error
+    finally:
+        if not published:
+            _discard(staged, artifact.path)
 
 
 async def receive_upload(stream: AsyncIterable[bytes], filename: str, experiment: Experiment,
@@ -86,7 +122,7 @@ async def receive_upload(stream: AsyncIterable[bytes], filename: str, experiment
     # The legacy full-path parser derives session labels from underscore-separated
     # filename components. Keep that convention using a server-generated name.
     final = directory / ('upload_{}_recording.mat'.format(identity))
-    published = False
+    handed_off = False
     created = False
     try:
         root.mkdir(parents=True, exist_ok=True)
@@ -104,19 +140,17 @@ async def receive_upload(stream: AsyncIterable[bytes], filename: str, experiment
             await run_in_threadpool(handle.flush)
             await run_in_threadpool(os.fsync, handle.fileno())
         families = await run_in_threadpool(validate_recording, staged, experiment.configuration.stimulus_family)
-        staged.rename(final)
         recording = Recording(id=identity, display_name=display_name, dataset_name=experiment.configuration.dataset_name,
                               source='upload', stimulus_families=families)
-        selected = await run_in_threadpool(store.register_upload, experiment.id,
-                                          StoredUpload(recording, final, size, digest.hexdigest()))
-        if selected is None:
-            raise UploadError(404, 'Experiment not found.')
-        published = True
-        return UploadResult(experiment=selected)
+        artifact = StoredUpload(recording, final, size, digest.hexdigest())
+        # The worker owns publication and cleanup together. Cancelling the HTTP
+        # task must never unlink a file whose metadata commit is still running.
+        finalization = asyncio.create_task(run_in_threadpool(_publish, store, experiment.id, artifact))
+        finalization.add_done_callback(lambda task: None if task.cancelled() else task.exception())
+        handed_off = True
+        return await asyncio.shield(finalization)
     except (OSError, sqlite3.Error) as error:
         raise UploadError(503, 'Recording storage is unavailable. Retry after the server storage is restored.') from error
     finally:
-        if created and not published:
-            for path in (staged, final):
-                path.unlink(missing_ok=True)
-            directory.rmdir()
+        if created and not handed_off:
+            _discard(staged, final)

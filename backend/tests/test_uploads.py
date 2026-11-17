@@ -1,4 +1,7 @@
 import io
+import asyncio
+import base64
+import sqlite3
 import tempfile
 import unittest
 from dataclasses import replace
@@ -169,6 +172,67 @@ class UploadApiTests(unittest.TestCase):
                 response = self.upload(experiment, buffer.getvalue())
                 self.assertEqual(response.status_code, 422)
         self.assertIsNone(self.client.get("/api/v1/experiments/" + experiment).json()["recording"])
+
+    def test_forward_slash_stimulus_paths_are_rejected_by_upload_validation(self):
+        buffer = io.BytesIO()
+        savemat(buffer, {"TrialStimData": {
+            "StimulusName": np.array(["C:/Stimuli/TIMIT/a.wav", "C:/Stimuli/TIMIT/b.wav"], dtype=object),
+            "StimulusType": np.array(["S1T", "S1T"], dtype=object),
+            "StimulusTimeOn": np.array([0., 1.]),
+        }, "BAK1": {"times": np.array([.1, 1.1])}})
+        response = self.upload(self.create_experiment(), buffer.getvalue())
+        self.assertEqual(response.status_code, 422)
+
+    def test_cancelled_http_request_cannot_delete_a_committed_upload(self):
+        experiment = self.create_experiment()
+        app = create_app(self.settings, lambda: 0)
+        payload = self.recording_bytes()
+        url = "/api/v1/experiments/{}/recording-upload".format(experiment)
+        scope = {"type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1",
+                 "method": "POST", "scheme": "http", "path": url, "raw_path": url.encode(),
+                 "query_string": b"", "root_path": "", "client": ("127.0.0.1", 1), "server": ("test", 80),
+                 "headers": [(b"authorization", b"Basic " + base64.b64encode(b"operator:test-password")),
+                             (b"content-type", b"application/octet-stream"),
+                             (b"x-recording-filename", b"cancelled.mat")]}
+        # A real external SQLite lock holds the metadata commit in flight. No
+        # application collaborator or scientific validator is replaced.
+        lock = sqlite3.connect(str(self.settings.database_path))
+        self.addCleanup(lock.close)
+        lock.execute("BEGIN IMMEDIATE")
+
+        async def scenario():
+            async def receive():
+                return {"type": "http.request", "body": payload, "more_body": False}
+
+            async def send(message):
+                pass
+
+            task = asyncio.create_task(app(scope, receive, send))
+            try:
+                for _ in range(300):
+                    if list((self.root / "uploads").rglob("*.mat")):
+                        break
+                    await asyncio.sleep(.01)
+                else:
+                    self.fail("Artifact was not published before metadata commit")
+                await asyncio.sleep(.05)
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+            finally:
+                lock.rollback()
+            selected = None
+            for _ in range(100):
+                selected = self.client.get("/api/v1/experiments/" + experiment).json()["recording"]
+                if selected is not None:
+                    break
+                await asyncio.sleep(.02)
+            self.assertIsNotNone(selected)
+            self.assertEqual(len(list((self.root / "uploads").rglob("*.mat"))), 1)
+
+        asyncio.run(scenario())
 
 
 if __name__ == "__main__":
