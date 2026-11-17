@@ -189,26 +189,28 @@ export function makeApi(username: string, password: string) {
     }
     return response.json() as Promise<T>;
   }
+  async function download(path: string): Promise<Blob> {
+    const response = await fetch(`${base}/api/v1${path}`, {
+      headers: { Authorization: `Basic ${encoded}` },
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new ApiError(
+        typeof data.detail === "string"
+          ? data.detail
+          : "Could not download samples.",
+        response.status,
+      );
+    }
+    return response.blob();
+  }
   return {
     startBatch: (fitId: string, submission: BatchSubmission) =>
       request<Batch>(`/fits/${encodeURIComponent(fitId)}/batches`, submission),
     batch: (id: string) => request<Batch>(`/batches/${encodeURIComponent(id)}`),
-    downloadBatch: async (id: string) => {
-      const response = await fetch(
-        `${base}/api/v1/batches/${encodeURIComponent(id)}/download`,
-        { headers: { Authorization: `Basic ${encoded}` }, cache: "no-store" },
-      );
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new ApiError(
-          typeof data.detail === "string"
-            ? data.detail
-            : "Could not download batch.",
-          response.status,
-        );
-      }
-      return response.blob();
-    },
+    downloadBatch: (id: string) =>
+      download(`/batches/${encodeURIComponent(id)}/download`),
     startGeneration: (fitId: string, submission: GenerationSubmission) =>
       request<Generation>(
         `/fits/${encodeURIComponent(fitId)}/generations`,
@@ -216,25 +218,8 @@ export function makeApi(username: string, password: string) {
       ),
     generation: (id: string) =>
       request<Generation>(`/generations/${encodeURIComponent(id)}`),
-    downloadGeneration: async (id: string) => {
-      const response = await fetch(
-        `${base}/api/v1/generations/${encodeURIComponent(id)}/download`,
-        {
-          headers: { Authorization: `Basic ${encoded}` },
-          cache: "no-store",
-        },
-      );
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new ApiError(
-          typeof data.detail === "string"
-            ? data.detail
-            : "Could not download generated samples.",
-          response.status,
-        );
-      }
-      return response.blob();
-    },
+    downloadGeneration: (id: string) =>
+      download(`/generations/${encodeURIComponent(id)}/download`),
     capabilities: () => request<Capabilities>("/capabilities"),
     createExperiment: (configuration: Configuration) =>
       request<Experiment>("/experiments", configuration),

@@ -1,3 +1,5 @@
+import { saveDownload } from "./download";
+import { useJobPolling } from "./useJobPolling";
 import { useEffect, useRef, useState } from "react";
 import type { Capabilities, Fit, Generation, makeApi } from "./api";
 
@@ -26,30 +28,13 @@ export default function GenerationPanel({
       mounted.current = false;
     };
   }, []);
-  useEffect(() => {
-    if (!job || !active) return;
-    let current = true;
-    const timer = window.setInterval(() => {
-      api
-        .generation(job.id)
-        .then((result) => {
-          if (current) {
-            setJob(result);
-            setError("");
-          }
-        })
-        .catch(() => {
-          if (current)
-            setError(
-              "Could not refresh generation status. Accepted work continues on the server.",
-            );
-        });
-    }, 1500);
-    return () => {
-      current = false;
-      window.clearInterval(timer);
-    };
-  }, [api, job?.id, job?.state, active]);
+  useJobPolling(
+    job,
+    api.generation,
+    setJob,
+    setError,
+    "Could not refresh generation status. Accepted work continues on the server.",
+  );
   async function start() {
     requestId.current ??= crypto.randomUUID();
     setBusy(true);
@@ -85,12 +70,7 @@ export default function GenerationPanel({
     try {
       const blob = await api.downloadGeneration(job.id);
       if (!mounted.current) return;
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `generation-${job.id}.zip`;
-      link.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+      saveDownload(blob, `generation-${job.id}.zip`);
     } catch (cause) {
       if (mounted.current)
         setError(cause instanceof Error ? cause.message : "Download failed.");

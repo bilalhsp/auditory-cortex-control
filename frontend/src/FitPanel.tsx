@@ -1,3 +1,4 @@
+import { useJobPolling } from "./useJobPolling";
 import { useEffect, useRef, useState } from "react";
 import type { Capabilities, Experiment, Fit, makeApi } from "./api";
 
@@ -33,30 +34,13 @@ export default function FitPanel({
     };
   }, []);
 
-  useEffect(() => {
-    if (!fit || !active) return;
-    let current = true;
-    const timer = window.setInterval(() => {
-      api
-        .fit(fit.id)
-        .then((result) => {
-          if (current) {
-            setFit(result);
-            setError("");
-          }
-        })
-        .catch(() => {
-          if (current)
-            setError(
-              "Could not refresh fit status. Accepted work continues on the server; reconnect to refresh.",
-            );
-        });
-    }, 1500);
-    return () => {
-      current = false;
-      window.clearInterval(timer);
-    };
-  }, [api, fit?.id, fit?.state, active]);
+  useJobPolling(
+    fit,
+    api.fit,
+    setFit,
+    setError,
+    "Could not refresh fit status. Accepted work continues on the server; reconnect to refresh.",
+  );
 
   async function start() {
     if (!experiment.recording) return;

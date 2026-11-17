@@ -1,3 +1,5 @@
+import { saveDownload } from "./download";
+import { useJobPolling } from "./useJobPolling";
 import { useEffect, useRef, useState } from "react";
 import type { Batch, Capabilities, Fit, makeApi } from "./api";
 
@@ -48,27 +50,13 @@ export default function BatchPanel({
       mounted.current = false;
     };
   }, [api]);
-  useEffect(() => {
-    if (!batch || !active) return;
-    let current = true;
-    const timer = window.setInterval(() => {
-      api
-        .batch(batch.id)
-        .then((result) => {
-          if (current) setBatch(result);
-        })
-        .catch(() => {
-          if (current)
-            setError(
-              "Could not refresh batch status. Accepted work continues on the server.",
-            );
-        });
-    }, 1500);
-    return () => {
-      current = false;
-      window.clearInterval(timer);
-    };
-  }, [api, batch?.id, batch?.state, active]);
+  useJobPolling(
+    batch,
+    api.batch,
+    setBatch,
+    setError,
+    "Could not refresh batch status. Accepted work continues on the server.",
+  );
   function toggle(
     value: string,
     selected: string[],
@@ -119,12 +107,7 @@ export default function BatchPanel({
     try {
       const blob = await api.downloadBatch(batch.id);
       if (!mounted.current) return;
-      const url = URL.createObjectURL(blob),
-        link = document.createElement("a");
-      link.href = url;
-      link.download = `batch-${batch.id}.zip`;
-      link.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+      saveDownload(blob, `batch-${batch.id}.zip`);
     } catch (cause) {
       if (mounted.current)
         setError(cause instanceof Error ? cause.message : "Download failed.");
