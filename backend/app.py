@@ -5,17 +5,18 @@ from datetime import datetime, timezone
 from typing import Callable, Optional
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from backend.auth import password_matches
 from backend.config import Settings
-from backend.models import Experiment, ExperimentConfiguration, RecordingCatalogResult, RecordingSelection, UploadResult, Fit, FitSubmission
+from backend.models import Experiment, ExperimentConfiguration, RecordingCatalogResult, RecordingSelection, UploadResult, Fit, FitSubmission, Generation, GenerationSubmission
 from backend.recordings import CatalogUnavailable, RecordingCatalog
 from backend.store import ExperimentStore
 from backend.uploads import UploadError, receive_upload
 from backend.fits import FitRequestError, submit_fit
+from backend.generations import submit_generation, download_zip
 
 
 def local_gpu_count() -> int:
@@ -60,7 +61,7 @@ def create_app(
         except (ImportError, RuntimeError, OSError):
             count, status = 0, "unavailable"
         return {
-            "visible_count": count, "available_count": max(0, count - store.running_fit_count()),
+            "visible_count": count, "available_count": max(0, count - store.active_compute_count()),
             "observed_at": datetime.now(timezone.utc).isoformat(), "status": status,
         }
 
@@ -79,6 +80,7 @@ def create_app(
             "gpu": capacity(),
             "upload": {"max_bytes": settings.max_upload_bytes, "formats": [".mat"]},
             "fit": {"supported_sources": ["existing", "upload"], "default_seed": 42},
+            "generation": {"objectives": ["stretch", "one-hot"], "durations": [1, 2, 3, 4], "clip_counts": [1, 2, 4, 8, 10]},
         }
 
     @app.post("/api/v1/experiments", response_model=Experiment, status_code=201,
@@ -179,11 +181,43 @@ def create_app(
             raise HTTPException(404, "Fit not found")
         return fit
 
-    @app.get("/api/v1/jobs/{identity}", response_model=Fit, dependencies=[Depends(operator)])
-    def read_job(identity: UUID) -> Fit:
+    @app.get("/api/v1/jobs/{identity}", dependencies=[Depends(operator)])
+    def read_job(identity: UUID):
         fit = store.get_fit(str(identity), by_job=True)
-        if fit is None:
-            raise HTTPException(404, "Job not found")
-        return fit
+        if fit is not None:
+            return fit
+        record = store.generation_record(str(identity), by_job=True)
+        if record is None:
+            raise HTTPException(404, 'Job not found')
+        return record[0]
+
+    @app.post('/api/v1/fits/{identity}/generations', response_model=Generation, status_code=202,
+              dependencies=[Depends(operator)])
+    def generate(identity: UUID, submission: GenerationSubmission) -> Generation:
+        try:
+            return submit_generation(settings, store, str(identity), submission, capacity()['available_count'])
+        except FitRequestError as error:
+            raise HTTPException(error.status, str(error)) from error
+
+    @app.get('/api/v1/generations/{identity}', response_model=Generation, dependencies=[Depends(operator)])
+    def read_generation(identity: UUID) -> Generation:
+        record = store.generation_record(str(identity))
+        if record is None:
+            raise HTTPException(404, 'Generation not found')
+        return record[0]
+
+    @app.get('/api/v1/generations/{identity}/download', dependencies=[Depends(operator)])
+    def download_generation(identity: UUID) -> Response:
+        record = store.generation_record(str(identity))
+        if record is None:
+            raise HTTPException(404, 'Generation not found')
+        try:
+            data = download_zip(*record)
+        except FitRequestError as error:
+            raise HTTPException(error.status, str(error)) from error
+        return Response(data, media_type='application/zip', headers={
+            'Content-Disposition': 'attachment; filename="generation-' + str(identity) + '.zip"',
+            'Cache-Control': 'no-store',
+        })
 
     return app

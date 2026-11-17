@@ -1,13 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import type { Experiment, Fit, makeApi } from "./api";
 
+import GenerationPanel from "./GenerationPanel";
+
 interface Props {
+  generationEnabled?: boolean;
   api: ReturnType<typeof makeApi>;
   experiment: Experiment;
   seed: number;
 }
 
-export default function FitPanel({ api, experiment, seed }: Props) {
+export default function FitPanel({
+  api,
+  experiment,
+  seed,
+  generationEnabled,
+}: Props) {
   const [fit, setFit] = useState<Fit | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -180,6 +188,9 @@ export default function FitPanel({ api, experiment, seed }: Props) {
               </tbody>
             </table>
           </div>
+          {generationEnabled && (
+            <GenerationPanel key={fit.id} api={api} fit={fit} />
+          )}
         </div>
       )}
     </section>

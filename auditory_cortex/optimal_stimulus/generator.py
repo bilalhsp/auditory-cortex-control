@@ -195,12 +195,12 @@ class StimGenerator:
 class Sampler:
     def __init__(
             self, device, model_name='deepspeech2', session_id=0, layer_id=2, 
-            bin_width=50, mVocs=False, lag=200, dataset_name='ucdavisBAK', unit_ids=None
+            bin_width=50, mVocs=False, lag=200, dataset_name='ucdavisBAK', unit_ids=None, artifact_path=None
         ) -> None:
         self.audioldm = AudioLDM(beta_min=0.0015, beta_max=0.0195, device=device)
         trf_model = TRF.load_saved_model(
             model_name, session_id, layer_id, bin_width, mVocs=mVocs,
-            tmax=lag, dataset_name=dataset_name
+            tmax=lag, dataset_name=dataset_name, artifact_path=artifact_path
             )
         
         self.encoder = create_encoder(
@@ -214,7 +214,7 @@ class Sampler:
         
 
     def generate_and_save_stimuli(
-            self, output_dir, unit_id=0, task='stretch', 
+            self, output_dir, unit_id: float=0, task='stretch',
             duration=2, n_stimuli=1, target_audio=None, seed=42,
             stim_type='timit', **kwargs
             ):

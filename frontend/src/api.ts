@@ -1,4 +1,9 @@
 export interface Capabilities {
+  generation?: {
+    objectives: string[];
+    durations: number[];
+    clip_counts: number[];
+  };
   fit?: { supported_sources: string[]; default_seed: number };
   upload?: { max_bytes: number; formats: string[] };
   settings: {
@@ -54,6 +59,7 @@ export interface UploadResult {
 }
 
 export interface Fit {
+  configuration: Configuration;
   id: string;
   job_id: string;
   experiment_id: string;
@@ -66,6 +72,29 @@ export interface Fit {
   artifacts_ready: boolean;
   correlations: { channel_id: string; correlation: number | null }[];
   best_channel: { channel_id: string; correlation: number | null } | null;
+}
+
+export interface GenerationSubmission {
+  request_id: string;
+  channel_id: string;
+  objective: "stretch" | "one-hot";
+  duration_seconds: number;
+  clip_count: number;
+  seed: number;
+}
+
+export interface Generation extends Omit<GenerationSubmission, "request_id"> {
+  id: string;
+  job_id: string;
+  fit_id: string;
+  configuration: Configuration;
+  state: "queued" | "running" | "succeeded" | "failed" | "interrupted";
+  stage: string;
+  artifacts_ready: boolean;
+  error: string | null;
+  used_gpu_count: number;
+  unused_gpu_count: number;
+  clips: { filename: string; frames: number; sample_rate: number }[];
 }
 
 interface FitSubmission {
@@ -100,7 +129,12 @@ export function makeApi(username: string, password: string) {
   const base = (window.AUDITORY_CONFIG?.apiBaseUrl ?? "").replace(/\/$/, "");
   async function request<T>(
     path: string,
-    body?: Configuration | { recording_id: string } | File | FitSubmission,
+    body?:
+      | Configuration
+      | { recording_id: string }
+      | File
+      | FitSubmission
+      | GenerationSubmission,
   ): Promise<T> {
     const file = body instanceof File ? body : null;
     const response = await fetch(`${base}/api/v1${path}`, {
@@ -131,6 +165,32 @@ export function makeApi(username: string, password: string) {
     return response.json() as Promise<T>;
   }
   return {
+    startGeneration: (fitId: string, submission: GenerationSubmission) =>
+      request<Generation>(
+        `/fits/${encodeURIComponent(fitId)}/generations`,
+        submission,
+      ),
+    generation: (id: string) =>
+      request<Generation>(`/generations/${encodeURIComponent(id)}`),
+    downloadGeneration: async (id: string) => {
+      const response = await fetch(
+        `${base}/api/v1/generations/${encodeURIComponent(id)}/download`,
+        {
+          headers: { Authorization: `Basic ${encoded}` },
+          cache: "no-store",
+        },
+      );
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new ApiError(
+          typeof data.detail === "string"
+            ? data.detail
+            : "Could not download generated samples.",
+          response.status,
+        );
+      }
+      return response.blob();
+    },
     capabilities: () => request<Capabilities>("/capabilities"),
     createExperiment: (configuration: Configuration) =>
       request<Experiment>("/experiments", configuration),

@@ -12,6 +12,8 @@ from backend.config import Settings
 from backend.fit_compute import FitOutput, FitTask, scientific_fit
 from backend.fits import file_sha256
 from backend.models import ChannelCorrelation
+from backend.generation_compute import GenerationTask, subprocess_generation
+from backend.generations import validate_clips, verify_fit
 from backend.store import ExperimentStore
 
 
@@ -73,7 +75,52 @@ def run_next_fit(settings: Settings, runner: FitRunner = scientific_fit) -> bool
     return True
 
 
-def run_worker(settings: Settings, once: bool = False, runner: FitRunner = scientific_fit) -> None:
+def run_next_generation(settings: Settings, runner=subprocess_generation) -> bool:
+    store = ExperimentStore(settings.database_path)
+    claimed = store.claim_generation()
+    if claimed is None:
+        return False
+    generation, workspace = claimed
+    try:
+        snapshot = json.loads((workspace / 'input.json').read_text())
+        from pathlib import Path
+        if verify_fit(Path(snapshot['fit_workspace'])) != snapshot['fit_manifest']:
+            raise ValueError('Pinned fit changed')
+        def progress(stage: str) -> None:
+            if stage not in {'loading', 'generating', 'writing'}:
+                raise ValueError('Unknown generation phase')
+            generation.stage = stage
+            store.update_generation(generation)
+        generation.exit_code = runner(GenerationTask(generation, workspace), progress)
+        if generation.exit_code != 0:
+            raise RuntimeError('Generation process exited unsuccessfully')
+        progress('writing')
+        clips = validate_clips(generation, workspace)
+        (workspace / 'manifest.json').write_text(json.dumps([clip.model_dump() for clip in clips], indent=2))
+        provenance = {'generation': generation.model_dump(), 'fit_manifest': snapshot['fit_manifest'],
+                      'exit_code': generation.exit_code}
+        (workspace / 'provenance.json').write_text(json.dumps(provenance, indent=2))
+        generation.clips = clips
+        generation.artifacts_ready = True
+        generation.state, generation.stage = 'succeeded', 'complete'
+    except Exception:
+        generation.error = 'Generation failed. Check GPU/model availability and retry with a new request.'
+        generation.state = 'failed'
+        generation.artifacts_ready = False
+        generation.clips = []
+        try:
+            with (workspace / 'diagnostics.log').open('a') as log:
+                import traceback
+                traceback.print_exc(file=log)
+        except OSError:
+            logger.exception('Could not write diagnostics for generation %s', generation.id)
+    finally:
+        generation.finished_at = datetime.now(timezone.utc).isoformat()
+        store.update_generation(generation)
+    return True
+
+
+def run_worker(settings: Settings, once: bool = False, runner: FitRunner = scientific_fit, generation_runner=subprocess_generation) -> None:
     # Kernel-owned lock survives API restarts and releases only when this compute
     # process exits. A killed worker cannot leave a separate child using GPUs.
     lock_path = settings.database_path.resolve().with_suffix('.fit-worker.lock')
@@ -84,8 +131,9 @@ def run_worker(settings: Settings, once: bool = False, runner: FitRunner = scien
         except BlockingIOError as error:
             raise RuntimeError('A fit worker already owns this database') from error
         ExperimentStore(settings.database_path).interrupt_running_fits()
+        ExperimentStore(settings.database_path).interrupt_running_generations()
         while True:
-            did_work = run_next_fit(settings, runner)
+            did_work = run_next_fit(settings, runner) or run_next_generation(settings, generation_runner)
             if once:
                 return
             if not did_work:

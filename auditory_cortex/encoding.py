@@ -250,16 +250,19 @@ class TRF:
     def load_saved_model(
             model_name, session, layer_ID, bin_width, shuffled=False,
             LPF=False, mVocs=False,
-            tmax=300, tmin=0, dataset_name='ucsf'
+            tmax=300, tmin=0, dataset_name='ucsf', artifact_path=None
         ):
         """Loads a saved weights and biases for the TRF model."""
         
         session = int(session)
-        parameters = io.read_trf_parameters(
-            model_name, session, bin_width=bin_width, 
-            shuffled=shuffled, layer_ID=layer_ID, LPF=LPF, mVocs=mVocs,
-            dataset_name=dataset_name, lag=tmax
-            )
+        if artifact_path is not None:
+            parameters = io.read_dict(artifact_path)
+        else:
+            parameters = io.read_trf_parameters(
+                model_name, session, bin_width=bin_width,
+                shuffled=shuffled, layer_ID=layer_ID, LPF=LPF, mVocs=mVocs,
+                dataset_name=dataset_name, lag=tmax
+                )
 
         if parameters is None:
             # raise ValueError(f"Model parameters not found for session={session}")

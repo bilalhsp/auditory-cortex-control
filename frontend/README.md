@@ -60,5 +60,10 @@ Failed/interrupted fits expose a retry through a new fit attempt; recording or
 experiment changes clear dependent UI without deleting earlier server artifacts.
 
 Signing out drops in-memory credentials and leaves accepted work running.
-Generation, session history/reconnection, and explicit
-Stop/Close remain subsequent slices.
+Completed fits expose one target channel, stretch/one-hot objective, requested
+1–4-second duration (default 2), and 1/2/4/8/10 clips (default 4). Generation
+status polls independently; successful output exposes an authenticated ZIP
+download without putting credentials in a URL. The actual native audio length is
+displayed with the completed clip count. Unused requested GPUs are explained;
+only one target runs in this slice. New generations retain earlier server output.
+Session history/reconnection and explicit Stop/Close remain subsequent slices.

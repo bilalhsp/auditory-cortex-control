@@ -1,7 +1,7 @@
 from typing import List, Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator
 
 
 class ExperimentConfiguration(BaseModel):
@@ -78,3 +78,56 @@ class Fit(BaseModel):
     artifacts_ready: bool = False
     correlations: List[ChannelCorrelation] = Field(default_factory=list)
     best_channel: Optional[ChannelCorrelation] = None
+
+
+class GenerationSubmission(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    request_id: UUID
+    channel_id: str = Field(min_length=1)
+    objective: Literal['stretch', 'one-hot']
+    duration_seconds: StrictInt = Field(default=2, ge=1, le=4)
+    clip_count: StrictInt = Field(default=4, ge=1, le=10)
+    seed: StrictInt = Field(default=42, ge=0, le=4294967295)
+
+    @field_validator('clip_count')
+    @classmethod
+    def supported_clip_count(cls, value: int) -> int:
+        if value not in (1, 2, 4, 8, 10):
+            raise ValueError('Choose 1, 2, 4, 8, or 10 clips')
+        return value
+
+    @staticmethod
+    def context_fields():
+        return ('channel_id', 'objective', 'duration_seconds', 'clip_count', 'seed')
+
+
+class GeneratedClip(BaseModel):
+    filename: str
+    sha256: str
+    frames: int
+    sample_rate: int = 16000
+    subtype: str = 'PCM_16'
+
+
+class Generation(BaseModel):
+    id: str
+    job_id: str
+    fit_id: str
+    experiment_id: str
+    configuration: ExperimentConfiguration
+    channel_id: str
+    objective: Literal['stretch', 'one-hot']
+    duration_seconds: int
+    clip_count: int
+    seed: int
+    used_gpu_count: int = 1
+    unused_gpu_count: int
+    state: Literal['queued', 'running', 'succeeded', 'failed', 'interrupted'] = 'queued'
+    stage: str = 'queued'
+    created_at: str
+    started_at: Optional[str] = None
+    finished_at: Optional[str] = None
+    error: Optional[str] = None
+    exit_code: Optional[int] = None
+    artifacts_ready: bool = False
+    clips: List[GeneratedClip] = Field(default_factory=list)

@@ -1,4 +1,4 @@
-# Experiment setup API
+# Auditory cortex API and compute worker
 
 Run from the repository root using the existing `.venv`. Do not create or upgrade
 an environment or run `uv sync` for this slice. The HTTP server does not load
@@ -148,7 +148,7 @@ but does not enable CPU generation.
 
 ## Fit worker
 
-Start one worker separately from the API, using the same SQLite file, fit storage,
+Start one compute worker separately from the API, using the same SQLite file, fit storage,
 existing environment, research configuration, and visible GPUs. Its Python path
 must include this research repository and the existing local scientific dependency
 checkouts (`deepspeech.pytorch`, `Wav2Letter`, `utils_jgm`, `pycochleagram`). Use
@@ -159,7 +159,7 @@ replacement packages. With those paths in `PYTHONPATH`:
 uv run --no-sync python -m backend.worker
 ```
 
-`--once` processes one queued fit and exits. The source archive also includes the
+`--once` processes one queued fit or generation and exits. The source archive also includes the
 worker: put the archive and research/dependency paths on `PYTHONPATH`, then use the
 existing Python executable with `-m backend.worker` from any directory. Deploy
 the API and worker as separate supervised processes on the backend server, with
@@ -167,8 +167,8 @@ shared persistent SQLite/filesystem access. A kernel lock beside SQLite prevents
 two fit workers from owning that database. This is a single-host queue, not a
 multi-host scheduler. Never run another allocator against the dedicated GPUs.
 
-Each fit uses one GPU and a newly constructed generator; pending fits run serially.
-The API subtracts an active fit from available capacity. Saving an experiment
+Each fit or single-target generation uses one GPU; pending operations run serially. Fits construct a fresh generator; generations launch an isolated sampler process.
+The API subtracts an active fit or generation from available capacity. Saving an experiment
 records the requested GPU count; multi-GPU generation allocation follows in issue
 08. No CPU fit fallback is advertised.
 
@@ -223,3 +223,53 @@ controlled external GPU-count provider and compute runner. No scientific model
 downloads or GPU computations are needed for these contract tests. Real GPU parity
 evidence is recorded separately in `.scratch/web-migration/issue05-parity.json`
 and `.scratch/web-migration/issue06-parity.json`.
+
+## Single-target generation
+
+After a fit succeeds, `POST /api/v1/fits/{id}/generations` accepts
+`request_id` (UUID), `channel_id` (exact string from the fit), `objective`
+(`stretch` or `one-hot`), `duration_seconds` (1–4, default 2), `clip_count`
+(1/2/4/8/10, default 4), and `seed` (default 42). HTTP 202 returns a stable
+generation/job identity and immutable configuration. GPU device IDs and paths
+are never accepted from the browser. Request UUID reuse is idempotent only for
+the same fit/settings; conflicting reuse returns 409.
+
+Generation requires the current recording revision, a completed fit with verified
+model/config/provenance checksums, a finite-correlation channel belonging to that
+fit, and at least one available GPU. Stale/incomplete/missing-artifact fits return
+409; unknown fits 404; invalid settings/channels 422. Accepted requests remain
+pinned when the browser disconnects or the selected recording changes.
+
+`GET /api/v1/generations/{id}` and the common `GET /api/v1/jobs/{id}` expose
+persisted status. `GET /api/v1/generations/{id}/download` returns an authenticated
+ZIP containing only this generation's validated clips. Unfinished, failed,
+interrupted, missing, or changed output returns 409, never a partial ZIP.
+
+The same single-owner worker handles fits and generation under one allocation
+lock. Generation runs in a subprocess using logical device zero from the first
+permitted `CUDA_VISIBLE_DEVICES` entry. Its exit code must be zero before model
+output is considered. Linux parent-death signalling kills the GPU child if its
+worker exits; worker restart marks interrupted operations for manual retry. Run
+this worker on Linux with the existing scientific dependency paths/environment.
+It reuses `Sampler` with the exact fitted pickle path and original unit ordering,
+rather than looking up a shared native session-zero model. The optional explicit
+artifact argument preserves the legacy sampler/CLI default behavior.
+
+A single target uses one GPU. The saved requested count remains unchanged, with
+`used_gpu_count: 1` and an explicit `unused_gpu_count`. Additional requested GPUs
+remain idle for this target; batch scheduling follows in issue 08. There is no
+CPU fallback, concurrent multi-target allocation, or automatic retry here.
+
+Private UUID workspaces under `generations/` beside SQLite retain input context,
+raw sampler output, checked clips, manifest, provenance, and diagnostics. Model,
+checkpoint, configuration, and sampler identity are recorded privately. Public
+errors identify failure without serializing exception text. Earlier generations
+are retained, and no UI initialization deletes output. Session-history browsing
+and explicit Stop/Close follow in issue 09.
+
+Output validation requires the requested clip count, mono 16-kHz PCM16 WAVs,
+complete payloads, correct native frame count, and checksums. Existing RMS
+normalization/clipping is unchanged. Native latent rounding maps requested
+1/2/3/4 seconds to 15,392/35,872/51,232/66,592 frames (0.962/2.242/3.202/4.162 s).
+The UI reports actual duration instead of trimming scientific output. ZIP
+membership excludes models, recordings, raw files, diagnostics, and provenance.
