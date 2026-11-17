@@ -1,6 +1,7 @@
 """Independent web API; scientific models are never loaded at startup."""
 
 import secrets
+import sqlite3
 from datetime import datetime, timezone
 from typing import Callable, Optional
 from uuid import UUID
@@ -289,5 +290,6 @@ def create_app(
         try: return retry_job(settings, store, catalog, str(identity), request.request_id, capacity())
         except FitRequestError as error: raise HTTPException(error.status, str(error)) from error
         except CatalogUnavailable as error: raise HTTPException(503, str(error)) from error
+        except sqlite3.Error as error: raise HTTPException(503, 'Retry metadata is unavailable. Retry with the same command identity.') from error
 
     return app

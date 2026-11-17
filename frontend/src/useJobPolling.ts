@@ -6,8 +6,9 @@ export function useJobPolling<T extends { id: string; state: string }>(
   update: (value: T) => void,
   reportError: (message: string) => void,
   failureMessage: string,
+  pollIdentity?: string,
 ) {
-  const id = operation?.id;
+  const id = pollIdentity ?? operation?.id;
   const state = operation?.state;
   useEffect(() => {
     if (

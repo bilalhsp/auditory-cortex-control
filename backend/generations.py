@@ -49,7 +49,7 @@ def ready_fit(store: ExperimentStore, fit_id: str):
     return fit, fit_workspace, manifest
 
 def submit_generation(settings: Settings, store: ExperimentStore, fit_id: str,
-                      request: GenerationSubmission, available_gpus: int) -> Generation:
+                      request: GenerationSubmission, available_gpus: int, retry_source=None) -> Generation:
     previous = store.generation_for_request(fit_id, str(request.request_id))
     if previous is not None:
         if any(getattr(previous, key) != getattr(request, key) for key in request.context_fields()):
@@ -74,7 +74,7 @@ def submit_generation(settings: Settings, store: ExperimentStore, fit_id: str,
         created = True
         (workspace / 'input.json').write_text(json.dumps({'generation': generation.model_dump(),
             'fit_workspace': str(fit_workspace.resolve()), 'fit': fit.model_dump(), 'fit_manifest': manifest}, indent=2))
-        accepted = store.enqueue_generation(generation, str(request.request_id), workspace)
+        accepted = store.enqueue_generation(generation, str(request.request_id), workspace, retry_source)
         retained = accepted.id == generation.id
         return accepted
     except ValueError as error:

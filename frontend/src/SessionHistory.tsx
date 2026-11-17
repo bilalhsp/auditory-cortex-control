@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   ApplicationSession,
   Experiment,
@@ -28,6 +28,16 @@ export default function SessionHistory({
     [view, setView] = useState<Job | null>(null);
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
+  const selection = useRef("");
+  function chooseSession(id: string) {
+    selection.current = id;
+    setSelected(id);
+    setDetail(null);
+    setView(null);
+  }
+  function showJob(job: Job, context: string) {
+    if (mounted.current && selection.current === context) setView(job);
+  }
   const mounted = useRef(false),
     retries = useRef(new Map<string, string>());
   useEffect(() => {
@@ -37,7 +47,8 @@ export default function SessionHistory({
       .then((rows) => {
         if (mounted.current) {
           setSessions(rows);
-          setSelected(currentExperiment?.session_id ?? rows[0]?.id ?? "");
+          if (!selection.current)
+            chooseSession(currentExperiment?.session_id ?? rows[0]?.id ?? "");
         }
       })
       .catch(() => {
@@ -49,7 +60,7 @@ export default function SessionHistory({
   }, [api]);
   useEffect(() => {
     if (currentExperiment?.session_id)
-      setSelected(currentExperiment.session_id);
+      chooseSession(currentExperiment.session_id);
   }, [currentExperiment?.session_id]);
   useEffect(() => {
     let current = true;
@@ -74,24 +85,39 @@ export default function SessionHistory({
       window.clearInterval(timer);
     };
   }, [api, selected]);
-  useEffect(() => {
-    setView(null);
-  }, [selected]);
+  const updateView = useCallback(
+    (job: Job) => {
+      if (selection.current === selected)
+        setView((current) => (current?.job_id === job.job_id ? job : current));
+    },
+    [selected],
+  );
+  const pollingError = useCallback(
+    (message: string) => {
+      if (selection.current === selected) setError(message);
+    },
+    [selected],
+  );
   useJobPolling(
     view,
     api.job,
-    setView,
-    setError,
+    updateView,
+    pollingError,
     "Could not refresh saved job. Accepted work continues on the server.",
+    view?.job_id,
   );
   async function action(run: () => Promise<unknown>) {
+    const context = selected;
     setBusy(true);
     setError("");
     try {
       await run();
-      if (mounted.current && selected) setDetail(await api.session(selected));
+      if (mounted.current && selection.current === context && context) {
+        const result = await api.session(context);
+        if (mounted.current && selection.current === context) setDetail(result);
+      }
     } catch (cause) {
-      if (mounted.current)
+      if (mounted.current && selection.current === context)
         setError(cause instanceof Error ? cause.message : "Request failed.");
     } finally {
       if (mounted.current) setBusy(false);
@@ -100,9 +126,10 @@ export default function SessionHistory({
   async function retry(id: string) {
     const key = retries.current.get(id) ?? crypto.randomUUID();
     retries.current.set(id, key);
+    const context = selected;
     const job = await api.retryJob(id, key);
     retries.current.delete(id);
-    if (mounted.current) setView(job);
+    showJob(job, context);
   }
   async function download(job: Job) {
     const blob =
@@ -129,7 +156,7 @@ export default function SessionHistory({
         <select
           aria-label="Saved session"
           value={selected}
-          onChange={(event) => setSelected(event.target.value)}
+          onChange={(event) => chooseSession(event.target.value)}
         >
           <option value="">Choose a session</option>
           {sessions.map((session) => (
@@ -192,7 +219,7 @@ export default function SessionHistory({
                         disabled={busy}
                         onClick={() =>
                           action(async () => {
-                            setView(await api.job(job.job_id));
+                            showJob(await api.job(job.job_id), selected);
                           })
                         }
                       >
@@ -206,41 +233,38 @@ export default function SessionHistory({
                           disabled={busy || job.state === "cancelling"}
                           onClick={() =>
                             action(async () => {
-                              setView(await api.cancelJob(job.job_id));
+                              showJob(
+                                await api.cancelJob(job.job_id),
+                                selected,
+                              );
                             })
                           }
                         >
                           Stop job {job.id.slice(0, 8)}
                         </button>
                       )}
-                      {open &&
-                        [
-                          "failed",
-                          "interrupted",
-                          "cancelled",
-                          "partial",
-                        ].includes(job.state) && (
-                          <button
-                            type="button"
-                            disabled={
-                              busy ||
-                              detail.jobs.some(
-                                (item) =>
-                                  item.retry_of_job_id === job.job_id &&
-                                  ["queued", "running", "cancelling"].includes(
-                                    item.state,
-                                  ),
-                              )
-                            }
-                            onClick={() => action(() => retry(job.job_id))}
-                          >
-                            Retry{" "}
-                            {job.kind === "batch"
-                              ? "unfinished targets"
-                              : job.kind}{" "}
-                            {job.id.slice(0, 8)}
-                          </button>
-                        )}
+                      {open && job.retryable && (
+                        <button
+                          type="button"
+                          disabled={
+                            busy ||
+                            detail.jobs.some(
+                              (item) =>
+                                item.retry_of_job_id === job.job_id &&
+                                ["queued", "running", "cancelling"].includes(
+                                  item.state,
+                                ),
+                            )
+                          }
+                          onClick={() => action(() => retry(job.job_id))}
+                        >
+                          Retry{" "}
+                          {job.kind === "batch"
+                            ? "unfinished targets"
+                            : job.kind}{" "}
+                          {job.id.slice(0, 8)}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

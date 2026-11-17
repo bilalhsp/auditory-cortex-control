@@ -27,7 +27,7 @@ def file_sha256(path: Path) -> str:
 
 
 def submit_fit(settings: Settings, store: ExperimentStore, catalog: RecordingCatalog,
-               experiment: Experiment, request: FitSubmission, available_gpus: int) -> Fit:
+               experiment: Experiment, request: FitSubmission, available_gpus: int, retry_source=None) -> Fit:
     previous = store.fit_for_request(experiment.id, str(request.request_id))
     if previous is not None:
         if (previous.recording.id, previous.recording_revision, previous.seed) != (str(request.recording_id), request.recording_revision, request.seed):
@@ -76,7 +76,7 @@ def submit_fit(settings: Settings, store: ExperimentStore, catalog: RecordingCat
                     'metadata_file': 'input/sessions.yml', 'recording_sha256': recording_hash,
                     'metadata_sha256': file_sha256(metadata), 'neural_data_dir': str(resolved.data_root.resolve())}
         (workspace / 'input.json').write_text(json.dumps(snapshot, indent=2))
-        accepted = store.enqueue_fit(fit, str(request.request_id), workspace)
+        accepted = store.enqueue_fit(fit, str(request.request_id), workspace, retry_source)
         retained = accepted.id == fit.id
         return accepted
     except ValueError as error:

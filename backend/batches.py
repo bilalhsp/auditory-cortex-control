@@ -23,7 +23,7 @@ from backend.store import ExperimentStore
 logger = logging.getLogger(__name__)
 
 
-def submit_batch(settings, store: ExperimentStore, fit_id: str, request: BatchSubmission, visible_count: int):
+def submit_batch(settings, store: ExperimentStore, fit_id: str, request: BatchSubmission, visible_count: int, retry_source=None):
     command = request.model_dump(mode='json')
     previous = store.batch_for_request(fit_id, str(request.request_id))
     if previous is not None:
@@ -55,7 +55,7 @@ def submit_batch(settings, store: ExperimentStore, fit_id: str, request: BatchSu
             directory.mkdir()
             (directory / 'input.json').write_text(json.dumps({'generation': target.model_dump(),
                 'fit_workspace': str(fit_workspace.resolve()), 'fit': fit.model_dump(), 'fit_manifest': manifest}, indent=2))
-        accepted = store.enqueue_batch(batch, command, workspace, visible_count, visibility_signature())
+        accepted = store.enqueue_batch(batch, command, workspace, visible_count, visibility_signature(), retry_source)
         retained = accepted.id == batch.id
         return store.require_batch(accepted.id)[0]
     except ValueError as error:

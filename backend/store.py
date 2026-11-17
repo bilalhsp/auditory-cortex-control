@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 from uuid import uuid4
 
-from backend.lifecycle import initialize, ensure_open, expose, save_job, cancellation_requested
+from backend.lifecycle import initialize, ensure_open, expose, save_job, cancellation_requested, ensure_command_available
 from backend.models import Experiment, ExperimentConfiguration, Recording, Fit, Generation, GenerationSubmission, Batch
 
 
@@ -92,7 +92,7 @@ class ExperimentStore:
             raise ValueError('Batch metadata is unavailable')
         return record
 
-    def enqueue_batch(self, batch: Batch, request: dict, workspace: Path, visible_count: int, visibility) -> Batch:
+    def enqueue_batch(self, batch: Batch, request: dict, workspace: Path, visible_count: int, visibility, retry_source=None) -> Batch:
         with sqlite3.connect(str(self.path)) as connection:
             connection.execute('BEGIN IMMEDIATE')
             prior = connection.execute('SELECT id, request FROM batches WHERE fit_id = ? AND request_id = ?', (batch.fit_id, request['request_id'])).fetchone()
@@ -100,6 +100,7 @@ class ExperimentStore:
                 if json.loads(prior[1]) != request: raise ValueError('Request identity was already used for different batch settings.')
                 # The caller reloads after the transaction closes.
                 return batch.model_copy(update={'id': prior[0]})
+            ensure_command_available(connection, request['request_id'], retry_source)
             ensure_open(connection, batch.experiment_id)
             free = [index for index in range(visible_count) if index not in self._reserved_devices(connection)]
             if len(free) < batch.gpu_count:
@@ -113,6 +114,8 @@ class ExperimentStore:
             connection.execute('INSERT INTO batches VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 (batch.id, batch.job_id, batch.fit_id, request['request_id'], batch.state, batch.gpu_count,
                  json.dumps(free[:batch.gpu_count]), json.dumps(visibility), batch.model_dump_json(exclude={'targets'}), str(workspace), json.dumps(request)))
+            if retry_source:
+                connection.execute('INSERT INTO job_retries VALUES (?,?)', (batch.job_id,retry_source))
             for target in batch.targets:
                 connection.execute('INSERT INTO generations (id,job_id,fit_id,request_id,state,data,workspace,batch_id) VALUES (?,?,?,?,?,?,?,?)',
                     (target.id, target.job_id, target.fit_id, target.id, target.state, target.model_dump_json(), str(workspace / target.id), batch.id))
@@ -172,7 +175,7 @@ class ExperimentStore:
             result = expose(connection, Generation.model_validate_json(row[0])) if row else None
         return result
 
-    def enqueue_generation(self, generation: Generation, request_id: str, workspace: Path) -> Generation:
+    def enqueue_generation(self, generation: Generation, request_id: str, workspace: Path, retry_source=None) -> Generation:
         with sqlite3.connect(str(self.path)) as connection:
             connection.execute('BEGIN IMMEDIATE')
             previous = connection.execute('SELECT data FROM generations WHERE fit_id = ? AND request_id = ?', (generation.fit_id, request_id)).fetchone()
@@ -181,6 +184,7 @@ class ExperimentStore:
                 if any(getattr(prior, name) != getattr(generation, name) for name in GenerationSubmission.context_fields()):
                     raise ValueError('Request identity was already used for different generation settings.')
                 return prior
+            ensure_command_available(connection, request_id, retry_source)
             ensure_open(connection, generation.experiment_id)
             experiment = self._get(connection, generation.experiment_id)
             fit_row = connection.execute('SELECT data FROM fits WHERE id = ?', (generation.fit_id,)).fetchone()
@@ -190,6 +194,8 @@ class ExperimentStore:
                 raise ValueError('Fit context changed. Select and fit the current recording again.')
             connection.execute('INSERT INTO generations (id,job_id,fit_id,request_id,state,data,workspace) VALUES (?, ?, ?, ?, ?, ?, ?)',
                                (generation.id, generation.job_id, generation.fit_id, request_id, generation.state, generation.model_dump_json(), str(workspace)))
+            if retry_source:
+                connection.execute('INSERT INTO job_retries VALUES (?,?)', (generation.job_id,retry_source))
         return generation
 
     def update_generation(self, generation: Generation) -> bool:
@@ -314,7 +320,7 @@ class ExperimentStore:
             result = expose(connection, Fit.model_validate_json(row[0])) if row else None
         return result
 
-    def enqueue_fit(self, fit: Fit, request_id: str, workspace: Path) -> Fit:
+    def enqueue_fit(self, fit: Fit, request_id: str, workspace: Path, retry_source=None) -> Fit:
         with sqlite3.connect(str(self.path)) as connection:
             connection.execute("BEGIN IMMEDIATE")
             previous = connection.execute("SELECT data FROM fits WHERE experiment_id = ? AND request_id = ?",
@@ -324,6 +330,7 @@ class ExperimentStore:
                 if (prior.recording.id, prior.recording_revision, prior.seed) != (fit.recording.id, fit.recording_revision, fit.seed):
                     raise ValueError("Request identity was already used for a different fit")
                 return prior
+            ensure_command_available(connection, request_id, retry_source)
             ensure_open(connection, fit.experiment_id)
             experiment = self._get(connection, fit.experiment_id)
             if (experiment is None or experiment.recording is None or
@@ -332,6 +339,8 @@ class ExperimentStore:
             connection.execute("INSERT INTO fits VALUES (?, ?, ?, ?, ?, ?, ?)", (
                 fit.id, fit.job_id, fit.experiment_id, request_id, fit.state, fit.model_dump_json(), str(workspace),
             ))
+            if retry_source:
+                connection.execute('INSERT INTO job_retries VALUES (?,?)', (fit.job_id,retry_source))
             return fit
 
     @staticmethod

@@ -223,5 +223,49 @@ with wave.open(str(root/'clip-001.wav'),'wb') as audio:
         self.assertEqual(self.client.get('/api/v1/generations/'+job['id']).json()['state'],'interrupted')
         self.assertEqual(self.client.get('/api/v1/capabilities').json()['gpu']['available_count'],1)
 
+    def test_retry_cannot_adopt_an_existing_independent_attempt(self):
+        from uuid import uuid4
+        from backend.worker import run_worker
+        bodies=[self.fixture.request(),self.fixture.request()]
+        jobs=[]
+        def fail(task,progress):raise RuntimeError('Controlled failure')
+        for body in bodies:
+            jobs.append(self.client.post(self.fixture.prefix+'/fits',json=body).json())
+            run_worker(self.settings,once=True,runner=fail)
+        response=self.client.post('/api/v1/jobs/'+jobs[0]['job_id']+'/retry',json={'request_id':bodies[1]['request_id']})
+        self.assertEqual(response.status_code,409,response.text)
+        detail=self.client.get('/api/v1/sessions/'+self.client.get('/api/v1/sessions').json()[0]['id']).json()
+        self.assertEqual(len(detail['jobs']),2)
+        self.assertTrue(all(job['retry_of_job_id'] is None for job in detail['jobs']))
+        request={'request_id':str(uuid4())}
+        retry=self.client.post('/api/v1/jobs/'+jobs[0]['job_id']+'/retry',json=request).json()
+        body=self.fixture.request();body['request_id']=request['request_id']
+        self.assertEqual(self.client.post(self.fixture.prefix+'/fits',json=body).status_code,409)
+        self.assertNotIn(retry['id'],[job['id'] for job in jobs])
+
+    def test_interrupted_batch_with_all_saved_targets_has_no_retry(self):
+        import sqlite3,json
+        from uuid import uuid4
+        from backend.worker import run_worker
+        from backend.tests.test_generations import GenerationApiTests
+        fit=self.client.post(self.fixture.prefix+'/fits',json=self.fixture.request()).json()
+        run_worker(self.settings,once=True,runner=self.fixture.output)
+        batch=self.client.post('/api/v1/fits/'+fit['id']+'/batches',json={'request_id':str(uuid4()),'gpu_count':1,'duration_seconds':1,'clip_count':1,'targets':[{'channel_id':'12.03','objective':'stretch'}]}).json()
+        run_worker(self.settings,once=True,generation_runner=GenerationApiTests.compute,gpu_count=lambda:1)
+        # Persist the crash boundary: every target committed, parent finalization lost.
+        with sqlite3.connect(str(self.settings.database_path)) as connection:
+            data=json.loads(connection.execute('SELECT data FROM batches WHERE id=?',(batch['id'],)).fetchone()[0])
+            data['state']='running';data['finished_at']=None
+            connection.execute("UPDATE batches SET state='running',data=? WHERE id=?",(json.dumps(data),batch['id']))
+        run_worker(self.settings,once=True,gpu_count=lambda:1)
+        result=self.client.get('/api/v1/batches/'+batch['id']).json()
+        self.assertEqual(result['state'],'interrupted')
+        self.assertEqual(result['targets'][0]['state'],'succeeded')
+        response=self.client.post('/api/v1/jobs/'+batch['job_id']+'/retry',json={'request_id':str(uuid4())})
+        self.assertEqual(response.status_code,409,response.text)
+        self.assertEqual(self.client.get('/api/v1/batches/'+batch['id']+'/download').status_code,200)
+        detail=self.client.get('/api/v1/sessions/'+self.client.get('/api/v1/sessions').json()[0]['id']).json()
+        self.assertFalse(next(job for job in detail['jobs'] if job['id']==batch['id'])['retryable'])
+
 
 if __name__ == '__main__': unittest.main()

@@ -161,6 +161,7 @@ export interface SessionDetail {
     created_at: string;
     artifacts_ready: boolean;
     retry_of_job_id: string | null;
+    retryable: boolean;
   }[];
 }
 export interface RecoveredWork {

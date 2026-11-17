@@ -15,6 +15,7 @@ def initialize(connection):
     connection.execute('CREATE TABLE IF NOT EXISTS application_sessions (id TEXT PRIMARY KEY, created_at TEXT NOT NULL, status TEXT NOT NULL, closed_at TEXT)')
     connection.execute('CREATE TABLE IF NOT EXISTS session_experiments (experiment_id TEXT PRIMARY KEY, session_id TEXT NOT NULL)')
     connection.execute('CREATE TABLE IF NOT EXISTS job_controls (job_id TEXT PRIMARY KEY, requested_at TEXT NOT NULL)')
+    connection.execute('CREATE TABLE IF NOT EXISTS retry_commands (request_id TEXT PRIMARY KEY, source_job_id TEXT NOT NULL, command_id TEXT UNIQUE NOT NULL, job_id TEXT)')
     connection.execute('CREATE TABLE IF NOT EXISTS job_retries (job_id TEXT PRIMARY KEY, previous_job_id TEXT NOT NULL)')
     for identity, created in connection.execute('SELECT e.id,e.created_at FROM experiments e LEFT JOIN session_experiments s ON s.experiment_id=e.id WHERE s.experiment_id IS NULL').fetchall():
         session = str(uuid5(NAMESPACE_URL, 'auditory-cortex:application-session:' + identity))
@@ -26,6 +27,14 @@ def ensure_open(connection, experiment_id):
     row = connection.execute('SELECT a.status FROM application_sessions a JOIN session_experiments s ON s.session_id=a.id WHERE s.experiment_id=?', (experiment_id,)).fetchone()
     if row is None or row[0] != 'open':
         raise ValueError('Application session is closing or closed. Start a new session.')
+
+
+def ensure_command_available(connection, request_id, retry_source=None):
+    bound = connection.execute('SELECT source_job_id,command_id FROM retry_commands WHERE request_id=? OR command_id=?', (request_id,request_id)).fetchone()
+    if bound and (request_id != bound[1] or retry_source != bound[0]):
+        raise ValueError('Command identity belongs to an explicit retry. Use a new command identity.')
+    if retry_source is not None and bound is None:
+        raise ValueError('Retry command ownership is unavailable.')
 
 
 def cancellation_requested(connection, job_id):
@@ -112,13 +121,15 @@ class Lifecycle:
         with sqlite3.connect(str(self.store.path)) as connection:
             ids = [row[0] for row in connection.execute('SELECT experiment_id FROM session_experiments WHERE session_id=? ORDER BY rowid DESC', (identity,))]
             retries = dict(connection.execute('SELECT job_id,previous_job_id FROM job_retries'))
+            for table in ('fits','generations','batches'):
+                retries.update(connection.execute('SELECT j.job_id,r.source_job_id FROM ' + table + ' j JOIN retry_commands r ON r.command_id=j.request_id'))
         jobs = []
         for experiment in ids:
             for kind, operations in self.work(experiment).items():
                 for operation in operations:
                     jobs.append({'kind': {'fits':'fit','generations':'generation','batches':'batch'}[kind], 'id':operation.id,
                                  'job_id':operation.job_id, 'state':operation.state, 'created_at':operation.created_at,
-                                 'artifacts_ready':operation.artifacts_ready, 'retry_of_job_id':retries.get(operation.job_id)})
+                                 'artifacts_ready':operation.artifacts_ready, 'retryable':operation.state in ('failed','interrupted','cancelled','partial') and (kind != 'batches' or any(target.state != 'succeeded' for target in operation.targets)), 'retry_of_job_id':retries.get(operation.job_id)})
         jobs.sort(key=lambda job: job['created_at'], reverse=True)
         return {'session':session, 'experiments':[self.store.get(identity) for identity in ids], 'jobs':jobs}
 
