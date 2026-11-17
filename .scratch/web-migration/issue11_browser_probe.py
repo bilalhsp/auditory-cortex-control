@@ -1,8 +1,10 @@
 import os,subprocess,time,urllib.request
 from pathlib import Path
-root=Path('/scratch/gilbreth/ahmedb/cache/auditory-web-checks')
+import yaml
+root=Path(yaml.safe_load(Path('auditory_cortex/config.yml').read_text())['cache_dir'])/'auditory-web-checks'
+root.mkdir(parents=True, exist_ok=True)
 (root/'gpu-count').write_text('3')
-env=dict(os.environ, PYTHONPATH=str(Path.cwd())+':'+str(Path('.scratch/web-migration').absolute()),PLAYWRIGHT_BROWSERS_PATH=str(root/'browsers'))
+env=dict(os.environ, PYTHONPATH=str(Path.cwd())+':'+str(Path('.scratch/web-migration').absolute()),PLAYWRIGHT_BROWSERS_PATH=str(root/'browsers'),AUDITORY_CHECK_ROOT=str(root))
 processes=[]
 try:
     with (root/'api.log').open('w') as api_log, (root/'frontend.log').open('w') as front_log:
@@ -22,4 +24,6 @@ finally:
         p.terminate()
     for p in processes:
         try: p.wait(timeout=10)
-        except subprocess.TimeoutExpired: p.kill()
+        except subprocess.TimeoutExpired:
+            p.kill()
+            p.wait(timeout=10)

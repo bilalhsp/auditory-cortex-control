@@ -1,12 +1,13 @@
 import threading,time
 from dataclasses import replace
 from pathlib import Path
+import yaml
 from backend.app import create_app
 from backend.tests.test_recordings import RecordingApiTests
 from backend.tests.test_fits import FitApiTests
 from backend.tests.test_generations import GenerationApiTests
 from backend.worker import run_worker
-root=Path('/scratch/gilbreth/ahmedb/cache/auditory-web-checks')
+root=Path(yaml.safe_load(Path('auditory_cortex/config.yml').read_text())['cache_dir'])/'auditory-web-checks'
 trigger=root/'issue11-trigger';failure=root/'issue11-fail';batchmode=root/'issue11-batch'
 for path in (trigger,failure,batchmode):path.unlink(missing_ok=True)
 fixture=RecordingApiTests();fixture.setUpClass();fixture.setUp()

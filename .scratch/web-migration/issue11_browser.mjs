@@ -1,7 +1,8 @@
-import {chromium} from '/scratch/gilbreth/ahmedb/cache/auditory-web-checks/node_modules/playwright/index.mjs';
 import {writeFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
-const root='/scratch/gilbreth/ahmedb/cache/auditory-web-checks';
+const root=process.env.AUDITORY_CHECK_ROOT;
+assert(root, 'Run using issue11_browser_probe.py');
+const {chromium}=await import(root+'/node_modules/playwright/index.mjs');
 const browser=await chromium.launch({headless:true,args:['--disable-gpu','--no-sandbox','--disable-dev-shm-usage','--no-zygote','--single-process'],env:{...process.env,LD_LIBRARY_PATH:''}});
 try{
  const page=await browser.newPage({viewport:{width:1440,height:1100}});const errors=[];page.on('pageerror',error=>errors.push(error.message));
