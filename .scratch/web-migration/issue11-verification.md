@@ -16,9 +16,9 @@ calendar remain excluded.
 | mVocs scientific parity | `issue11_native_probe.py` | Real legacy/web fit probe running; audio comparison pending |
 | GPU count admission, bounded target waves, idle reservations, contention/isolation | Existing batch/subprocess/lifecycle HTTP tests; `issue08-benchmark.json` | Controlled multi-device checks and real single-GPU two-target batch passed |
 | Browser reconnect, retry, disconnect/history/download, close with preserved partial samples, mobile | `issue11_browser_probe.py`, `issue11_browser_api.py`, `issue11_browser.mjs` | Passed against built frontend on 127.0.0.1:5173 and independent API on 127.0.0.1:8765 |
-| Separate builds/runtime API configuration/CORS/credentials and zero-GPU metadata readiness | Frontend build; archive probe; browser route-injected runtime API configuration; API suite | Builds passed; archive recheck in progress |
-| Worker interruption, surviving child ownership, Stop/release ordering, attempt isolation | `backend/tests/test_sessions.py`, prior real fit cancellation in `issue09-native.json` | Existing checks passed; full regression recheck pending |
-| Authentication on all commands/status/history/downloads, safe temporary cleanup, retained artifacts | Issue 10 HTTP tests and upload/batch/lifecycle regression cases | Existing checks passed; full regression recheck pending |
+| Separate builds/runtime API configuration/CORS/credentials and zero-GPU metadata readiness | Frontend build; archive probe; browser route-injected runtime API configuration; API suite | Frontend and backend archive builds passed; standalone archive recovery/closure check passed |
+| Worker interruption, surviving child ownership, Stop/release ordering, attempt isolation | `backend/tests/test_sessions.py`, prior real fit cancellation in `issue09-native.json` | Passed again in full regression |
+| Authentication on all commands/status/history/downloads, safe temporary cleanup, retained artifacts | Issue 10 HTTP tests and upload/batch/lifecycle regression cases | Passed again in full regression |
 | Rollback runtime and retained artifacts | `issue11_rollback_probe.py`, `issue11-rollback.json` | Legacy server health and isolated legacy UI passed; all five retained artifact hashes unchanged |
 | Operator pilot/release sign-off, public proxy checks, actual cutover and retirement | `docs/deployment/web-cutover.md` checklist | Pending; no production traffic changed |
 
@@ -56,3 +56,20 @@ The retained legacy Frontend deletes its dated output folder at startup. The
 rollback rehearsal deliberately uses a new isolated cache workspace rather than
 opening that UI against prior outputs. Streamlit remains available; it has not
 been archived. The actual public proxy traffic switch is not rehearsed locally.
+
+## Regression and review
+
+All **74 backend tests passed in 355.034 seconds**, including the four-way release
+matrix. Backend Pyright reports zero errors, frontend TypeScript/Vite build and
+backend archive build pass, and preserved probes pass syntax checks. The browser
+probe passed again after switching its paths to the configured cache directory.
+The archive probe now explicitly compares two closure responses before claiming
+idempotency and passed again.
+
+Review base: `768142820514a5e76ac6d168900eb8dcdeff8ab3`. Standards review found one
+unsupported idempotency message, fixed with the repeated-close assertion. Spec
+review of the added audio probe found nullable/CuPy parameter handling would fail
+before sampling; fixed with matching keys/shapes, explicit paired-None handling,
+and CPU conversion. Both were verification-probe fixes, not scientific changes.
+The audio probe also requires exactly the expected existing/upload fit pair and
+two completed objective comparisons before reporting completion.
