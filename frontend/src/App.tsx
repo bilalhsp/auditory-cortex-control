@@ -182,7 +182,7 @@ export default function App() {
           )}
         </header>
         <main>
-          {api && (
+          {api && caps?.sessions?.supported && (
             <SessionHistory
               api={api}
               currentExperiment={experiment}
@@ -462,6 +462,7 @@ export default function App() {
                     seed={caps.fit.default_seed}
                     generationOptions={caps.generation}
                     batchEnabled={Boolean(caps.batch?.supported)}
+                    recoveryEnabled={Boolean(caps.sessions?.supported)}
                   />
                 )}
             </>

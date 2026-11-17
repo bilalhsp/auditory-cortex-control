@@ -154,7 +154,9 @@ class ExperimentStore:
             batch.state = 'interrupted'
             batch.artifacts_ready = any(target.state == 'succeeded' for target in batch.targets)
             batch.finished_at = datetime.now(timezone.utc).isoformat()
-            batch.error = 'Compute worker restarted. Submit a new batch to retry.'
+            batch.error = ('Worker restarted after target results were saved. Download the completed results.'
+                           if all(target.state == 'succeeded' for target in batch.targets)
+                           else 'Compute worker restarted. Submit a new batch to retry.')
             self.update_batch(batch)
 
     def fit_workspace(self, identity: str) -> Optional[Path]:

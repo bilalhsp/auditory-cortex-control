@@ -12,6 +12,7 @@ import GenerationPanel from "./GenerationPanel";
 import BatchPanel from "./BatchPanel";
 
 interface Props {
+  recoveryEnabled?: boolean;
   batchEnabled?: boolean;
   generationOptions?: Capabilities["generation"];
   api: ReturnType<typeof makeApi>;
@@ -25,6 +26,7 @@ export default function FitPanel({
   seed,
   generationOptions,
   batchEnabled,
+  recoveryEnabled,
 }: Props) {
   const [recovered, setRecovered] = useState<RecoveredWork | null>(null);
   const [recovering, setRecovering] = useState(true);
@@ -34,6 +36,10 @@ export default function FitPanel({
   const mounted = useRef(false);
   const requestId = useRef<string | null>(null);
   useEffect(() => {
+    if (!recoveryEnabled) {
+      setRecovering(false);
+      return;
+    }
     let current = true;
     api
       .recoverExperiment(experiment.id)
@@ -63,7 +69,7 @@ export default function FitPanel({
     return () => {
       current = false;
     };
-  }, [api, experiment.id, experiment.recording_revision]);
+  }, [api, experiment.id, experiment.recording_revision, recoveryEnabled]);
 
   const active =
     fit?.state === "queued" ||

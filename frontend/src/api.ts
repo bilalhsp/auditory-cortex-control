@@ -1,4 +1,5 @@
 export interface Capabilities {
+  sessions?: { supported: boolean };
   batch?: { supported: boolean };
   generation?: {
     objectives: string[];
