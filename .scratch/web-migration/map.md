@@ -3,7 +3,7 @@
 ## Notes
 
 Implementation tickets live in [issues/](issues/); the approved requirements are
-in [spec.md](spec.md). Issues 01–06 are resolved.
+in [spec.md](spec.md). Issues 01–07 are resolved.
 
 ## Decisions-so-far
 
@@ -22,9 +22,16 @@ in [spec.md](spec.md). Issues 01–06 are resolved.
   same workflow, preserving native session zero while isolating every fit artifact
   by UUID and checking upload integrity/ownership. Two same-named uploads match
   all 18 baseline correlations exactly and retain distinct artifacts; see
-  [verification](issue06-verification.md). Issue 07 is the next ready issue.
+  [verification](issue06-verification.md).
+- [Issue 07](issues/07-generate-one-target.md) provides single-target generation
+  and authenticated WAV ZIP downloads with preserved artifacts and GPU requests.
+  Both objectives match controlled legacy outputs exactly under the user-approved
+  initialization/RNG comparison. Fresh legacy processes also vary from historical
+  WAVs; retain that evidence instead of claiming cross-process determinism.
+  See [verification](issue07-verification.md). Issue 08 is the next ready issue.
 
 ## Fog
 
-Later slices implement single-target generation/downloads (07), multi-GPU batches (08), history/Stop/reconnection (09), lifecycle hardening
-(10), and final parity/cutover (11). No new user decisions block issue 07.
+Later slices implement multi-GPU batches (08), history/Stop/reconnection (09),
+lifecycle hardening (10), and final parity/cutover (11). No new user decisions
+block issue 08.

@@ -29,5 +29,6 @@
       "rms_pcm_difference_from_historical": 0.1313245368337406
     }
   ],
-  "pending": "Both-objective scientific acceptance; awaiting explicit decision on controlled initialization comparison because fresh legacy also fails historical equality."
+  "acceptance_revision_approved": true,
+  "note": "Historical waveform equality does not pass in fresh legacy processes either. Retained for audit; the approved controlled comparison is recorded separately in issue07-parity.json."
 }

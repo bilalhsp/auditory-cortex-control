@@ -1,0 +1,44 @@
+{
+  "completed": true,
+  "historical_exact_equality_passed": false,
+  "acceptance": "User-approved controlled legacy/web initialization and RNG comparison",
+  "root": "/scratch/gilbreth/ahmedb/cache/auditory-web-checks/issue07-controlled/440b66f5-e465-4162-9307-44e8c8ead888",
+  "results": [
+    {
+      "objective": "stretch",
+      "generation_id": "a5c63e5a-ff0a-45f7-bc38-464e73bdbe5c",
+      "job_id": "7d2f6121-6cfc-4874-bfea-cbf2225216fe",
+      "fit_id": "0b8334fb-6130-4535-ada6-7b55d4caf32c",
+      "legacy_path": "/scratch/gilbreth/ahmedb/cache/auditory-web-checks/issue07-controlled/440b66f5-e465-4162-9307-44e8c8ead888/stretch/timit/timit-unit_12.03_stretch_0.wav",
+      "web_sha256": "66fe0fafe6a618da22ad8c0e2de3183aad30defed50eecc616328ea348cc65a1",
+      "legacy_sha256": "66fe0fafe6a618da22ad8c0e2de3183aad30defed50eecc616328ea348cc65a1",
+      "initialization_rng": {
+        "cpu_sha256": "5feb54a46230d321d888e9b43cf5a57492665f199e4377408d79ee460e36679c",
+        "cuda_sha256": "d77fb61ef1844a93ae98982359cb188ea3cfdcd3547d036946a1aebaa7a2949c"
+      },
+      "max_absolute_pcm_difference": 0.0,
+      "rms_pcm_difference": 0.0,
+      "frames": 15392,
+      "exit_code": 0,
+      "byte_identical": true
+    },
+    {
+      "objective": "one-hot",
+      "generation_id": "84519b07-c29b-45e6-b2b0-bd73182f4254",
+      "job_id": "72b04e7e-45c3-46d4-9adc-98739d37a3ad",
+      "fit_id": "0b8334fb-6130-4535-ada6-7b55d4caf32c",
+      "legacy_path": "/scratch/gilbreth/ahmedb/cache/auditory-web-checks/issue07-controlled/440b66f5-e465-4162-9307-44e8c8ead888/one-hot/timit/timit-unit_12.03_one-hot_0.wav",
+      "web_sha256": "1ce8668eb5c13e19f8ff1a7a0b9d7107f57f342133ea56e5b0302ed5890727fe",
+      "legacy_sha256": "1ce8668eb5c13e19f8ff1a7a0b9d7107f57f342133ea56e5b0302ed5890727fe",
+      "initialization_rng": {
+        "cpu_sha256": "5feb54a46230d321d888e9b43cf5a57492665f199e4377408d79ee460e36679c",
+        "cuda_sha256": "d77fb61ef1844a93ae98982359cb188ea3cfdcd3547d036946a1aebaa7a2949c"
+      },
+      "max_absolute_pcm_difference": 0.0,
+      "rms_pcm_difference": 0.0,
+      "frames": 15392,
+      "exit_code": 0,
+      "byte_identical": true
+    }
+  ]
+}
