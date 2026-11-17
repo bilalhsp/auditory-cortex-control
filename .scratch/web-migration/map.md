@@ -3,7 +3,7 @@
 ## Notes
 
 Implementation tickets live in [issues/](issues/); the approved requirements are
-in [spec.md](spec.md). Issues 01–05 are resolved.
+in [spec.md](spec.md). Issues 01–06 are resolved.
 
 ## Decisions-so-far
 
@@ -17,10 +17,14 @@ in [spec.md](spec.md). Issues 01–05 are resolved.
 - Ranked correlations preserve channel identities and explicit unavailable values.
   Two web-submitted GPU fits match all 18 legacy baseline values exactly.
 - [Issue 05](issues/05-fit-existing-recording.md) is complete; see its
-  [verification](issue05-verification.md). Issue 06 is the next ready issue.
+  [verification](issue05-verification.md).
+- [Issue 06](issues/06-fit-uploaded-recording.md) adds validated uploads to that
+  same workflow, preserving native session zero while isolating every fit artifact
+  by UUID and checking upload integrity/ownership. Two same-named uploads match
+  all 18 baseline correlations exactly and retain distinct artifacts; see
+  [verification](issue06-verification.md). Issue 07 is the next ready issue.
 
 ## Fog
 
-Later slices implement uploaded fitting (06), single-target generation/downloads
-(07), multi-GPU batches (08), history/Stop/reconnection (09), lifecycle hardening
-(10), and final parity/cutover (11). No new user decisions block issue 06.
+Later slices implement single-target generation/downloads (07), multi-GPU batches (08), history/Stop/reconnection (09), lifecycle hardening
+(10), and final parity/cutover (11). No new user decisions block issue 07.

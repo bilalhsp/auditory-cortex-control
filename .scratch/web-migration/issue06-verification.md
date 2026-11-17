@@ -6,12 +6,15 @@ The existing `.venv` and configured cache were used without dependency changes.
 
 - First acceptance test failed with HTTP 409 (existing recordings only), then
   passed after uploads entered the shared workflow.
-- Four uploaded-fit acceptance tests pass: upload → fit → ranked correlations;
+- Uploaded-fit acceptance tests pass: upload → fit → ranked correlations;
   same-named replacements with two queued fits and isolated session-zero models;
   invalid/missing/modified/foreign upload rejection; model loading/fitting failures
   without successful or ready output and without private error content.
-- Full backend suite: 44 tests pass, including all existing-recording regressions.
+- Final full backend suite: 45 tests pass after the review correction, including all existing-recording regressions.
 - Backend Pyright: 0 errors; React TypeScript and Vite production build pass.
+- Independently built backend archive, launched outside the repository with
+  explicit configuration, validates a real upload, queues its fit, and reads the
+  persisted job. The packaged worker CLI also starts outside the repository.
 - Chromium with real API/SQLite and controlled worker passes uploaded fit queued,
   running, success, sorted signed/decimal channel IDs, unavailable values, failure,
   same-named replacement invalidation, and desktop/mobile layout, with no page errors.
@@ -32,4 +35,20 @@ The existing `.venv` and configured cache were used without dependency changes.
 Large recordings/model files and runtime diagnostics remain in the configured
 scientific cache, outside the source repository. No new environment was created.
 
-Independent review results will be recorded before issue resolution.
+## Standards
+
+Fresh independent review of `792f1c0` against fixed base
+`7f62696733ac43ef0ab17237558572fe2783ffc8` found no documented violations or
+substantive smell findings. Follow-up review of `51e2f08` also found none.
+
+## Spec
+
+One P2 finding: resolving uploaded-fit fallback configuration outside error
+handling could produce a generic HTTP 500. Fixed in `51e2f08` by translating
+configuration failures into an actionable `CatalogUnavailable` HTTP 503. A new
+standalone-archive HTTP regression reproduced 500 before the fix and passes with
+503 afterward; public errors contain no filesystem paths. The reviewer confirmed
+resolution with no remaining spec findings. Fifteen targeted uploaded-fit/catalog
+tests, Pyright, and the rebuilt backend artifact pass after the correction.
+
+Review totals: Standards 0 findings; Spec 1 P2 finding resolved, 0 remaining.
