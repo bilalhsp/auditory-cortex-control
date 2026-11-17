@@ -273,3 +273,11 @@ normalization/clipping is unchanged. Native latent rounding maps requested
 1/2/3/4 seconds to 15,392/35,872/51,232/66,592 frames (0.962/2.242/3.202/4.162 s).
 The UI reports actual duration instead of trimming scientific output. ZIP
 membership excludes models, recordings, raw files, diagnostics, and provenance.
+
+Generation seeds are applied before model initialization as well as sampling.
+Private compute provenance records initialization seed and CPU/CUDA RNG hashes.
+The historical issue 01 WAVs measured repeats within a single initialized sampler;
+fresh legacy processes also differ from those WAVs. The operator approved
+controlled legacy/web comparisons with identical initialization/RNG state as the
+migration acceptance check. Historical evidence is retained separately; this is
+not a claim of portable audio determinism across processes or GPU/runtime changes.

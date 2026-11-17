@@ -16,3 +16,12 @@ Type: task
 - [ ] Download only this generation’s intended artifacts as a ZIP; verify clip count, duration, 16-kHz PCM16 format, existing RMS normalization/clipping behavior, and access rules.
 - [ ] Additional generations reuse the fit without overwriting earlier outputs; creating/opening a frontend cannot delete previous results.
 - [ ] Verify both objectives against agreed scientific tolerances and exercise nonzero exit/missing-output failures using the approved test boundary.
+
+## Comments
+
+2026-11-17: User approved replacing historical-WAV equality as the generation
+acceptance gate with controlled legacy/web comparisons using identical recorded
+model initialization and RNG state. The unchanged legacy sampler also fails the
+historical stretch hash in a fresh process (max PCM delta 1.15093994140625). Keep
+the historical evidence and document cross-process variability. Both objectives
+still require measured controlled comparison; do not invent a numerical tolerance.

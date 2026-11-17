@@ -1,0 +1,33 @@
+{
+  "completed": false,
+  "historical_exact_equality_passed": false,
+  "fit_parameter_max_absolute_delta": 0.0,
+  "outputs": [
+    {
+      "source": "web",
+      "objective": "stretch",
+      "path": "/scratch/gilbreth/ahmedb/cache/auditory-web-checks/issue05-real/630d0370-56ec-41ee-b977-195eb4260bc0/generations/c13b4438-e403-49bd-8c34-dc1e3076f40f/clip-001.wav",
+      "sha256": "f5e22a81ff442140345006a63d66dbf7f2c4afb8149cfaf1bc3145d547b92836",
+      "frames": 15392,
+      "max_absolute_pcm_difference_from_historical": 0.844940185546875,
+      "rms_pcm_difference_from_historical": 0.13711356744158967
+    },
+    {
+      "source": "fresh_legacy",
+      "objective": "stretch",
+      "path": "/scratch/gilbreth/ahmedb/cache/auditory-web-checks/issue07-fresh-legacy/audio/stretch/0/timit/timit-unit_12.03_stretch_0.wav",
+      "sha256": "b972479d209af1f5b4db1b1998f5129af45e45e7c5b1a06c9f82417c6f816b44",
+      "frames": 15392,
+      "max_absolute_pcm_difference_from_historical": 1.15093994140625,
+      "rms_pcm_difference_from_historical": 0.14066166709351313
+    },
+    {
+      "source": "fresh_legacy",
+      "objective": "one-hot",
+      "sha256": "d9fa9008a800864e612548dd20149b17b1fe96491dbd4b38735f764f773346aa",
+      "max_absolute_pcm_difference_from_historical": 0.981964111328125,
+      "rms_pcm_difference_from_historical": 0.1313245368337406
+    }
+  ],
+  "pending": "Both-objective scientific acceptance; awaiting explicit decision on controlled initialization comparison because fresh legacy also fails historical equality."
+}

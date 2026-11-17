@@ -60,6 +60,13 @@ def scientific_generation(workspace: Path) -> None:
     target = float(generation.channel_id)
     if target not in units:
         raise ValueError('Target does not belong to the fitted model')
+    from auditory_cortex.diffusion.utils import seed_everything
+    seed_everything(generation.seed)
+    import hashlib
+    initialization_rng = {
+        'cpu_sha256': hashlib.sha256(torch.get_rng_state().numpy().tobytes()).hexdigest(),
+        'cuda_sha256': hashlib.sha256(torch.cuda.get_rng_state(0).cpu().numpy().tobytes()).hexdigest(),
+    }
     sampler = Sampler(torch.device('cuda:0'), model_name=cfg['model_name'], session_id=cfg['session_id'],
                       layer_id=cfg['layer_id'], bin_width=cfg['bin_width'], mVocs=cfg['mVocs'],
                       lag=cfg['lag'], dataset_name=cfg['dataset_name'], unit_ids=units,
@@ -77,6 +84,7 @@ def scientific_generation(workspace: Path) -> None:
     provenance = {'fit_manifest': data['fit_manifest'], 'generation': generation.model_dump(),
                   'input_sha256': hashes, 'python': platform.python_version(),
                   'sampler_configuration': sampler_configuration,
+                  'initialization_seed': generation.seed, 'initialization_rng': initialization_rng,
                   'packages': {name: version(name) for name in ('torch', 'cupy-cuda12x', 'numpy', 'scipy')},
                   'generator_code_sha256': file_sha256(CONF_DIR.parent / 'auditory_cortex/optimal_stimulus/generator.py')}
     (workspace / 'compute-provenance.json').write_text(json.dumps(provenance, indent=2))

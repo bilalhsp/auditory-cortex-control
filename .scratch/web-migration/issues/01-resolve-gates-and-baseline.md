@@ -39,3 +39,12 @@ measured summaries, reproduction probes, and limitations are recorded alongside
 this ticket. Nominal one-second samples contain 15,392 frames at 16 kHz; this
 native behavior is documented rather than silently changed. Issue 02 is now
 unblocked. This resolves discovery/baseline work, not the web implementation.
+
+## Acceptance update (issue 07)
+
+2026-11-17: Fresh unchanged legacy generation also differs from the historical
+WAVs. The user explicitly approved controlled legacy/web comparison with identical
+recorded initialization and RNG state as the generation migration gate, retaining
+the historical evidence and documenting fresh-process variability. This does not
+relax fitting parity or introduce a numeric audio tolerance. See issue 07 comments
+and its controlled comparison evidence.
