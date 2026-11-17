@@ -12,6 +12,7 @@ import sys
 import time
 import traceback
 from pathlib import Path
+from datetime import datetime
 from uuid import uuid4
 
 import yaml
@@ -89,6 +90,7 @@ def main():
             delta = max(abs(actual[key] - baseline[key]) for key in baseline)
             entry = {'source': source, 'fit_id': fit['id'], 'job_id': fit['job_id'],
                      'seconds': time.monotonic() - before, 'channels': len(actual),
+                     'queue_wait_seconds': (datetime.fromisoformat(final['started_at']) - datetime.fromisoformat(final['created_at'])).total_seconds(),
                      'max_absolute_legacy_delta': delta, 'session_id': experiment['session_id']}
             report['fits'].append(entry)
             destination.write_text(json.dumps(report, indent=2) + '\n')

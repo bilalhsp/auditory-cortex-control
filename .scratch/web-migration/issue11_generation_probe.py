@@ -11,6 +11,7 @@ import time
 import traceback
 import zipfile
 from pathlib import Path
+from datetime import datetime
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -105,6 +106,7 @@ def main():
             entry = {'objective': objective, 'source': fit['source'], 'fit_id': fit['fit_id'],
                      'generation_id': job['id'], 'job_id': job['job_id'], 'channel_id': channel,
                      'legacy_seconds': legacy_seconds, 'web_seconds': time.monotonic() - before,
+                     'queue_wait_seconds': (datetime.fromisoformat(final['started_at']) - datetime.fromisoformat(final['created_at'])).total_seconds(),
                      'max_fit_parameter_delta': parameter_delta, 'initialization_rng': rng,
                      'frames': len(actual), 'rate': rate, 'subtype': sf.info(io.BytesIO(data)).subtype,
                      'web_sha256': hashlib.sha256(data).hexdigest(), 'legacy_sha256': hashlib.sha256(legacy.read_bytes()).hexdigest(),

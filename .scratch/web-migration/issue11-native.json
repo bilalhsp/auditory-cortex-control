@@ -1,0 +1,53 @@
+{
+  "completed": true,
+  "root": "/scratch/gilbreth/ahmedb/cache/auditory-web-checks/issue11-native/1eb4a458-af37-4953-9ad3-2261742a75c3",
+  "family": "mVocs",
+  "fits": [
+    {
+      "source": "existing",
+      "fit_id": "806ece3d-c4cd-4065-bc97-316390117580",
+      "job_id": "01462d6f-bf8b-43f8-9acc-de850bd25e94",
+      "seconds": 175.99696496175602,
+      "channels": 18,
+      "max_absolute_legacy_delta": 0.0,
+      "session_id": "b8cb40fb-45ec-4ca3-b6fe-cd02330067e7",
+      "queue_wait_seconds": 0.982785
+    },
+    {
+      "source": "upload",
+      "fit_id": "e6c09720-c26e-4f8b-bf17-370b0dc23231",
+      "job_id": "6157e05a-0298-4be4-859c-a7585a190bad",
+      "seconds": 174.39374162489548,
+      "channels": 18,
+      "max_absolute_legacy_delta": 0.0,
+      "session_id": "b3ebaa01-1262-4616-a76e-ab1f65ff4e6e",
+      "queue_wait_seconds": 0.87299
+    }
+  ],
+  "latency_threshold": null,
+  "scope": "native fit parity; generation separately gated",
+  "gpu": "NVIDIA A100-SXM4-40GB",
+  "initialization_seconds": 715.789467509836,
+  "legacy_fit_seconds": 74.95089673111215,
+  "legacy_correlations": {
+    "-2.02": 0.04848022874238261,
+    "-2.01": 0.11097807046693309,
+    "2.01": 0.16354380248738654,
+    "4.01": 0.16564082392051557,
+    "4.02": 0.18599916670837488,
+    "6.01": 0.3185705169715587,
+    "-7.01": 0.07117445968302756,
+    "7.01": 0.21298326221348637,
+    "-9.01": 0.2298682128679713,
+    "-11.01": 0.029756243884313745,
+    "11.01": 0.3679528353096504,
+    "12.01": 0.19763033366257318,
+    "12.02": 0.09789574185109157,
+    "12.03": 0.4807946501753122,
+    "-14.01": 0.120893093395489,
+    "14.01": 0.1366247380717813,
+    "-15.01": 0.10795154975864174,
+    "-100.0": 0.1972634822091152
+  },
+  "total_seconds": 1168.4552622088231
+}

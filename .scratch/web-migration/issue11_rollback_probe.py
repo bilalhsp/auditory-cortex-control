@@ -28,8 +28,9 @@ def main():
     baseline = json.loads(Path('.scratch/web-migration/generation-baseline.json').read_text())
     audio = [Path(item['path']) for item in baseline['outputs']]
     fit = cache / 'web-migration-baseline/issue-01/fit-cache'
-    artifacts = audio + list(fit.rglob('*.pkl'))
-    assert len(audio) == 4 and artifacts, 'Retained baseline artifacts unavailable'
+    models = list(fit.rglob('*.pkl'))
+    assert len(audio) == 4 and models, 'Retained baseline artifacts unavailable'
+    artifacts = audio + models
     before = {str(path): digest(path) for path in artifacts}
     report = {'completed': False, 'root': str(root), 'production_traffic_changed': False}
     started = time.monotonic()

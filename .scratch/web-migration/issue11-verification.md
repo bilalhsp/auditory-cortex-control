@@ -13,7 +13,7 @@ calendar remain excluded.
 | Both families and both recording sources; fit/correlations; both objectives and repeated generation; scoped persisted downloads | `backend/tests/test_acceptance.py`: four combinations, three distinct generations each, closure and zero-GPU API restart | Controlled HTTP matrix passed |
 | TIMIT fit scientific parity, both sources | `issue05-parity.json`, `issue06-parity.json`, `issue09-native.json` | 18 correlations match baseline exactly; max delta 0.0 |
 | TIMIT audio scientific parity, both objectives | `issue07-parity.json`, approved controlled initialization/RNG comparison | Byte-identical, max/RMS PCM delta 0.0; historical cross-process variability retained |
-| mVocs scientific parity | `issue11_native_probe.py` | Real legacy/web fit probe running; audio comparison pending |
+| mVocs scientific parity | `issue11_native_probe.py` | Real fits passed: 18 correlations per source, max delta 0.0; controlled real audio probe running |
 | GPU count admission, bounded target waves, idle reservations, contention/isolation | Existing batch/subprocess/lifecycle HTTP tests; `issue08-benchmark.json` | Controlled multi-device checks and real single-GPU two-target batch passed |
 | Browser reconnect, retry, disconnect/history/download, close with preserved partial samples, mobile | `issue11_browser_probe.py`, `issue11_browser_api.py`, `issue11_browser.mjs` | Passed against built frontend on 127.0.0.1:5173 and independent API on 127.0.0.1:8765 |
 | Separate builds/runtime API configuration/CORS/credentials and zero-GPU metadata readiness | Frontend build; archive probe; browser route-injected runtime API configuration; API suite | Frontend and backend archive builds passed; standalone archive recovery/closure check passed |
@@ -30,6 +30,7 @@ Use the existing Python environment. For native and legacy UI probes set
 ```bash
 export PYTHONPATH="$PWD:/home/ahmedb/projects/deepspeech.pytorch:/home/ahmedb/projects/Wav2Letter:/home/ahmedb/projects/utils_jgm:/home/ahmedb/projects/pycochleagram"
 uv run --no-sync python .scratch/web-migration/issue11_native_probe.py
+uv run --no-sync python .scratch/web-migration/issue11_generation_probe.py
 uv run --no-sync python .scratch/web-migration/issue11_rollback_probe.py
 uv run --no-sync python .scratch/web-migration/issue11_archive_probe.py
 uv run --no-sync python .scratch/web-migration/issue11_browser_probe.py
@@ -48,8 +49,8 @@ Prior measured TIMIT initialization was 332.93 s; baseline fits were 56.33–60.
 web subprocess fits approximately 133–149 s. The real two-target TIMIT batch took
 570.18 s with peak observed GPU memory 5,497 MiB on an A100 40 GB. Queue wait and
 target start/finish timestamps remain in the corresponding persisted job records.
-No latency threshold was imposed. mVocs initialization/fit measurements will be
-recorded by the current native probe. Physical multi-GPU throughput is unmeasured
+No latency threshold was imposed. mVocs uncached initialization took 715.79 s, legacy fit 74.95 s, and web
+existing/upload fits 176.00/174.39 s; see `issue11-native.json`. Physical multi-GPU throughput is unmeasured
 on this one-GPU server; do not infer it from controlled allocation tests.
 
 The retained legacy Frontend deletes its dated output folder at startup. The
@@ -73,3 +74,8 @@ before sampling; fixed with matching keys/shapes, explicit paired-None handling,
 and CPU conversion. Both were verification-probe fixes, not scientific changes.
 The audio probe also requires exactly the expected existing/upload fit pair and
 two completed objective comparisons before reporting completion.
+
+
+Real mVocs fitting is now complete: both sources preserve all 18 legacy channel
+correlations exactly, including best channel 12.03. The separate audio probe is
+running; no audio parity or production-readiness claim is made before it passes.
