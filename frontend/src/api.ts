@@ -39,6 +39,7 @@ export interface Experiment {
   configuration: Configuration;
   recording: Recording | null;
   recording_revision: number;
+  session_id: string;
 }
 
 export interface Recording {
@@ -67,7 +68,14 @@ export interface Fit {
   recording: Recording;
   recording_revision: number;
   seed: number;
-  state: "queued" | "running" | "succeeded" | "failed" | "interrupted";
+  state:
+    | "queued"
+    | "running"
+    | "succeeded"
+    | "failed"
+    | "interrupted"
+    | "cancelling"
+    | "cancelled";
   stage: string;
   error: string | null;
   artifacts_ready: boolean;
@@ -89,7 +97,14 @@ export interface Generation extends Omit<GenerationSubmission, "request_id"> {
   job_id: string;
   fit_id: string;
   configuration: Configuration;
-  state: "queued" | "running" | "succeeded" | "failed" | "interrupted";
+  state:
+    | "queued"
+    | "running"
+    | "succeeded"
+    | "failed"
+    | "interrupted"
+    | "cancelling"
+    | "cancelled";
   stage: string;
   artifacts_ready: boolean;
   error: string | null;
@@ -115,10 +130,43 @@ export interface Batch {
   used_gpu_count: number;
   unused_gpu_count: number;
   state:
-    "queued" | "running" | "succeeded" | "partial" | "failed" | "interrupted";
+    | "queued"
+    | "running"
+    | "succeeded"
+    | "partial"
+    | "failed"
+    | "interrupted"
+    | "cancelling"
+    | "cancelled";
   error: string | null;
   artifacts_ready: boolean;
   targets: Generation[];
+}
+
+export type Job = Fit | Generation | Batch;
+export interface ApplicationSession {
+  id: string;
+  created_at: string;
+  status: "open" | "closing" | "closed";
+  closed_at: string | null;
+}
+export interface SessionDetail {
+  session: ApplicationSession;
+  experiments: Experiment[];
+  jobs: {
+    id: string;
+    job_id: string;
+    kind: "fit" | "generation" | "batch";
+    state: string;
+    created_at: string;
+    artifacts_ready: boolean;
+    retry_of_job_id: string | null;
+  }[];
+}
+export interface RecoveredWork {
+  fits: Fit[];
+  generations: Generation[];
+  batches: Batch[];
 }
 
 interface FitSubmission {
@@ -159,7 +207,9 @@ export function makeApi(username: string, password: string) {
       | File
       | FitSubmission
       | GenerationSubmission
-      | BatchSubmission,
+      | BatchSubmission
+      | { request_id: string }
+      | Record<string, never>,
   ): Promise<T> {
     const file = body instanceof File ? body : null;
     const response = await fetch(`${base}/api/v1${path}`, {
@@ -206,6 +256,23 @@ export function makeApi(username: string, password: string) {
     return response.blob();
   }
   return {
+    sessions: () => request<ApplicationSession[]>("/sessions"),
+    session: (id: string) =>
+      request<SessionDetail>(`/sessions/${encodeURIComponent(id)}`),
+    closeSession: (id: string) =>
+      request<ApplicationSession>(
+        `/sessions/${encodeURIComponent(id)}/close`,
+        {},
+      ),
+    job: (id: string) => request<Job>(`/jobs/${encodeURIComponent(id)}`),
+    cancelJob: (id: string) =>
+      request<Job>(`/jobs/${encodeURIComponent(id)}/cancel`, {}),
+    retryJob: (id: string, requestId: string) =>
+      request<Job>(`/jobs/${encodeURIComponent(id)}/retry`, {
+        request_id: requestId,
+      }),
+    recoverExperiment: (id: string) =>
+      request<RecoveredWork>(`/experiments/${encodeURIComponent(id)}/work`),
     startBatch: (fitId: string, submission: BatchSubmission) =>
       request<Batch>(`/fits/${encodeURIComponent(fitId)}/batches`, submission),
     batch: (id: string) => request<Batch>(`/batches/${encodeURIComponent(id)}`),
@@ -221,8 +288,14 @@ export function makeApi(username: string, password: string) {
     downloadGeneration: (id: string) =>
       download(`/generations/${encodeURIComponent(id)}/download`),
     capabilities: () => request<Capabilities>("/capabilities"),
-    createExperiment: (configuration: Configuration) =>
-      request<Experiment>("/experiments", configuration),
+    createExperiment: (
+      configuration: Configuration,
+      sessionId?: string | null,
+    ) =>
+      request<Experiment>(
+        `/experiments${sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : ""}`,
+        configuration,
+      ),
     recordings: (experimentId: string) =>
       request<RecordingCatalog>(
         `/experiments/${encodeURIComponent(experimentId)}/recordings`,

@@ -9,34 +9,37 @@ from datetime import datetime, timezone
 from typing import Callable
 
 from backend.config import Settings
-from backend.fit_compute import FitOutput, FitTask, scientific_fit
+from backend.fit_compute import FitOutput, FitTask, scientific_fit, subprocess_fit
 from backend.fits import file_sha256
 from backend.models import ChannelCorrelation
 from backend.generation_compute import GenerationTask, subprocess_generation
 from backend.generations import validate_clips, verify_fit
 from backend.store import ExperimentStore
+from backend.lifecycle import Lifecycle
 
 
 FitRunner = Callable[[FitTask, Callable[[str], None]], FitOutput]
 logger = logging.getLogger(__name__)
 
 
-def run_next_fit(settings: Settings, runner: FitRunner = scientific_fit) -> bool:
+def run_next_fit(settings: Settings, runner: FitRunner = subprocess_fit, allocator_fd=None) -> bool:
     store = ExperimentStore(settings.database_path)
     claimed = store.claim_fit()
     if claimed is None:
         return False
     fit, workspace = claimed
+    cancelled = lambda: Lifecycle(store).cancelled(fit.job_id)
     handler = None
     try:
         handler = logging.FileHandler(str(workspace / 'diagnostics.log'))
         logging.getLogger().addHandler(handler)
         def progress(stage: str) -> None:
+            if cancelled(): raise RuntimeError('Fit stopped')
             if stage not in {'loading', 'fitting', 'writing'}:
                 raise ValueError('Unknown fit phase')
             fit.stage = stage
             store.update_fit(fit)
-        output = runner(FitTask(fit, workspace), progress)
+        output = runner(FitTask(fit, workspace, cancelled, allocator_fd), progress)
         rows = [ChannelCorrelation(channel_id=str(channel), correlation=float(value) if math.isfinite(float(value)) else None)
                 for channel, value in output.correlations.items()]
         rows.sort(key=lambda item: (item.correlation is None, -(item.correlation or 0.0), item.channel_id))
@@ -75,31 +78,33 @@ def run_next_fit(settings: Settings, runner: FitRunner = scientific_fit) -> bool
     return True
 
 
-def run_next_generation(settings: Settings, runner=subprocess_generation) -> bool:
+def run_next_generation(settings: Settings, runner=subprocess_generation, allocator_fd=None) -> bool:
     store = ExperimentStore(settings.database_path)
     claimed = store.claim_generation()
     if claimed is None:
         return False
     generation, workspace = claimed
-    execute_generation(store, generation, workspace, runner)
+    execute_generation(store, generation, workspace, runner, allocator_fd=allocator_fd)
     return True
 
 
-def execute_generation(store, generation, workspace, runner=subprocess_generation, device_index=0):
+def execute_generation(store, generation, workspace, runner=subprocess_generation, device_index=0, allocator_fd=None):
     generation.state = 'running'
     generation.started_at = generation.started_at or datetime.now(timezone.utc).isoformat()
-    store.update_generation(generation)
+    if not store.update_generation(generation): return
+    cancelled = lambda: Lifecycle(store).cancelled(generation.job_id)
     try:
         snapshot = json.loads((workspace / 'input.json').read_text())
         from pathlib import Path
         if verify_fit(Path(snapshot['fit_workspace'])) != snapshot['fit_manifest']:
             raise ValueError('Pinned fit changed')
         def progress(stage: str) -> None:
+            if cancelled(): raise RuntimeError('Generation stopped')
             if stage not in {'loading', 'generating', 'writing'}:
                 raise ValueError('Unknown generation phase')
             generation.stage = stage
             store.update_generation(generation)
-        generation.exit_code = runner(GenerationTask(generation, workspace, device_index), progress)
+        generation.exit_code = runner(GenerationTask(generation, workspace, device_index, cancelled, allocator_fd), progress)
         if generation.exit_code != 0:
             raise RuntimeError('Generation process exited unsuccessfully')
         progress('writing')
@@ -127,7 +132,7 @@ def execute_generation(store, generation, workspace, runner=subprocess_generatio
         store.update_generation(generation)
 
 
-def run_worker(settings: Settings, once: bool = False, runner: FitRunner = scientific_fit, generation_runner=subprocess_generation, gpu_count=None) -> None:
+def run_worker(settings: Settings, once: bool = False, runner: FitRunner = subprocess_fit, generation_runner=subprocess_generation, gpu_count=None) -> None:
     # Kernel-owned lock survives API restarts and releases only when this compute
     # process exits. A killed worker cannot leave a separate child using GPUs.
     lock_path = settings.database_path.resolve().with_suffix('.fit-worker.lock')
@@ -143,8 +148,8 @@ def run_worker(settings: Settings, once: bool = False, runner: FitRunner = scien
         while True:
             from backend.batches import run_next_batch
             from backend.gpu import local_gpu_count
-            did_work = (run_next_batch(settings, generation_runner, gpu_count or local_gpu_count)
-                        or run_next_fit(settings, runner) or run_next_generation(settings, generation_runner))
+            did_work = (run_next_batch(settings, generation_runner, gpu_count or local_gpu_count, lock.fileno())
+                        or run_next_fit(settings, runner, lock.fileno()) or run_next_generation(settings, generation_runner, lock.fileno()))
             if once:
                 return
             if not did_work:

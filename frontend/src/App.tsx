@@ -1,12 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { ApiError, makeApi } from "./api";
 import type { Capabilities, Experiment } from "./api";
 import RecordingSelector from "./RecordingSelector";
 import RecordingUpload from "./RecordingUpload";
 import FitPanel from "./FitPanel";
+import SessionHistory from "./SessionHistory";
 
 export default function App() {
+  const [resumeCount, setResumeCount] = useState(0);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [api, setApi] = useState<ReturnType<typeof makeApi> | null>(null);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -18,6 +21,9 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    if (experiment?.session_id) setSessionId(experiment.session_id);
+  }, [experiment?.session_id]);
   function reportError(cause: unknown) {
     setError(
       cause instanceof Error
@@ -25,6 +31,7 @@ export default function App() {
         : "Could not connect to the server.",
     );
     if (cause instanceof ApiError && cause.status === 401) {
+      setSessionId(null);
       setApi(null);
       setCaps(null);
       setExperiment(null);
@@ -80,15 +87,18 @@ export default function App() {
     setExperiment(null);
     try {
       setExperiment(
-        await api.createExperiment({
-          stimulus_family: family,
-          dataset_name: caps.settings.datasets[0],
-          model_name: caps.settings.models[0],
-          layer_id: caps.settings.layers[0],
-          bin_width_ms: caps.settings.bin_width_ms,
-          receptive_field_ms: caps.settings.receptive_field_ms,
-          gpu_count: gpuCount,
-        }),
+        await api.createExperiment(
+          {
+            stimulus_family: family,
+            dataset_name: caps.settings.datasets[0],
+            model_name: caps.settings.models[0],
+            layer_id: caps.settings.layers[0],
+            bin_width_ms: caps.settings.bin_width_ms,
+            receptive_field_ms: caps.settings.receptive_field_ms,
+            gpu_count: gpuCount,
+          },
+          sessionId,
+        ),
       );
     } catch (cause) {
       reportError(cause);
@@ -97,11 +107,37 @@ export default function App() {
     }
   }
   function logout() {
+    setSessionId(null);
     setApi(null);
     setCaps(null);
     setExperiment(null);
     setPassword("");
     setError("");
+  }
+  function resume(experiment: Experiment) {
+    setResumeCount((count) => count + 1);
+    setSessionId(experiment.session_id);
+    setExperiment(experiment);
+    setFamily(experiment.configuration.stimulus_family);
+    setGpuCount(experiment.configuration.gpu_count);
+    setExplicitGpu(true);
+  }
+  function closed(id: string) {
+    setSessionId((current) => (current === id ? null : current));
+    setExperiment((current) => (current?.session_id === id ? null : current));
+  }
+  async function newSession() {
+    setSessionId(null);
+    setExperiment(null);
+    setExplicitGpu(false);
+    if (!api) return;
+    try {
+      const result = await api.capabilities();
+      setCaps(result);
+      setGpuCount(result.gpu.available_count);
+    } catch (cause) {
+      reportError(cause);
+    }
   }
   function recordingSelected(updated: Experiment) {
     setExperiment((current) =>
@@ -141,11 +177,20 @@ export default function App() {
           </span>
           {api && (
             <button className="text-button" onClick={logout} disabled={busy}>
-              Sign out
+              Disconnect
             </button>
           )}
         </header>
         <main>
+          {api && (
+            <SessionHistory
+              api={api}
+              currentExperiment={experiment}
+              onResume={resume}
+              onClosed={closed}
+              onNew={newSession}
+            />
+          )}
           <div className="eyebrow">AUDITORY CORTEX CONTROL</div>
           <h1>
             {api ? "Set up your experiment" : "Your research, connected."}
@@ -411,7 +456,7 @@ export default function App() {
                   experiment.recording.source,
                 ) && (
                   <FitPanel
-                    key={`fit-${experiment.id}-${experiment.recording_revision}`}
+                    key={`fit-${experiment.id}-${experiment.recording_revision}-${resumeCount}`}
                     api={api}
                     experiment={experiment}
                     seed={caps.fit.default_seed}

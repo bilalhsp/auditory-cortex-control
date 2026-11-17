@@ -206,10 +206,10 @@ errors identify the failing phase without serializing scientific exception detai
 
 Browser disconnect/sign-out and API restart leave accepted work intact. A worker
 restart marks previously running fits `interrupted` without automatic retry;
-queued work survives and resumes. Computation runs inside the lock-owning worker,
-so killing it cannot leave a separate child using GPUs. Failed/interrupted attempts
+queued work survives and resumes. Owned compute children retain the allocator lock and receive a Linux parent-death
+signal. Cancellation waits for process exit before releasing reservations. Failed/interrupted attempts
 retain diagnostics, never report ready artifacts, and require a new fit to retry.
-History/reconnection UI and explicit Stop/Close follow in issue 09. This slice
+History/reconnection UI and explicit Stop/Close are described below. This slice
 does not enable generation from incomplete fits.
 
 Run the complete current API suite with the existing environment:
@@ -333,7 +333,7 @@ Batch diagnostics record the batch identity and reserved logical slots privately
 Reservations release only after target workers exit and the batch reaches its
 terminal outcome. Worker restart interrupts unfinished targets, preserves completed
 targets and their downloadable files, and releases the interrupted reservation.
-Retries are explicit new attempts. Session Stop/Close remains issue 09.
+Retries are explicit new attempts. Session Stop/Close is available through the lifecycle API below.
 
 Deploy the API and worker together. Stop the prior worker/API before installing
 this backend version, then start the new API and worker against the same database
@@ -348,3 +348,66 @@ Real execution was benchmarked on the available single GPU with two targets in
 waves; multi-GPU scheduling, admission, and device mapping are covered using
 controlled external compute and the real subprocess launcher. See
 `.scratch/web-migration/issue08-benchmark.json`. No latency threshold was imposed.
+
+## Sessions, recovery, Stop, and retry
+
+Application sessions have distinct stable IDs and group saved experiments/jobs.
+Saving the first experiment creates an open session; `POST /experiments` can use
+`?session_id={id}` to add a configuration to an existing open session. Startup
+migrates legacy experiments into distinct persistent sessions without deleting
+recordings, fitted models, or generated output.
+
+Authenticated recovery routes:
+
+- `GET /api/v1/sessions`: saved session identities, timestamps, and status.
+- `GET /api/v1/sessions/{id}`: experiment configurations and job summaries,
+  including retry relationships.
+- `GET /api/v1/experiments/{id}/work`: persisted fits, standalone generations,
+  and batches for workflow restoration.
+- Existing fit/job/generation/batch endpoints remain the authoritative resource
+  views. History and downloads remain available with zero GPUs.
+
+Disconnect/sign-out and API restart leave accepted work running. Reconnect
+requires sign-in, then history and Resume setup recover stable identities and
+current results. No compute is automatically resubmitted by page initialization.
+
+`POST /api/v1/jobs/{job_id}/cancel` is idempotent. Queued jobs cancel immediately;
+running jobs expose `cancelling` while retaining their running reservation. The
+allocator consumes the durable request, terminates its owned process handle,
+waits for exit (escalating to kill if necessary), and then commits `cancelled`.
+A transaction orders cancellation against completion: committed terminal results
+are immutable; a cancellation committed before final result publication wins.
+Files from uncommitted/failed work remain private, not downloadable results.
+
+`POST /api/v1/sessions/{id}/close` prevents new submissions, recording changes,
+and uploads in that session and stops its unfinished jobs. Status remains
+`closing` until running workers finish cancellation/reconciliation, then becomes
+`closed`. Other sessions are unaffected. Completed target manifests/results
+survive Stop/Close, including completed targets of a cancelled batch. Closed
+sessions are read-only; start a new session for further work.
+
+Both fitting and generation now run in owned subprocesses using the existing
+scientific entry points/environment. Children inherit the kernel allocator lock,
+so a replacement allocator cannot reconcile/release GPUs while an old child is
+still alive. Linux parent-death signals handle owner exit/startup races. Worker
+restart marks unfinished running attempts interrupted (or cancelled if a stop
+request was already recorded), preserving completed targets and files. Queued
+accepted commands survive restart. If the compute worker is offline, Stop remains
+pending until it exits/restarts and reconciliation confirms completion; a lost
+connection or timeout alone does not free an occupied reservation.
+
+`POST /api/v1/jobs/{job_id}/retry` takes a new client `request_id` UUID. Only
+failed/interrupted/stopped/partial work can be retried; repeats of that UUID
+return the same new attempt. Fits retain recording/revision/seed; generations
+retain the exact fit/target/settings. Batch retry contains only unfinished
+targets and keeps the explicitly requested GPU count. Attempt IDs/output paths
+are distinct, and history links each retry to its source job. Changed recording
+context or a closed source session requires a new workflow instead of silently
+retargeting an old command. No automatic scientific retries occur.
+
+Declined/out-of-scope guarantees remain unchanged: no seamless checkpoint
+continuation, automatic scientific retry, backup implementation, public
+registration, or multi-user collaboration. Session lifecycle never deletes saved
+scientific results. Access/retention hardening and final cutover remain later
+slices. Upgrade API and worker together using the existing coordinated-deployment
+procedure; lifecycle metadata migration is transactional.

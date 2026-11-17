@@ -6,7 +6,7 @@ import platform
 from dataclasses import dataclass
 from importlib.metadata import version
 from pathlib import Path
-from typing import Callable, Dict, Mapping
+from typing import Callable, Dict, Mapping, Optional
 
 from backend.fits import file_sha256
 from backend.models import Fit
@@ -16,6 +16,8 @@ from backend.models import Fit
 class FitTask:
     fit: Fit
     workspace: Path
+    cancelled: Callable[[], bool] = lambda: False
+    allocator_fd: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -84,3 +86,34 @@ def scientific_fit(task: FitTask, progress: Callable[[str], None]) -> FitOutput:
         gc.collect()
         cp.get_default_memory_pool().free_all_blocks()
         torch.cuda.empty_cache()
+
+
+def subprocess_fit(task: FitTask, progress: Callable[[str], None]) -> FitOutput:
+    from backend.gpu import device_environment
+    from backend.processes import run_compute
+    (task.workspace / 'fit-task.json').write_text(task.fit.model_dump_json())
+    last_stage = [None]
+    def tick():
+        path = task.workspace / 'progress.json'
+        if path.exists():
+            stage = json.loads(path.read_text())['stage']
+            if stage != last_stage[0]:
+                progress(stage);last_stage[0] = stage
+    code = run_compute('backend.fit_compute', task.workspace, task.cancelled, device_environment(0), tick, lock_fd=task.allocator_fd)
+    if code != 0: raise RuntimeError('Fit process exited unsuccessfully')
+    output = json.loads((task.workspace / 'fit-output.json').read_text())
+    return FitOutput(output['correlations'], output['provenance'])
+
+
+if __name__ == '__main__':
+    import sys
+    from backend.processes import require_parent
+    require_parent(int(sys.argv[2]))
+    workspace = Path(sys.argv[1])
+    task = FitTask(Fit.model_validate_json((workspace / 'fit-task.json').read_text()), workspace)
+    def publish_progress(stage):
+        path = workspace / 'progress.next'
+        path.write_text(json.dumps({'stage': stage}))
+        path.replace(workspace / 'progress.json')
+    output = scientific_fit(task, publish_progress)
+    (workspace / 'fit-output.json').write_text(json.dumps({'correlations': dict(output.correlations), 'provenance': output.provenance}))

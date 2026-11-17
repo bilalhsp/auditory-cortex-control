@@ -1,16 +1,14 @@
 """Isolated scientific generation process; only trusted server artifacts are loaded."""
-import ctypes
 import json
 import os
-import signal
-import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Optional
 
 from backend.models import Generation
 from backend.gpu import device_environment
+from backend.processes import require_parent, run_compute
 
 
 @dataclass(frozen=True)
@@ -18,15 +16,14 @@ class GenerationTask:
     generation: Generation
     workspace: Path
     device_index: int = 0
+    cancelled: Callable[[], bool] = lambda: False
+    allocator_fd: Optional[int] = None
 
 
 def subprocess_generation(task: GenerationTask, progress: Callable[[str], None]) -> int:
     progress('generating')
     env = device_environment(task.device_index)
-    with (task.workspace / 'diagnostics.log').open('a') as log:
-        result = subprocess.run([sys.executable, '-m', 'backend.generation_compute', str(task.workspace.resolve()), str(os.getpid())],
-                                env=env, stdout=log, stderr=subprocess.STDOUT)
-    return result.returncode
+    return run_compute('backend.generation_compute', task.workspace, task.cancelled, env, lock_fd=task.allocator_fd)
 
 
 def scientific_generation(workspace: Path) -> None:
@@ -89,9 +86,5 @@ def scientific_generation(workspace: Path) -> None:
 
 
 if __name__ == '__main__':
-    # Linux parent-death signal protects the allocator lock: killing the owning
-    # worker also kills its GPU child, including the startup race before prctl.
-    expected_parent = int(sys.argv[2])
-    if ctypes.CDLL(None).prctl(1, signal.SIGKILL, 0, 0, 0) != 0 or os.getppid() != expected_parent:
-        raise SystemExit('Generation worker parent exited')
+    require_parent(int(sys.argv[2]))
     scientific_generation(Path(sys.argv[1]))

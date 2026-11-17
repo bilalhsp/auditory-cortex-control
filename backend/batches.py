@@ -67,7 +67,7 @@ def submit_batch(settings, store: ExperimentStore, fit_id: str, request: BatchSu
             shutil.rmtree(str(workspace), ignore_errors=True)
 
 
-def run_next_batch(settings, runner, gpu_count) -> bool:
+def run_next_batch(settings, runner, gpu_count, allocator_fd=None) -> bool:
     from backend.worker import execute_generation
     store = ExperimentStore(settings.database_path)
     claimed = store.claim_batch()
@@ -92,12 +92,12 @@ def run_next_batch(settings, runner, gpu_count) -> bool:
                     target.finished_at = datetime.now(timezone.utc).isoformat()
                     store.update_generation(target)
                 else:
-                    execute_generation(store, target, workspace / target.id, runner, device)
+                    execute_generation(store, target, workspace / target.id, runner, device, allocator_fd)
         with ThreadPoolExecutor(max_workers=batch.used_gpu_count) as executor:
             list(executor.map(slot, devices[:batch.used_gpu_count]))
         batch.targets = store.require_batch(batch.id)[0].targets
         completed = sum(target.state == 'succeeded' for target in batch.targets)
-        batch.state = 'succeeded' if completed == len(batch.targets) else 'partial' if completed else 'failed'
+        batch.state = 'succeeded' if completed == len(batch.targets) else 'partial' if completed else 'cancelled' if all(target.state == 'cancelled' for target in batch.targets) else 'failed'
         batch.artifacts_ready = completed > 0
         if batch.state != 'succeeded': batch.error = 'Some targets failed. Only completed targets are downloadable.'
     except Exception:
@@ -131,7 +131,7 @@ def batch_manifest(batch: Batch):
 
 
 def build_batch_zip(batch: Batch, workspace: Path) -> Path:
-    if batch.state not in ('succeeded', 'partial', 'interrupted') or not batch.artifacts_ready:
+    if batch.state not in ('succeeded', 'partial', 'interrupted', 'cancelled') or not batch.artifacts_ready:
         raise FitRequestError(409, 'Batch has no completed downloadable results.')
     handle, name = tempfile.mkstemp(prefix='download-', suffix='.zip', dir=str(workspace))
     os.close(handle)

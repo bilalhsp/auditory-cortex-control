@@ -41,6 +41,7 @@ class Experiment(BaseModel):
     configuration: ExperimentConfiguration
     recording: Optional[Recording] = None
     recording_revision: int = 0
+    session_id: Optional[str] = None
 
 
 class UploadResult(BaseModel):
@@ -69,7 +70,7 @@ class Fit(BaseModel):
     recording_revision: int
     configuration: ExperimentConfiguration
     seed: int
-    state: Literal["queued", "running", "succeeded", "failed", "interrupted"] = "queued"
+    state: Literal["queued", "running", "succeeded", "failed", "interrupted", "cancelling", "cancelled"] = "queued"
     stage: str = "queued"
     created_at: str
     started_at: Optional[str] = None
@@ -132,7 +133,7 @@ class Generation(BaseModel):
     seed: int
     used_gpu_count: int = 1
     unused_gpu_count: int
-    state: Literal['queued', 'running', 'succeeded', 'failed', 'interrupted'] = 'queued'
+    state: Literal['queued', 'running', 'succeeded', 'failed', 'interrupted', 'cancelling', 'cancelled'] = 'queued'
     stage: str = 'queued'
     created_at: str
     started_at: Optional[str] = None
@@ -181,9 +182,21 @@ class Batch(BaseModel):
     used_gpu_count: int
     unused_gpu_count: int
     targets: List[Generation]
-    state: Literal['queued', 'running', 'succeeded', 'partial', 'failed', 'interrupted'] = 'queued'
+    state: Literal['queued', 'running', 'succeeded', 'partial', 'failed', 'interrupted', 'cancelling', 'cancelled'] = 'queued'
     created_at: str
     started_at: Optional[str] = None
     finished_at: Optional[str] = None
     error: Optional[str] = None
     artifacts_ready: bool = False
+
+
+class ApplicationSession(BaseModel):
+    id: str
+    created_at: str
+    status: Literal['open', 'closing', 'closed']
+    closed_at: Optional[str] = None
+
+
+class RetryRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    request_id: UUID

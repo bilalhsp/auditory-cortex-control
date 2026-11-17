@@ -7,9 +7,11 @@ export default function BatchPanel({
   api,
   fit,
   options,
+  recovered,
 }: {
   api: ReturnType<typeof makeApi>;
   fit: Fit;
+  recovered?: Batch;
   options: NonNullable<Capabilities["generation"]>;
 }) {
   const [channels, setChannels] = useState<string[]>(
@@ -20,12 +22,15 @@ export default function BatchPanel({
     [clips, setClips] = useState(4);
   const [gpus, setGpus] = useState<number | null>(fit.configuration.gpu_count);
   const [available, setAvailable] = useState<number | null>(null);
-  const [batch, setBatch] = useState<Batch | null>(null);
+  const [batch, setBatch] = useState<Batch | null>(recovered ?? null);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const mounted = useRef(false),
     requestId = useRef<string | null>(null);
-  const active = batch?.state === "queued" || batch?.state === "running";
+  const active =
+    batch?.state === "queued" ||
+    batch?.state === "running" ||
+    batch?.state === "cancelling";
   async function refresh() {
     try {
       const capacity = await api.capabilities();

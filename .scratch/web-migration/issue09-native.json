@@ -1,0 +1,13 @@
+{
+  "completed": true,
+  "root": "/scratch/gilbreth/ahmedb/cache/auditory-web-checks/issue09-real/2739c79b-5b69-4d16-a963-108554bb9b40",
+  "fit_max_absolute_baseline_delta": 0.0,
+  "channels": 18,
+  "complete_fit_seconds": 149.00878114486113,
+  "cancelled_during": "fitting",
+  "cancelled_fit_id": "6667a6b6-f099-4ad5-9989-69fb9d2116b5",
+  "child_exit_code": -15,
+  "capacity_released": true,
+  "session_closed": true,
+  "previous_completed_fit_preserved": true
+}

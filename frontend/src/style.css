@@ -591,3 +591,17 @@ footer span {
 .batch-channels input {
   width: auto;
 }
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.history-table th,
+.history-table td {
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.history-table button {
+  margin: 4px;
+}

@@ -66,7 +66,16 @@ status polls independently; successful output exposes an authenticated ZIP
 download without putting credentials in a URL. The actual native audio length is
 displayed with the completed clip count. Unused requested GPUs are explained;
 only one target runs in this slice. New generations retain earlier server output.
-Session history/reconnection and explicit Stop/Close remain subsequent slices.
+Session history lists saved periods and their fit/generation/batch outcomes after
+sign-in. Resume setup restores saved configuration, recording context, and the
+latest operation identities; active jobs resume polling without resubmission.
+View exposes earlier correlations/results, including saved sample downloads.
+Disconnect clears credentials while accepted work continues. Stop / close ends
+the selected session, stops unfinished work, and retains completed results.
+Individual jobs can be stopped; explicit retry creates a distinct attempt. Batch
+retry reruns only unfinished targets. Closing/closed sessions show their status
+and remain available in history. Closed periods are read-only; Start a new session
+opens a new work period when its configuration is saved.
 
 When the backend advertises batch support, completed fits expose a batch panel
 with channel/objective checkboxes. Each selected pair becomes a separate target.

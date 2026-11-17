@@ -98,6 +98,8 @@ def _publish(store: ExperimentStore, experiment_id: str, artifact: StoredUpload)
             raise UploadError(404, 'Experiment not found.')
         published = True
         return UploadResult(experiment=selected)
+    except ValueError as error:
+        raise UploadError(409, str(error)) from error
     except (OSError, sqlite3.Error) as error:
         raise UploadError(503, 'Recording storage is unavailable. Retry after the server storage is restored.') from error
     finally:

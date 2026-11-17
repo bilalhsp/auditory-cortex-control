@@ -15,9 +15,11 @@ from backend.gpu import local_gpu_count
 
 from backend.auth import password_matches
 from backend.config import Settings
-from backend.models import Experiment, ExperimentConfiguration, RecordingCatalogResult, RecordingSelection, UploadResult, Fit, FitSubmission, Generation, GenerationSubmission, Batch, BatchSubmission, GENERATION_OBJECTIVES, GENERATION_DURATIONS, GENERATION_CLIP_COUNTS
+from backend.models import Experiment, ExperimentConfiguration, RecordingCatalogResult, RecordingSelection, UploadResult, Fit, FitSubmission, Generation, GenerationSubmission, Batch, BatchSubmission, RetryRequest, GENERATION_OBJECTIVES, GENERATION_DURATIONS, GENERATION_CLIP_COUNTS
 from backend.recordings import CatalogUnavailable, RecordingCatalog
 from backend.store import ExperimentStore
+from backend.lifecycle import Lifecycle
+from backend.retries import retry_job
 from backend.uploads import UploadError, receive_upload
 from backend.fits import FitRequestError, submit_fit
 from backend.generations import submit_generation, download_zip
@@ -36,6 +38,7 @@ def create_app(
     password_matches("", settings.password_hash)
     store = ExperimentStore(settings.database_path)
     catalog = RecordingCatalog(settings)
+    lifecycle = Lifecycle(store)
     app = FastAPI(title="Auditory Cortex Control", docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(
         CORSMiddleware, allow_origins=list(settings.allowed_origins),
@@ -84,7 +87,7 @@ def create_app(
 
     @app.post("/api/v1/experiments", response_model=Experiment, status_code=201,
               dependencies=[Depends(operator)])
-    def create_experiment(configuration: ExperimentConfiguration) -> Experiment:
+    def create_experiment(configuration: ExperimentConfiguration, session_id: Optional[UUID] = None) -> Experiment:
         current = capacity()
         count = current["available_count"]
         if configuration.gpu_count > count:
@@ -94,7 +97,10 @@ def create_app(
             })
         if count > 0 and configuration.gpu_count == 0:
             raise HTTPException(422, "Choose at least one available GPU")
-        return store.create(configuration)
+        try:
+            return store.create(configuration, str(session_id) if session_id else None)
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from error
 
     @app.get("/api/v1/experiments/{identity}", response_model=Experiment,
              dependencies=[Depends(operator)])
@@ -133,7 +139,10 @@ def create_app(
             raise HTTPException(404, "Recording is missing or no longer available. Refresh the list.")
         if experiment.configuration.stimulus_family not in recording.stimulus_families:
             raise HTTPException(409, "Recording is incompatible with this experiment's stimulus family.")
-        selected = store.select_recording(str(identity), recording)
+        try:
+            selected = store.select_recording(str(identity), recording)
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from error
         if selected is None:
             raise HTTPException(404, "Experiment not found")
         return selected
@@ -249,5 +258,36 @@ def create_app(
             raise HTTPException(503, 'Download storage is unavailable. Retry after storage is restored.') from error
         return FileResponse(path, media_type='application/zip', filename='batch-' + str(identity) + '.zip',
                             headers={'Cache-Control': 'no-store'}, background=BackgroundTask(path.unlink, missing_ok=True))
+
+    @app.get('/api/v1/sessions', dependencies=[Depends(operator)])
+    def sessions():
+        return lifecycle.sessions()
+
+    @app.get('/api/v1/sessions/{identity}', dependencies=[Depends(operator)])
+    def session_detail(identity: UUID):
+        try: return lifecycle.detail(str(identity))
+        except KeyError as error: raise HTTPException(404, str(error)) from error
+
+    @app.get('/api/v1/experiments/{identity}/work', dependencies=[Depends(operator)])
+    def experiment_work(identity: UUID):
+        read_experiment(identity)
+        return lifecycle.work(str(identity))
+
+    @app.post('/api/v1/sessions/{identity}/close', dependencies=[Depends(operator)])
+    def close_session(identity: UUID):
+        try: return lifecycle.close(str(identity))
+        except KeyError as error: raise HTTPException(404, str(error)) from error
+
+    @app.post('/api/v1/jobs/{identity}/cancel', dependencies=[Depends(operator)])
+    def cancel_job(identity: UUID):
+        try: lifecycle.cancel_job(str(identity))
+        except KeyError as error: raise HTTPException(404, str(error)) from error
+        return read_job(identity)
+
+    @app.post('/api/v1/jobs/{identity}/retry', status_code=202, dependencies=[Depends(operator)])
+    def retry(identity: UUID, request: RetryRequest):
+        try: return retry_job(settings, store, catalog, str(identity), request.request_id, capacity())
+        except FitRequestError as error: raise HTTPException(error.status, str(error)) from error
+        except CatalogUnavailable as error: raise HTTPException(503, str(error)) from error
 
     return app

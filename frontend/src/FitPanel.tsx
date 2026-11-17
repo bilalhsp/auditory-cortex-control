@@ -1,6 +1,12 @@
 import { useJobPolling } from "./useJobPolling";
 import { useEffect, useRef, useState } from "react";
-import type { Capabilities, Experiment, Fit, makeApi } from "./api";
+import type {
+  Capabilities,
+  Experiment,
+  Fit,
+  RecoveredWork,
+  makeApi,
+} from "./api";
 
 import GenerationPanel from "./GenerationPanel";
 import BatchPanel from "./BatchPanel";
@@ -20,12 +26,49 @@ export default function FitPanel({
   generationOptions,
   batchEnabled,
 }: Props) {
+  const [recovered, setRecovered] = useState<RecoveredWork | null>(null);
+  const [recovering, setRecovering] = useState(true);
   const [fit, setFit] = useState<Fit | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const mounted = useRef(false);
   const requestId = useRef<string | null>(null);
-  const active = fit?.state === "queued" || fit?.state === "running";
+  useEffect(() => {
+    let current = true;
+    api
+      .recoverExperiment(experiment.id)
+      .then((work) => {
+        if (!current) return;
+        setRecovered(work);
+        setFit(
+          (previous) =>
+            previous ??
+            work.fits.find(
+              (item) =>
+                item.recording.id === experiment.recording?.id &&
+                item.recording_revision === experiment.recording_revision,
+            ) ??
+            null,
+        );
+      })
+      .catch(() => {
+        if (current)
+          setError(
+            "Could not recover saved work. Open session history to refresh.",
+          );
+      })
+      .finally(() => {
+        if (current) setRecovering(false);
+      });
+    return () => {
+      current = false;
+    };
+  }, [api, experiment.id, experiment.recording_revision]);
+
+  const active =
+    fit?.state === "queued" ||
+    fit?.state === "running" ||
+    fit?.state === "cancelling";
 
   useEffect(() => {
     mounted.current = true;
@@ -100,17 +143,22 @@ export default function FitPanel({
         type="button"
         className="primary"
         disabled={
-          submitting || active || experiment.configuration.gpu_count < 1
+          recovering ||
+          submitting ||
+          active ||
+          experiment.configuration.gpu_count < 1
         }
         onClick={start}
       >
-        {submitting
-          ? "Submitting…"
-          : active
-            ? "Fit in progress…"
-            : fit
-              ? "Start a new fit →"
-              : "Fit encoding model →"}
+        {recovering
+          ? "Recovering saved work…"
+          : submitting
+            ? "Submitting…"
+            : active
+              ? "Fit in progress…"
+              : fit
+                ? "Start a new fit →"
+                : "Fit encoding model →"}
       </button>
       {experiment.configuration.gpu_count < 1 && (
         <p className="notice warning">
@@ -120,9 +168,13 @@ export default function FitPanel({
       {fit && (
         <div className="fit-status" role="status">
           <strong>
-            {fit.state === "failed"
-              ? "Fit failed"
-              : (labels[fit.stage] ?? fit.state)}
+            {fit.state === "cancelling"
+              ? "Stopping fit"
+              : fit.state === "cancelled"
+                ? "Fit stopped"
+                : fit.state === "failed"
+                  ? "Fit failed"
+                  : (labels[fit.stage] ?? fit.state)}
           </strong>
           <p>
             {fit.error ??
@@ -181,6 +233,9 @@ export default function FitPanel({
               api={api}
               fit={fit}
               options={generationOptions}
+              recovered={recovered?.batches.find(
+                (item) => item.fit_id === fit.id,
+              )}
             />
           )}
           {generationOptions && (
@@ -189,6 +244,9 @@ export default function FitPanel({
               api={api}
               fit={fit}
               options={generationOptions}
+              recovered={recovered?.generations.find(
+                (item) => item.fit_id === fit.id,
+              )}
             />
           )}
         </div>

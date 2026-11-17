@@ -7,21 +7,26 @@ export default function GenerationPanel({
   api,
   fit,
   options,
+  recovered,
 }: {
   api: ReturnType<typeof makeApi>;
   fit: Fit;
+  recovered?: Generation;
   options: NonNullable<Capabilities["generation"]>;
 }) {
   const [channel, setChannel] = useState(fit.best_channel?.channel_id ?? "");
   const [objective, setObjective] = useState<"stretch" | "one-hot">("stretch");
   const [duration, setDuration] = useState(2);
   const [count, setCount] = useState(4);
-  const [job, setJob] = useState<Generation | null>(null);
+  const [job, setJob] = useState<Generation | null>(recovered ?? null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const requestId = useRef<string | null>(null);
   const mounted = useRef(false);
-  const active = job?.state === "queued" || job?.state === "running";
+  const active =
+    job?.state === "queued" ||
+    job?.state === "running" ||
+    job?.state === "cancelling";
   useEffect(() => {
     mounted.current = true;
     return () => {

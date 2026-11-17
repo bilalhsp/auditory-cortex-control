@@ -10,7 +10,11 @@ export function useJobPolling<T extends { id: string; state: string }>(
   const id = operation?.id;
   const state = operation?.state;
   useEffect(() => {
-    if (!id || (state !== "queued" && state !== "running")) return;
+    if (
+      !id ||
+      (state !== "queued" && state !== "running" && state !== "cancelling")
+    )
+      return;
     let current = true;
     const timer = window.setInterval(() => {
       read(id)
