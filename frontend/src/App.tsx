@@ -4,6 +4,7 @@ import { ApiError, makeApi } from "./api";
 import type { Capabilities, Experiment } from "./api";
 import RecordingSelector from "./RecordingSelector";
 import RecordingUpload from "./RecordingUpload";
+import FitPanel from "./FitPanel";
 
 export default function App() {
   const [api, setApi] = useState<ReturnType<typeof makeApi> | null>(null);
@@ -405,6 +406,14 @@ export default function App() {
                 GPU capacity is checked again when you save. Saving a setup does
                 not reserve GPUs or start computation.
               </p>
+              {experiment?.recording?.source === "existing" && caps.fit && (
+                <FitPanel
+                  key={`fit-${experiment.id}-${experiment.recording_revision}`}
+                  api={api}
+                  experiment={experiment}
+                  seed={caps.fit.default_seed}
+                />
+              )}
             </>
           )}
         </main>

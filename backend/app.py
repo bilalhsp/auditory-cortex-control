@@ -11,10 +11,11 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from backend.auth import password_matches
 from backend.config import Settings
-from backend.models import Experiment, ExperimentConfiguration, RecordingCatalogResult, RecordingSelection, UploadResult
+from backend.models import Experiment, ExperimentConfiguration, RecordingCatalogResult, RecordingSelection, UploadResult, Fit, FitSubmission
 from backend.recordings import CatalogUnavailable, RecordingCatalog
 from backend.store import ExperimentStore
 from backend.uploads import UploadError, receive_upload
+from backend.fits import FitRequestError, submit_fit
 
 
 def local_gpu_count() -> int:
@@ -59,7 +60,7 @@ def create_app(
         except (ImportError, RuntimeError, OSError):
             count, status = 0, "unavailable"
         return {
-            "visible_count": count, "available_count": count,
+            "visible_count": count, "available_count": max(0, count - store.running_fit_count()),
             "observed_at": datetime.now(timezone.utc).isoformat(), "status": status,
         }
 
@@ -77,6 +78,7 @@ def create_app(
             },
             "gpu": capacity(),
             "upload": {"max_bytes": settings.max_upload_bytes, "formats": [".mat"]},
+            "fit": {"supported_sources": ["existing"], "default_seed": 42},
         }
 
     @app.post("/api/v1/experiments", response_model=Experiment, status_code=201,
@@ -158,5 +160,30 @@ def create_app(
             raise HTTPException(error.status, {
                 "validation_status": "invalid" if error.status < 500 else "error", "message": str(error),
             }) from error
+
+    @app.post("/api/v1/experiments/{identity}/fits", response_model=Fit, status_code=202,
+              dependencies=[Depends(operator)])
+    def fit_recording(identity: UUID, submission: FitSubmission) -> Fit:
+        experiment = read_experiment(identity)
+        try:
+            return submit_fit(settings, store, catalog, experiment, submission, capacity()["available_count"])
+        except FitRequestError as error:
+            raise HTTPException(error.status, str(error)) from error
+        except CatalogUnavailable as error:
+            raise HTTPException(503, str(error)) from error
+
+    @app.get("/api/v1/fits/{identity}", response_model=Fit, dependencies=[Depends(operator)])
+    def read_fit(identity: UUID) -> Fit:
+        fit = store.get_fit(str(identity))
+        if fit is None:
+            raise HTTPException(404, "Fit not found")
+        return fit
+
+    @app.get("/api/v1/jobs/{identity}", response_model=Fit, dependencies=[Depends(operator)])
+    def read_job(identity: UUID) -> Fit:
+        fit = store.get_fit(str(identity), by_job=True)
+        if fit is None:
+            raise HTTPException(404, "Job not found")
+        return fit
 
     return app

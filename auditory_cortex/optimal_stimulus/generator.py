@@ -59,7 +59,7 @@ def save_waveform(file_path, waveform, sample_rate):
 class StimGenerator:
     def __init__(
             self, dataset_name, model_name, layer_id, 
-            mVocs=False, bin_width=50, lag=200, shuffled=False
+            mVocs=False, bin_width=50, lag=200, shuffled=False, neural_dataset=None
         ):
 
         self.dataset_name = dataset_name
@@ -74,7 +74,7 @@ class StimGenerator:
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self._load_models()
+        self._load_models(neural_dataset)
 
 
     def save_trf_config(self, dirpath):
@@ -86,7 +86,7 @@ class StimGenerator:
             'mVocs': self.mVocs, 
             'lag': self.lag, 
             'dataset_name': self.dataset_name, 
-            'unit_ids': list(self.data_assembler.channel_ids),
+            'unit_ids': np.asarray(self.data_assembler.channel_ids).tolist(),
         }
 
         with open(Path(dirpath)/"trf_config.json", "w") as f:
@@ -95,25 +95,26 @@ class StimGenerator:
 
 
 
-    def _load_models(self):
+    def _load_models(self, neural_dataset=None):
         """Loads everything to vRAM."""
         # self.audioldm = AudioLDM(beta_min=0.0015, beta_max=0.0195)
         feature_extractor = create_feature_extractor(self.model_name, shuffled=self.shuffled)
-        self.metadata = create_neural_metadata(self.dataset_name)
+        self.metadata = neural_dataset.metadata if neural_dataset is not None else create_neural_metadata(self.dataset_name)
 
         # this dataset is placeholder...will be updated to real-time recording..
-        neural_dataset = create_neural_dataset(self.dataset_name)
+        if neural_dataset is None:
+            neural_dataset = create_neural_dataset(self.dataset_name)
         self.data_assembler = DNNDataAssembler(
                 neural_dataset, feature_extractor, self.layer_id, 
                 bin_width=self.bin_width, mVocs=self.mVocs,
                 )
         logger.info(f"Models and features loaded.")
         
-    def fit_encoding_model(self, session_id=0, session_source='existing'):
+    def fit_encoding_model(self, session_id=0, session_source='existing', neural_dataset=None, artifact_path=None):
 
         full_path=False if session_source =='existing' else True
 
-        dataset_obj = create_neural_dataset(self.dataset_name, session_id, full_path)
+        dataset_obj = neural_dataset if neural_dataset is not None else create_neural_dataset(self.dataset_name, session_id, full_path)
         self.data_assembler.read_session_spikes(dataset_obj)
         self.channel_ids = self.data_assembler.channel_ids
 
@@ -142,7 +143,8 @@ class StimGenerator:
 
         TRF.save_model_parameters(
             trf_model, self.model_name, self.layer_id, self.sess_id, self.bin_width, shuffled=False,
-            LPF=False, mVocs=self.mVocs, dataset_name=self.dataset_name, tmax=self.lag
+            LPF=False, mVocs=self.mVocs, dataset_name=self.dataset_name, tmax=self.lag,
+            artifact_path=artifact_path
             )
         
         # self.trf_model = trf_model

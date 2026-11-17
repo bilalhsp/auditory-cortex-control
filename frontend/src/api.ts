@@ -1,4 +1,5 @@
 export interface Capabilities {
+  fit?: { supported_sources: string[]; default_seed: number };
   upload?: { max_bytes: number; formats: string[] };
   settings: {
     stimulus_families: string[];
@@ -52,6 +53,28 @@ export interface UploadResult {
   experiment: Experiment;
 }
 
+export interface Fit {
+  id: string;
+  job_id: string;
+  experiment_id: string;
+  recording: Recording;
+  recording_revision: number;
+  seed: number;
+  state: "queued" | "running" | "succeeded" | "failed" | "interrupted";
+  stage: string;
+  error: string | null;
+  artifacts_ready: boolean;
+  correlations: { channel_id: string; correlation: number | null }[];
+  best_channel: { channel_id: string; correlation: number | null } | null;
+}
+
+interface FitSubmission {
+  request_id: string;
+  recording_id: string;
+  recording_revision: number;
+  seed: number;
+}
+
 declare global {
   interface Window {
     AUDITORY_CONFIG?: { apiBaseUrl?: string };
@@ -77,7 +100,7 @@ export function makeApi(username: string, password: string) {
   const base = (window.AUDITORY_CONFIG?.apiBaseUrl ?? "").replace(/\/$/, "");
   async function request<T>(
     path: string,
-    body?: Configuration | { recording_id: string } | File,
+    body?: Configuration | { recording_id: string } | File | FitSubmission,
   ): Promise<T> {
     const file = body instanceof File ? body : null;
     const response = await fetch(`${base}/api/v1${path}`, {
@@ -125,5 +148,11 @@ export function makeApi(username: string, password: string) {
         `/experiments/${encodeURIComponent(experimentId)}/recording-upload`,
         file,
       ),
+    startFit: (experimentId: string, submission: FitSubmission) =>
+      request<Fit>(
+        `/experiments/${encodeURIComponent(experimentId)}/fits`,
+        submission,
+      ),
+    fit: (fitId: string) => request<Fit>(`/fits/${encodeURIComponent(fitId)}`),
   };
 }

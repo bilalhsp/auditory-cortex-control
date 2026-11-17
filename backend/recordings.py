@@ -5,7 +5,8 @@ imported. Paths remain private to this filesystem boundary.
 """
 
 from pathlib import Path
-from typing import List, Literal, Tuple
+from dataclasses import dataclass
+from typing import List, Literal, Optional, Tuple
 from uuid import NAMESPACE_URL, uuid5
 
 import yaml
@@ -16,6 +17,15 @@ from backend.models import Recording, RecordingCatalogResult
 
 class CatalogUnavailable(Exception):
     pass
+
+
+@dataclass(frozen=True)
+class ResolvedRecording:
+    recording: Recording
+    session_id: int
+    path: Path
+    metadata_path: Path
+    data_root: Path
 
 
 class RecordingCatalog:
@@ -74,7 +84,7 @@ class RecordingCatalog:
             result.append("mVocs")
         return result
 
-    def list(self, dataset: str) -> RecordingCatalogResult:
+    def _scan(self, dataset: str) -> Tuple[List[ResolvedRecording], int]:
         try:
             data, metadata = self._locations()
             directory = self._resolved_path(data / dataset / "Data")
@@ -83,7 +93,8 @@ class RecordingCatalog:
             rows = yaml.safe_load(metadata.read_text())["sessions_info"]
             if not isinstance(rows, list):
                 raise ValueError("Invalid catalog")
-            result = RecordingCatalogResult(recordings=[])
+            entries: List[ResolvedRecording] = []
+            unavailable = 0
             identities = set()
             for row in rows:
                 session, name, repeats = row["id"], row["session"], row["num_repeats"]
@@ -98,15 +109,24 @@ class RecordingCatalog:
                     path.relative_to(directory)
                     families = self.stimulus_families(path, repeats)
                 except (OSError, ValueError, TypeError, KeyError, AttributeError, NotImplementedError):
-                    result.unavailable_count += 1
+                    unavailable += 1
                     continue
                 if not families:
                     continue
-                result.recordings.append(Recording(
+                recording = Recording(
                     id=str(uuid5(NAMESPACE_URL, "auditory-cortex:existing:{}:{}:{}".format(dataset, session, name))),
                     display_name=Path(name).stem.replace("_", " · "),
                     dataset_name=dataset, stimulus_families=families,
-                ))
-            return result
+                )
+                entries.append(ResolvedRecording(recording, session, path, metadata, data))
+            return entries, unavailable
         except (OSError, ValueError, TypeError, KeyError, yaml.YAMLError) as error:
             raise CatalogUnavailable("Recording catalog is unavailable. Check the server's recording configuration and access permissions.") from error
+
+    def list(self, dataset: str) -> RecordingCatalogResult:
+        entries, unavailable = self._scan(dataset)
+        return RecordingCatalogResult(recordings=[entry.recording for entry in entries], unavailable_count=unavailable)
+
+    def resolve(self, dataset: str, identity: str) -> Optional[ResolvedRecording]:
+        entries, _ = self._scan(dataset)
+        return next((entry for entry in entries if entry.recording.id == identity), None)

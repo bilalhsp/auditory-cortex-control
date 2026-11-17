@@ -5,10 +5,10 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 from uuid import uuid4
 
-from backend.models import Experiment, ExperimentConfiguration, Recording
+from backend.models import Experiment, ExperimentConfiguration, Recording, Fit
 
 
 @dataclass(frozen=True)
@@ -38,6 +38,11 @@ class ExperimentStore:
                 "CREATE TABLE IF NOT EXISTS uploaded_recordings "
                 "(id TEXT PRIMARY KEY, experiment_id TEXT NOT NULL REFERENCES experiments(id), "
                 "recording TEXT NOT NULL, path TEXT NOT NULL, size_bytes INTEGER NOT NULL, sha256 TEXT NOT NULL)"
+            )
+            connection.execute(
+                "CREATE TABLE IF NOT EXISTS fits (id TEXT PRIMARY KEY, job_id TEXT UNIQUE NOT NULL, "
+                "experiment_id TEXT NOT NULL, request_id TEXT NOT NULL, state TEXT NOT NULL, "
+                "data TEXT NOT NULL, workspace TEXT NOT NULL, UNIQUE(experiment_id, request_id))"
             )
 
     def create(self, configuration: ExperimentConfiguration) -> Experiment:
@@ -107,3 +112,71 @@ class ExperimentStore:
         if row is None:
             return None
         return StoredUpload(Recording.model_validate_json(row[0]), Path(row[1]), row[2], row[3])
+
+    def get_fit(self, identity: str, by_job: bool = False) -> Optional[Fit]:
+        column = "job_id" if by_job else "id"
+        with sqlite3.connect(str(self.path)) as connection:
+            row = connection.execute("SELECT data FROM fits WHERE " + column + " = ?", (identity,)).fetchone()
+        return Fit.model_validate_json(row[0]) if row else None
+
+    def fit_for_request(self, experiment_id: str, request_id: str) -> Optional[Fit]:
+        with sqlite3.connect(str(self.path)) as connection:
+            row = connection.execute("SELECT data FROM fits WHERE experiment_id = ? AND request_id = ?",
+                                     (experiment_id, request_id)).fetchone()
+        return Fit.model_validate_json(row[0]) if row else None
+
+    def enqueue_fit(self, fit: Fit, request_id: str, workspace: Path) -> Fit:
+        with sqlite3.connect(str(self.path)) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            previous = connection.execute("SELECT data FROM fits WHERE experiment_id = ? AND request_id = ?",
+                                          (fit.experiment_id, request_id)).fetchone()
+            if previous:
+                prior = Fit.model_validate_json(previous[0])
+                if (prior.recording.id, prior.recording_revision, prior.seed) != (fit.recording.id, fit.recording_revision, fit.seed):
+                    raise ValueError("Request identity was already used for a different fit")
+                return prior
+            experiment = self._get(connection, fit.experiment_id)
+            if (experiment is None or experiment.recording is None or
+                    (experiment.recording.id, experiment.recording_revision) != (fit.recording.id, fit.recording_revision)):
+                raise ValueError("Recording selection changed. Reload and submit again.")
+            connection.execute("INSERT INTO fits VALUES (?, ?, ?, ?, ?, ?, ?)", (
+                fit.id, fit.job_id, fit.experiment_id, request_id, fit.state, fit.model_dump_json(), str(workspace),
+            ))
+            return fit
+
+    @staticmethod
+    def _save_fit(connection: sqlite3.Connection, fit: Fit) -> None:
+        connection.execute("UPDATE fits SET state = ?, data = ? WHERE id = ?",
+                           (fit.state, fit.model_dump_json(), fit.id))
+
+    def running_fit_count(self) -> int:
+        with sqlite3.connect(str(self.path)) as connection:
+            return connection.execute("SELECT COUNT(*) FROM fits WHERE state = 'running'").fetchone()[0]
+
+    def claim_fit(self) -> Optional[Tuple[Fit, Path]]:
+        with sqlite3.connect(str(self.path)) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            if connection.execute("SELECT 1 FROM fits WHERE state = 'running'").fetchone():
+                return None
+            row = connection.execute("SELECT data, workspace FROM fits WHERE state = 'queued' ORDER BY rowid LIMIT 1").fetchone()
+            if row is None:
+                return None
+            fit = Fit.model_validate_json(row[0])
+            fit.state, fit.stage = "running", "loading"
+            fit.started_at = datetime.now(timezone.utc).isoformat()
+            self._save_fit(connection, fit)
+            return fit, Path(row[1])
+
+    def update_fit(self, fit: Fit) -> None:
+        with sqlite3.connect(str(self.path)) as connection:
+            self._save_fit(connection, fit)
+
+    def interrupt_running_fits(self) -> None:
+        with sqlite3.connect(str(self.path)) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            for row in connection.execute("SELECT data FROM fits WHERE state = 'running'").fetchall():
+                fit = Fit.model_validate_json(row[0])
+                fit.state, fit.stage = "interrupted", "interrupted"
+                fit.error = "Fit worker restarted. Submit a new fit to retry."
+                fit.finished_at = datetime.now(timezone.utc).isoformat()
+                self._save_fit(connection, fit)

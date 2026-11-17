@@ -46,3 +46,35 @@ class Experiment(BaseModel):
 class UploadResult(BaseModel):
     validation_status: Literal["valid"] = "valid"
     experiment: Experiment
+
+
+class FitSubmission(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    request_id: UUID
+    recording_id: UUID
+    recording_revision: StrictInt = Field(ge=1)
+    seed: StrictInt = Field(default=42, ge=0, le=4294967295)
+
+
+class ChannelCorrelation(BaseModel):
+    channel_id: str
+    correlation: Optional[float] = None
+
+
+class Fit(BaseModel):
+    id: str
+    job_id: str
+    experiment_id: str
+    recording: Recording
+    recording_revision: int
+    configuration: ExperimentConfiguration
+    seed: int
+    state: Literal["queued", "running", "succeeded", "failed", "interrupted"] = "queued"
+    stage: str = "queued"
+    created_at: str
+    started_at: Optional[str] = None
+    finished_at: Optional[str] = None
+    error: Optional[str] = None
+    artifacts_ready: bool = False
+    correlations: List[ChannelCorrelation] = Field(default_factory=list)
+    best_channel: Optional[ChannelCorrelation] = None

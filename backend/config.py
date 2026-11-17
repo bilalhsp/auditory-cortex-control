@@ -16,6 +16,7 @@ class Settings:
     recording_metadata_path: Optional[Path] = None
     upload_dir: Optional[Path] = None
     max_upload_bytes: int = 50 * 1024 * 1024
+    fit_dir: Optional[Path] = None
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -44,4 +45,5 @@ class Settings:
         return cls(Path(database), operator, password_hash, origins,
                    Path(data_dir) if data_dir else None,
                    Path(metadata_path) if metadata_path else None,
-                   Path(upload_dir) if upload_dir else None, maximum)
+                   Path(upload_dir) if upload_dir else None, maximum,
+                   Path(os.environ["AUDITORY_FIT_DIR"]) if os.environ.get("AUDITORY_FIT_DIR") else None)

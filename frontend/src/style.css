@@ -7,6 +7,54 @@
 .recording-card {
   margin-top: 24px;
 }
+.fit-status {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid #dce5df;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.fit-status small {
+  overflow-wrap: anywhere;
+  color: #718075;
+}
+.fit-results h3 {
+  margin-top: 24px;
+  font-size: 15px;
+}
+.correlation-summary {
+  display: flex;
+  gap: 40px;
+  background: #edf6ef;
+  padding: 20px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+.correlation-summary strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 23px;
+}
+.correlations-scroll {
+  max-height: 320px;
+  overflow: auto;
+  margin-top: 16px;
+}
+.fit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  text-align: left;
+}
+.fit-table th,
+.fit-table td {
+  padding: 12px;
+  border-bottom: 1px solid #e1e8e3;
+}
+.fit-table th {
+  color: #6b8172;
+}
 .selected-recording {
   background: #edf6ef;
   color: #326046;

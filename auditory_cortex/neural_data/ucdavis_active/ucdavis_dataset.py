@@ -62,7 +62,7 @@ def build_ucdavisBAK_dataset(*args, **kwargs):
 
 
 class UCDavisActiveDataset(BaseDataset):
-    def __init__(self, dataset_name, sess_id=0, full_path=False):
+    def __init__(self, dataset_name, sess_id=0, full_path=False, recording_path=None, metadata_config_path=None):
         """Initialize the UCDavisActDataset with session id and data directory.
         
             Args:
@@ -71,7 +71,11 @@ class UCDavisActiveDataset(BaseDataset):
         """
         self.dataset_name = dataset_name
         self.data_dir = Path(neural_data_dir) / self.dataset_name
-        self.metadata = create_neural_metadata(self.dataset_name)
+        if metadata_config_path is None:
+            self.metadata = create_neural_metadata(self.dataset_name)
+        else:
+            from .ucdavis_metadata import UCDavisActiveMetaData
+            self.metadata = UCDavisActiveMetaData(self.dataset_name, str(metadata_config_path))
         self.rec_dir = self.data_dir / 'Data'
 
         self.full_path = full_path
@@ -88,6 +92,8 @@ class UCDavisActiveDataset(BaseDataset):
             self.rec_filename = self.metadata.full_session_name(sess_id)
             self.rec_filepath = self.rec_dir / self.rec_filename
 
+        if recording_path is not None:
+            self.rec_filepath = Path(recording_path)
         self.data, self.exp_wise_trial, self.exp_stim_ids = self.read_sess_dataset()
         self.monkey_name, self.session_name, *_ = self.rec_filename.split('_')
 

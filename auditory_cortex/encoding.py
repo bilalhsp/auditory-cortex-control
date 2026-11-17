@@ -284,7 +284,7 @@ class TRF:
     @staticmethod
     def save_model_parameters(
             trf_model, model_name, layer_ID, session, bin_width, shuffled=False,
-            LPF=False, mVocs=False, dataset_name='ucsf', tmax=200
+            LPF=False, mVocs=False, dataset_name='ucsf', tmax=200, artifact_path=None
             ):
         """Saves the weights and biases of the trained TRF model."""
         # weights, biases = trf_model.coef_
@@ -296,6 +296,9 @@ class TRF:
             'x_std': trf_model.X_std_,
             'y_mean': trf_model.y_mean_,
         }
+        if artifact_path is not None:
+            io.write_dict(parameters, artifact_path)
+            return
         io.write_trf_parameters(
             model_name, session, parameters, bin_width=bin_width, 
             shuffled=shuffled, layer_ID=layer_ID, LPF=LPF, mVocs=mVocs,

@@ -1,8 +1,8 @@
 # Experiment setup API
 
 Run from the repository root using the existing `.venv`. Do not create or upgrade
-an environment or run `uv sync` for this slice. Scientific imports and the
-Streamlit launcher remain unchanged.
+an environment or run `uv sync` for this slice. The HTTP server does not load
+scientific models. The legacy Streamlit launcher remains available during migration.
 
 Generate an operator password hash interactively:
 
@@ -39,6 +39,7 @@ separate, later workflow; signing out does not stop accepted work.
 | `AUDITORY_RECORDINGS_METADATA` | Existing ucdavisBAK YAML session catalog; defaults to the research package's `ucdavisBAK_config.yml` |
 | `AUDITORY_UPLOAD_DIR` | Persistent private upload directory; defaults to `uploads/` beside the SQLite database |
 | `AUDITORY_MAX_UPLOAD_BYTES` | Positive byte limit; defaults to 50 MiB and is exposed in capabilities |
+| `AUDITORY_FIT_DIR` | Persistent private fitted-model storage; defaults to `fits/` beside SQLite |
 | `CUDA_VISIBLE_DEVICES` | Devices permitted to the backend; honored by torch detection |
 
 When deploying the backend artifact without the research repository, explicitly set
@@ -86,6 +87,11 @@ from any working directory:
   run before consuming the body; streamed byte counting also enforces the limit
   when Content-Length is absent or inaccurate. Proxy request limits should align
   with the configured byte limit.
+- `POST /api/v1/experiments/{id}/fits`: queue an existing-recording fit; send
+  `request_id` (client UUID), `recording_id`, `recording_revision`, and optional
+  `seed` (default 42). HTTP 202 returns immutable fit/job identities and context.
+- `GET /api/v1/fits/{id}` and `GET /api/v1/jobs/{id}`: authenticated persisted
+  lifecycle and ranked correlations. Responses contain no private filesystem paths.
 
 Uploads validate synchronously before selection: the UI reports pending while
 the request runs; HTTP 201 returns `validation_status: valid` and the updated
@@ -140,10 +146,61 @@ GPU counts return 422. Capacity is rechecked on creation; insufficient capacity
 returns 409 without changing the request. Zero GPUs permits setup with count zero,
 but does not enable CPU generation.
 
-There are no compute jobs or reservations in this slice: all permitted devices
-are available. Saving records a requested count, not an allocation. The generation
-slice must connect reservation accounting before executing any jobs. Only use
-one allocator process when that behavior is introduced.
+## Fit worker
+
+Start one worker separately from the API, using the same SQLite file, fit storage,
+existing environment, research configuration, and visible GPUs. Its Python path
+must include this research repository and the existing local scientific dependency
+checkouts (`deepspeech.pytorch`, `Wav2Letter`, `utils_jgm`, `pycochleagram`). Use
+the paths already configured for the legacy scientific application; do not install
+replacement packages. With those paths in `PYTHONPATH`:
+
+```bash
+uv run --no-sync python -m backend.worker
+```
+
+`--once` processes one queued fit and exits. The source archive also includes the
+worker: put the archive and research/dependency paths on `PYTHONPATH`, then use the
+existing Python executable with `-m backend.worker` from any directory. Deploy
+the API and worker as separate supervised processes on the backend server, with
+shared persistent SQLite/filesystem access. A kernel lock beside SQLite prevents
+two fit workers from owning that database. This is a single-host queue, not a
+multi-host scheduler. Never run another allocator against the dedicated GPUs.
+
+Each fit uses one GPU and a newly constructed generator; pending fits run serially.
+The API subtracts an active fit from available capacity. Saving an experiment
+records the requested GPU count; multi-GPU generation allocation follows in issue
+08. No CPU fit fallback is advertised.
+
+Submission snapshots recording bytes and session metadata under a private UUID
+workspace before committing the queued job. A recording revision check at commit
+rejects a concurrently changed selection. Reusing a request UUID with identical
+context returns its existing fit, including after a lost response; conflicting
+reuse returns 409. New attempts require new request UUIDs. Unknown/missing
+recordings return 404, stale/incompatible/no-GPU context 409, unavailable catalog
+or storage 503. Uploaded-recording fitting follows in issue 06.
+
+The worker persists `queued` → `running` (loading/fitting/writing) → `succeeded`
+or `failed`. It reuses three-fold TRF cross-validation and the original data
+assembly. Success requires nonempty model/config files, provenance, and a checksum
+manifest. Each workspace holds `model.pkl`, `trf_config.json`, `provenance.json`,
+`manifest.json`, pinned inputs, and private `diagnostics.log`. Provenance records
+effective configuration, recording/metadata/model hashes, scientific source hash,
+Python/package/CUDA versions, seed, and operation identities. Keep these directories
+private and persistent; they are never served as static content.
+
+Correlations sort from largest to smallest; channel IDs remain strings preserving
+signs and decimals. NaN/infinite correlations serialize as null (Unavailable),
+after finite results; no finite values means no best-channel summary. Public
+errors identify the failing phase without serializing scientific exception details.
+
+Browser disconnect/sign-out and API restart leave accepted work intact. A worker
+restart marks previously running fits `interrupted` without automatic retry;
+queued work survives and resumes. Computation runs inside the lock-owning worker,
+so killing it cannot leave a separate child using GPUs. Failed/interrupted attempts
+retain diagnostics, never report ready artifacts, and require a new fit to retry.
+History/reconnection UI and explicit Stop/Close follow in issue 09. This slice
+does not enable generation from incomplete fits.
 
 Run the complete current API suite with the existing environment:
 
@@ -152,5 +209,6 @@ uv run --no-sync python -m unittest discover -s backend/tests -v
 ```
 
 The approved test boundary is HTTP with real SQLite/application services and a
-controlled external GPU-count provider. No scientific model downloads or GPU
-computations are needed for these contract tests.
+controlled external GPU-count provider and compute runner. No scientific model
+downloads or GPU computations are needed for these contract tests. Real GPU parity
+evidence is recorded separately in `.scratch/web-migration/issue05-parity.json`.

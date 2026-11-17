@@ -1,0 +1,39 @@
+{
+  "completed": true,
+  "root": "/scratch/gilbreth/ahmedb/cache/auditory-web-checks/issue05-real/630d0370-56ec-41ee-b977-195eb4260bc0",
+  "attempts": [
+    {
+      "fit_id": "71e7bd41-2e63-4829-bdbd-b702c3ee097e",
+      "job_id": "941b9226-b26e-44a3-b1f6-25e595177b1c",
+      "seconds": 133.25298013491556,
+      "channels": 18,
+      "max_absolute_baseline_delta": 0.0,
+      "best_channel": {
+        "channel_id": "12.03",
+        "correlation": 0.2760693717950025
+      },
+      "manifest": {
+        "model.pkl": "c5f7a0f43872f9a0271e8d9cb4b7cf4a287e0c26272a1075141c6c09b2154668",
+        "trf_config.json": "3a1e6351a42427e8e6c75a29a484bbf164f09223d1fafe84ca2f1c5a72e383b0",
+        "provenance.json": "9f9c39f4182ea6bda4fec44edcc8f3ee21d9c538cf56080f34ddfee40ad2dbf4"
+      }
+    },
+    {
+      "fit_id": "0b8334fb-6130-4535-ada6-7b55d4caf32c",
+      "job_id": "fa9a9e87-6bf1-43ca-b2fe-26f3290fb662",
+      "seconds": 137.55735216615722,
+      "channels": 18,
+      "max_absolute_baseline_delta": 0.0,
+      "best_channel": {
+        "channel_id": "12.03",
+        "correlation": 0.2760693717950025
+      },
+      "manifest": {
+        "model.pkl": "5c35fed870cfd60249e36dd09bc5ff12a281b5d96e7eb9e1d23ebbe16054f056",
+        "trf_config.json": "3a1e6351a42427e8e6c75a29a484bbf164f09223d1fafe84ca2f1c5a72e383b0",
+        "provenance.json": "67de3a93c36d596644eeb1a9679bf2c29b1c0c73f0dbcd5daefa4f8738365a31"
+      }
+    }
+  ],
+  "original_artifact_unchanged_after_second_fit": true
+}
