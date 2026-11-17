@@ -1,0 +1,34 @@
+import os
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Tuple
+
+import yaml
+
+
+@dataclass(frozen=True)
+class Settings:
+    database_path: Path
+    operator: str
+    password_hash: str
+    allowed_origins: Tuple[str, ...] = ("http://localhost:5173",)
+
+    @classmethod
+    def from_environment(cls) -> "Settings":
+        operator = os.environ.get("AUDITORY_OPERATOR", "")
+        password_hash = os.environ.get("AUDITORY_PASSWORD_HASH", "")
+        if not operator or not password_hash:
+            raise RuntimeError("Set AUDITORY_OPERATOR and AUDITORY_PASSWORD_HASH before starting the API")
+        database = os.environ.get("AUDITORY_DATABASE_PATH")
+        if database is None:
+            config_path = Path(__file__).resolve().parents[1] / "auditory_cortex/config.yml"
+            config = yaml.safe_load(config_path.read_text())
+            database = str(Path(config["cache_dir"]) / "web/sessions.sqlite3")
+        origins = tuple(
+            origin.strip() for origin in os.environ.get(
+                "AUDITORY_ALLOWED_ORIGINS", "http://localhost:5173"
+            ).split(",") if origin.strip()
+        )
+        if "*" in origins:
+            raise RuntimeError("Use explicit frontend origins, not a wildcard")
+        return cls(Path(database), operator, password_hash, origins)

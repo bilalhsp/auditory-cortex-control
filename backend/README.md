@@ -1,0 +1,90 @@
+# Experiment setup API
+
+Run from the repository root using the existing `.venv`. Do not create or upgrade
+an environment or run `uv sync` for this slice. Scientific imports and the
+Streamlit launcher remain unchanged.
+
+Generate an operator password hash interactively:
+
+```bash
+uv run --no-sync python -m backend.auth
+```
+
+Set `AUDITORY_OPERATOR` and `AUDITORY_PASSWORD_HASH` in the server environment.
+Use the entire printed hash literally (including dollar signs); never put the
+password or hash in frontend configuration. There are no default credentials.
+Then start the independently deployable API:
+
+```bash
+uv run --no-sync python -m uvicorn backend.app:create_app --factory --host 127.0.0.1 --port 8000
+```
+
+The API uses HTTP Basic authentication with a salted PBKDF2-SHA256 password
+hash. Production requires an HTTPS reverse proxy and authentication request-rate
+limits. Keep the API's direct HTTP listener private to that proxy. Protect all
+API endpoints; only `/healthz` is intentionally unauthenticated and reveals no
+experiment or compute data. The frontend holds credentials in memory and drops
+them on sign-out; reloading requires sign-in again. Stop/Close computation is a
+separate, later workflow; signing out does not stop accepted work.
+
+## Configuration
+
+| Variable | Meaning |
+| --- | --- |
+| `AUDITORY_OPERATOR` | Required single-operator username |
+| `AUDITORY_PASSWORD_HASH` | Required output of the interactive hash command |
+| `AUDITORY_DATABASE_PATH` | SQLite file; default is `web/sessions.sqlite3` inside the repository's configured cache |
+| `AUDITORY_ALLOWED_ORIGINS` | Comma-separated frontend origins; default `http://localhost:5173`; wildcards rejected |
+| `CUDA_VISIBLE_DEVICES` | Devices permitted to the backend; honored by torch detection |
+
+When deploying the backend artifact without the research repository, explicitly set
+`AUDITORY_DATABASE_PATH`. Production origins must match the frontend's HTTPS
+origin exactly. An HTTPS proxy may expose the frontend and API at one origin;
+they remain independent build artifacts and processes.
+
+Build the backend source artifact using the existing environment. This uses
+the standard library, avoiding the existing setuptools/packaging mismatch and
+creating no build environment:
+
+```bash
+uv run --no-sync python -m backend.build /path/to/artifacts/auditory-api.pyz
+```
+
+The archive contains the backend code, not Python dependencies or model weights.
+It runs using the same existing Python environment with FastAPI, Uvicorn, and
+PyYAML installed. Supply the required environment variables, then launch it
+from any working directory:
+
+```bash
+/path/to/existing/.venv/bin/python /path/to/artifacts/auditory-api.pyz backend.app:create_app --factory --host 127.0.0.1 --port 8000
+```
+
+## Contract
+
+- `GET /healthz`: API liveness, independent of GPU/model availability.
+- `GET /api/v1/capabilities`: authenticated supported settings and timestamped
+  local GPU counts, with `ready`, `no_gpu`, or `unavailable` compute status.
+- `POST /api/v1/experiments`: validated configuration with `gpu_count`; returns
+  HTTP 201 and stable experiment identity, creation time, and effective settings.
+- `GET /api/v1/experiments/{id}`: saved experiment; persists across API restart.
+
+Current supported settings are TIMIT/mVocs, ucdavisBAK, deepspeech2, layer 2,
+50-ms bins, and 200-ms receptive field. Unknown settings/fields and non-integer
+GPU counts return 422. Capacity is rechecked on creation; insufficient capacity
+returns 409 without changing the request. Zero GPUs permits setup with count zero,
+but does not enable CPU generation.
+
+There are no compute jobs or reservations in this slice: all permitted devices
+are available. Saving records a requested count, not an allocation. The generation
+slice must connect reservation accounting before executing any jobs. Only use
+one allocator process when that behavior is introduced.
+
+Run the complete current API suite with the existing environment:
+
+```bash
+uv run --no-sync python -m unittest discover -s backend/tests -v
+```
+
+The approved test boundary is HTTP with real SQLite/application services and a
+controlled external GPU-count provider. No scientific model downloads or GPU
+computations are needed for these contract tests.
