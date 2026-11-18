@@ -1,7 +1,9 @@
 """Application-session history and durable, transactionally ordered job controls."""
 import json
+import re
 import sqlite3
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import NAMESPACE_URL, uuid4, uuid5
 from pytz import all_timezones_set
@@ -13,8 +15,20 @@ SESSION_TIMEZONE_FALLBACK = 'America/Los_Angeles'
 
 
 def normalize_session_timezone(value):
-    return value if value in all_timezones_set else SESSION_TIMEZONE_FALLBACK
+    if value in all_timezones_set:
+        return value
+    # A browser can know zone names newer than the pinned Python timezone data.
+    if value and re.fullmatch(r'[A-Za-z0-9_+-]+(?:/[A-Za-z0-9_+-]+)+', value):
+        try:
+            with (Path('/usr/share/zoneinfo') / value).open('rb') as zone:
+                if zone.read(4) == b'TZif':
+                    return value
+        except OSError:
+            pass
+    return SESSION_TIMEZONE_FALLBACK
 
+
+SESSION_ROW = 'SELECT id,created_at,status,closed_at,timezone FROM application_sessions WHERE id=?'
 
 TERMINAL = {'succeeded', 'partial', 'failed', 'interrupted', 'cancelled'}
 
@@ -104,7 +118,7 @@ class Lifecycle:
 
     def session(self, identity):
         with sqlite3.connect(str(self.store.path)) as connection:
-            row = connection.execute('SELECT id,created_at,status,closed_at,timezone FROM application_sessions WHERE id=?', (identity,)).fetchone()
+            row = connection.execute(SESSION_ROW, (identity,)).fetchone()
             if row is None: return None
             if row[2] == 'closing':
                 connection.execute('BEGIN IMMEDIATE')
@@ -112,7 +126,7 @@ class Lifecycle:
                 if not running:
                     closed = datetime.now(timezone.utc).isoformat()
                     connection.execute("UPDATE application_sessions SET status='closed',closed_at=? WHERE id=? AND status='closing'", (closed,identity))
-                    row = connection.execute('SELECT id,created_at,status,closed_at,timezone FROM application_sessions WHERE id=?', (identity,)).fetchone()
+                    row = connection.execute(SESSION_ROW, (identity,)).fetchone()
         return ApplicationSession(id=row[0], created_at=row[1], status=row[2], closed_at=row[3], timezone=normalize_session_timezone(row[4]))
 
     def resumable(self):
@@ -138,7 +152,10 @@ class Lifecycle:
                     LEFT JOIN active_experiments active ON active.experiment_id=s.experiment_id
                     WHERE a.status='open' AND (
                         active.experiment_id IS NOT NULL OR NOT EXISTS (
-                            SELECT 1 FROM fits WHERE experiment_id=s.experiment_id AND state='succeeded'
+                            SELECT 1 FROM fits f
+                            JOIN experiment_recordings r ON r.experiment_id=f.experiment_id
+                            WHERE f.experiment_id=s.experiment_id AND f.state='succeeded'
+                                  AND json_extract(f.data, '$.recording_revision')=r.revision
                         )
                     )
                 )

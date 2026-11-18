@@ -1,4 +1,6 @@
 import unittest
+from datetime import datetime, timezone
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 from backend.app import create_app
 from backend.tests import test_fits
@@ -19,8 +21,10 @@ class SessionApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.json()[0]['session']['timezone'], 'America/Los_Angeles')
 
-        experiment = self.client.post('/api/v1/experiments?session_timezone=Asia%2FTokyo',
-                                      json={'gpu_count': 1}).json()
+        with patch('backend.store.datetime', wraps=datetime) as clock:
+            clock.now.return_value = datetime(2020, 1, 2, tzinfo=timezone.utc)
+            experiment = self.client.post('/api/v1/experiments?session_timezone=Asia%2FTokyo',
+                                          json={'gpu_count': 1}).json()
         session_id = experiment['session_id']
         replacement = self.client.post('/api/v1/experiments',
                                        params={'session_id': legacy['session_id'], 'session_timezone': 'UTC'},
@@ -30,6 +34,7 @@ class SessionApiTests(unittest.TestCase):
         restarted.auth = ('operator', 'test-password')
         rows = {row['session']['id']: row for row in restarted.get(path).json()}
         self.assertEqual(rows[session_id]['session']['timezone'], 'Asia/Tokyo')
+        self.assertTrue(rows[session_id]['session']['created_at'].startswith('2020-01-02'))
         self.assertFalse(rows[session_id]['active_work'])
         self.assertEqual(rows[legacy['session_id']]['experiment']['id'], legacy['id'])
         self.assertTrue(rows[legacy['session_id']]['active_work'])
@@ -39,6 +44,22 @@ class SessionApiTests(unittest.TestCase):
         self.assertEqual(detail['jobs'][0]['id'], active['id'])
         restarted.post('/api/v1/sessions/' + legacy['session_id'] + '/close')
         self.assertEqual([row['session']['id'] for row in restarted.get(path).json()], [session_id])
+
+    def test_recording_change_makes_a_completed_setup_resumable(self):
+        from backend.worker import run_worker
+
+        self.client.post(self.fixture.prefix + '/fits', json=self.fixture.request())
+        run_worker(self.settings, once=True, runner=self.fixture.output)
+        resume_path = '/api/v1/sessions/resumable'
+        self.assertEqual(self.client.get(resume_path).json(), [])
+
+        recording_id = self.fixture.recordings[1]['id']
+        selected = self.client.post(self.fixture.prefix + '/recording-selection',
+                                    json={'recording_id': recording_id}).json()
+        row, = self.client.get(resume_path).json()
+        self.assertEqual(row['experiment']['recording']['id'], recording_id)
+        self.assertEqual(row['experiment']['recording_revision'], selected['recording_revision'])
+        self.assertFalse(row['active_work'])
 
     def test_reconnect_recovers_work_and_close_cancels_queued_job_idempotently(self):
         fit = self.client.post(self.fixture.prefix + '/fits', json=self.fixture.request()).json()

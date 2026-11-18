@@ -20,6 +20,14 @@ interface Props {
   seed: number;
 }
 
+function isActiveJob(job: { state: string }): boolean {
+  return job.state === "queued" || job.state === "running";
+}
+
+function preferActive<T extends { state: string }>(jobs: T[]): T | undefined {
+  return jobs.find(isActiveJob) ?? jobs[0];
+}
+
 export default function FitPanel({
   api,
   experiment,
@@ -46,16 +54,19 @@ export default function FitPanel({
       .then((work) => {
         if (!current) return;
         setRecovered(work);
-        setFit(
-          (previous) =>
-            previous ??
-            work.fits.find(
-              (item) =>
-                item.recording.id === experiment.recording?.id &&
-                item.recording_revision === experiment.recording_revision,
-            ) ??
-            null,
+        const matchingFits = work.fits.filter(
+          (item) => item.recording.id === experiment.recording?.id &&
+            item.recording_revision === experiment.recording_revision,
         );
+        const activeFitIds = new Set(
+          [...work.batches, ...work.generations]
+            .filter(isActiveJob)
+            .map((item) => item.fit_id),
+        );
+        setFit((previous) => previous ??
+          matchingFits.find(isActiveJob) ??
+          matchingFits.find((item) => activeFitIds.has(item.id)) ??
+          matchingFits[0] ?? null);
       })
       .catch(() => {
         if (current)
@@ -239,9 +250,7 @@ export default function FitPanel({
               api={api}
               fit={fit}
               options={generationOptions}
-              recovered={recovered?.batches.find(
-                (item) => item.fit_id === fit.id,
-              )}
+              recovered={preferActive(recovered?.batches.filter((item) => item.fit_id === fit.id) ?? [])}
             />
           )}
           {generationOptions && (
@@ -250,9 +259,7 @@ export default function FitPanel({
               api={api}
               fit={fit}
               options={generationOptions}
-              recovered={recovered?.generations.find(
-                (item) => item.fit_id === fit.id,
-              )}
+              recovered={preferActive(recovered?.generations.filter((item) => item.fit_id === fit.id) ?? [])}
             />
           )}
         </div>

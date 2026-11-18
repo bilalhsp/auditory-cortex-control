@@ -85,25 +85,30 @@ export default function App() {
   }
   async function save(event: FormEvent) {
     event.preventDefault();
-    if (!api || !caps) return;
+    await createExperiment(family, gpuCount);
+  }
+  async function createExperiment(nextFamily: string, nextGpuCount: number) {
+    if (!api || !caps || busy) return;
     setBusy(true);
     setError("");
-    setExperiment(null);
     try {
       setExperiment(
         await api.createExperiment(
           {
-            stimulus_family: family,
+            stimulus_family: nextFamily,
             dataset_name: caps.settings.datasets[0],
             model_name: caps.settings.models[0],
             layer_id: caps.settings.layers[0],
             bin_width_ms: caps.settings.bin_width_ms,
             receptive_field_ms: caps.settings.receptive_field_ms,
-            gpu_count: gpuCount,
+            gpu_count: nextGpuCount,
           },
           sessionId,
         ),
       );
+      setFamily(nextFamily);
+      setGpuCount(nextGpuCount);
+      return true;
     } catch (cause) {
       reportError(cause);
     } finally {
@@ -130,12 +135,19 @@ export default function App() {
     setSessionId((current) => (current === id ? null : current));
     setExperiment((current) => (current?.session_id === id ? null : current));
   }
-  function startOver() {
+  function newLegacySession() {
+    setSessionId(null);
     setExperiment(null);
     setFamily(caps?.settings.stimulus_families[0] ?? "");
     setGpuCount(caps?.gpu.available_count ?? 0);
     setExplicitGpu(false);
     setError("");
+  }
+  async function startOver() {
+    if (!caps || !sessionId) return;
+    if (await createExperiment(caps.settings.stimulus_families[0], caps.gpu.available_count)) {
+      setExplicitGpu(false);
+    }
   }
   function recordingSelected(updated: Experiment) {
     setExperiment((current) =>
@@ -155,18 +167,20 @@ export default function App() {
         <main>
           {api && caps?.sessions?.supported && (
             <>
-              <SessionWorkbench
+              {caps.sessions.resumable && <SessionWorkbench
                 api={api}
                 sessionId={sessionId}
                 experimentId={experiment?.id}
                 busy={busy}
                 onResume={resume}
                 onStartOver={startOver}
-              />
+              />}
               <SessionHistory
                 api={api}
                 currentExperiment={experiment}
                 onClosed={closed}
+                onResume={caps.sessions.resumable ? undefined : resume}
+                onNew={caps.sessions.resumable ? undefined : newLegacySession}
               />
             </>
           )}

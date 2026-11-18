@@ -91,7 +91,7 @@ def create_app(
             "gpu": capacity(),
             "upload": {"max_bytes": settings.max_upload_bytes, "formats": [".mat"]},
             "fit": {"supported_sources": ["existing", "upload"], "default_seed": 42},
-            "sessions": {"supported": True},
+            "sessions": {"supported": True, "resumable": True},
             "batch": {"supported": True},
             "generation": {"objectives": GENERATION_OBJECTIVES, "durations": GENERATION_DURATIONS, "clip_counts": GENERATION_CLIP_COUNTS},
         }

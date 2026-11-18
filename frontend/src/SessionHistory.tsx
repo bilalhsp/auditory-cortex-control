@@ -14,10 +14,14 @@ export default function SessionHistory({
   api,
   currentExperiment,
   onClosed,
+  onResume,
+  onNew,
 }: {
   api: ReturnType<typeof makeApi>;
   currentExperiment: Experiment | null;
   onClosed: (sessionId: string) => void;
+  onResume?: (experiment: Experiment) => void;
+  onNew?: () => void;
 }) {
   const [sessions, setSessions] = useState<ApplicationSession[]>([]),
     [selected, setSelected] = useState("");
@@ -164,6 +168,7 @@ export default function SessionHistory({
           ))}
         </select>
       </label>
+      {onNew && <button type="button" disabled={busy} onClick={onNew}>Start a new session</button>}
       {detail && (
         <>
           <p role="status">Session {detail.session.status}</p>
@@ -179,6 +184,11 @@ export default function SessionHistory({
           >
             Stop / close session
           </button>
+          {open && onResume && detail.experiments.map((experiment) => (
+            <button key={experiment.id} type="button" disabled={busy} onClick={() => onResume(experiment)}>
+              Resume setup {experiment.id.slice(0, 8)}
+            </button>
+          ))}
           <div className="correlations-scroll">
             <table className="history-table">
               <thead>
