@@ -30,6 +30,8 @@ The CUDA component versions match the working Gilbreth CUDA 12.6.0 toolkit.
 The setup assembles its headers and libraries into a toolkit layout for CuPy 12.
 Backend and worker launchers load its `CUDA_PATH`, `CUDA_HOME`, library path and
 scratch kernel cache automatically. No CUDA module is required for this runtime.
+Both `CUPY_CACHE_DIR` and the NVIDIA driver's separate `CUDA_CACHE_PATH` point to
+scratch; neither compiled-kernel cache defaults to home.
 Startup executes real PyTorch and CuPy kernels and a CuPy linear solve on every
 visible GPU before accepting compute work. Failure prevents combined API/worker
 startup rather than waiting for a fit to fail.

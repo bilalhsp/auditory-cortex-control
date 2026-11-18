@@ -9,6 +9,7 @@ from pathlib import Path
 import shlex
 import subprocess
 import sys
+import tempfile
 
 
 REPO = Path(__file__).resolve().parents[2]
@@ -41,17 +42,22 @@ def materialize_sources(root, env):
         destination = root / 'sources' / source['name']
         marker = destination / '.auditory-ready'
         if not marker.exists():
-            destination.mkdir(parents=True, exist_ok=True)
-            run(['git', 'init', '-q', destination], env)
-            run(['git', '-C', destination, 'fetch', '--depth', '1', source['url'], source['revision']], env)
-            run(['git', '-C', destination, 'checkout', '--detach', 'FETCH_HEAD'], env)
-            if 'patch' in source:
-                record = json.loads((PATCHES / source['patch']).read_text())
-                patch = base64.b64decode(record['content'], validate=True)
-                if hashlib.sha256(patch).hexdigest() != record['sha256']:
-                    raise RuntimeError('Scientific source patch checksum mismatch')
-                run(['git', '-C', destination, 'apply', '--binary', '-'], env, input=patch)
-            marker.write_text(source['revision'] + '\n')
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            # Publish only a complete checkout; interruption never leaves a
+            # partially applied patch at the reusable source path.
+            with tempfile.TemporaryDirectory(prefix=source['name'] + '-', dir=str(destination.parent)) as pending:
+                checkout = Path(pending)
+                run(['git', 'init', '-q', checkout], env)
+                run(['git', '-C', checkout, 'fetch', '--depth', '1', source['url'], source['revision']], env)
+                run(['git', '-C', checkout, 'checkout', '--detach', 'FETCH_HEAD'], env)
+                if 'patch' in source:
+                    record = json.loads((PATCHES / source['patch']).read_text())
+                    patch = base64.b64decode(record['content'], validate=True)
+                    if hashlib.sha256(patch).hexdigest() != record['sha256']:
+                        raise RuntimeError('Scientific source patch checksum mismatch')
+                    run(['git', '-C', checkout, 'apply', '--binary', '-'], env, input=patch)
+                (checkout / '.auditory-ready').write_text(source['revision'] + '\n')
+                checkout.rename(destination)
         paths.append(str(destination))
     return paths
 
@@ -75,14 +81,14 @@ def main():
     inputs.extend(sorted(PATCHES.glob('*.patch.json')))
     fingerprint = hashlib.sha256(str(REPO).encode() + b''.join(path.read_bytes() for path in inputs)).hexdigest()[:16]
     root = cache / 'runtime' / fingerprint
-    env = dict(os.environ, UV_CACHE_DIR=str(cache / 'uv'), TMPDIR=str(cache / 'tmp'),
-               UV_PYTHON_INSTALL_DIR=str(cache / 'python'), PIP_CACHE_DIR=str(cache / 'pip'),
-               XDG_CACHE_HOME=str(cache / 'xdg'), UV_NO_MANAGED_PYTHON='1',
-               UV_PYTHON_DOWNLOADS='never')
+    cache_env = dict(UV_CACHE_DIR=str(cache / 'uv'), TMPDIR=str(cache / 'tmp'),
+                     UV_PYTHON_INSTALL_DIR=str(cache / 'python'), PIP_CACHE_DIR=str(cache / 'pip'),
+                     XDG_CACHE_HOME=str(cache / 'xdg'), CUPY_CACHE_DIR=str(cache / 'cupy'),
+                     CUDA_CACHE_PATH=str(cache / 'cuda'))
+    env = dict(os.environ, **cache_env, UV_NO_MANAGED_PYTHON='1', UV_PYTHON_DOWNLOADS='never')
     if args.plan:
         print(json.dumps({'runtime': str(root), 'python': sys.version.split()[0],
-                          'storage': {key: env[key] for key in ('UV_CACHE_DIR', 'TMPDIR',
-                                      'UV_PYTHON_INSTALL_DIR', 'PIP_CACHE_DIR', 'XDG_CACHE_HOME')}}, indent=2))
+                          'storage': cache_env}, indent=2))
         return
     for directory in (root, cache / 'tmp', cache / 'uv'):
         directory.mkdir(parents=True, exist_ok=True)
@@ -97,12 +103,8 @@ def main():
             toolkit = root / 'toolkit'
             assemble_toolkit(root / 'cuda12/lib/python3.8/site-packages/nvidia', toolkit)
             sources = materialize_sources(root, env)
-            runtime = dict(UV_CACHE_DIR=env['UV_CACHE_DIR'], TMPDIR=env['TMPDIR'],
-                           UV_PYTHON_INSTALL_DIR=env['UV_PYTHON_INSTALL_DIR'],
-                           PIP_CACHE_DIR=env['PIP_CACHE_DIR'], XDG_CACHE_HOME=env['XDG_CACHE_HOME'],
-                           CUDA_HOME=str(toolkit), CUDA_PATH=str(toolkit),
+            runtime = dict(cache_env, CUDA_HOME=str(toolkit), CUDA_PATH=str(toolkit),
                            LD_LIBRARY_PATH=str(toolkit / 'lib64'),
-                           CUPY_CACHE_DIR=str(cache / 'cupy'),
                            PYTHONPATH=os.pathsep.join([str(REPO)] + sources))
             (root / 'python/runtime.env').write_text(''.join('export %s=%s\n' % (key, shlex.quote(value))
                                                            for key, value in runtime.items()))
