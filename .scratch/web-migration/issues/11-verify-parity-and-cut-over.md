@@ -4,15 +4,15 @@
 
 **Blocked by:** 06: Fit an uploaded recording, 08: Generate batches using the selected GPU count, 09: Recover and manage long-running work, 10: Enforce deployment access and data lifecycle policies.
 
-**Status:** claimed
+**Status:** resolved
 
 - [x] Run the agreed acceptance workflow for both stimulus families and recording sources, fitting/correlations, both objectives, repeated generation, selected GPU counts, and scoped downloads.
 - [x] Compare scientific results against preserved baselines at measured tolerances and verify manifest completeness, audio format/duration, and configuration provenance.
 - [x] Demonstrate independent frontend/backend builds and release/configuration changes, API compatibility, configured origins/credentials, data/model access, and separate API/compute readiness.
 - [x] Validate contention/isolation, worker failures, chosen recovery/access guarantees, and operation-correlated diagnostics in the intended environment.
 - [x] Measure initialization, fit, generation, queue delay, and resource use against 01 targets; record unresolved failures rather than claim readiness.
-- [ ] Provide and rehearse rollback using retained legacy runtime/artifacts; pilot with intended operators and obtain release sign-off before production cutover.
-- [ ] Archive Streamlit only after acceptance and the agreed rollback window; retain scoped CLI/notebook and scientific artifact compatibility.
+- [x] Provide and rehearse rollback using retained legacy runtime/artifacts; pilot with intended operators and obtain release sign-off before production cutover.
+- [x] Enforce the accepted retirement policy: retain Streamlit for rollback until separate retirement approval, preserving scoped CLI/notebook and scientific artifact compatibility.
 
 ## Comments
 
@@ -48,3 +48,32 @@ The earlier pending-pilot note is superseded by this approval. Streamlit and
 scientific CLI/notebook compatibility remain retained for rollback under the
 accepted retirement policy; no separate retirement approval was given. Final
 launcher supervision/regression checks and release documentation are in progress.
+
+
+## Answer
+
+The operator reported the pilot successful and approved application finalization
+on 2026-11-18 UTC. This resolves application acceptance for the current local/SSH
+web deployment. Future hosting/URL choices remain independently configurable;
+no public proxy switch, data migration, or Streamlit retirement was performed.
+The original archival proposal is governed by the accepted separate-retirement
+approval policy, satisfied here by retaining the legacy runtime/artifacts.
+
+Normal startup is now two commands: `./start-frontend.sh` and
+`./start-backend.sh`. The latter validates real CUDA access and starts/monitors
+one API plus one worker on the allocated GPU host; a service exit stops its peer,
+and Ctrl+C stops both. API-only/manual-worker mode remains available. Existing
+allocation locking, SQLite queue semantics, manual retry, and scientific artifacts
+are preserved. The frontend build remains reusable and was not modified.
+
+Final verification: all 76 backend tests passed in 357.573 seconds; backend
+Pyright, frontend TypeScript, shell syntax, and backend archive build passed.
+Real-GPU startup/shutdown, worker failure, API failure, duplicate allocator
+rejection, and occupied-port cleanup passed against isolated metadata. The new
+CUDA-disabled launch regression failed before the change, then passed; API-only
+health/authenticated metadata remain usable without CUDA. Independent Standards
+and Spec reviews each found zero issues.
+
+See [verification](../issue11-verification.md),
+[release status](../../../docs/deployment/release-status.md), and
+[launch instructions](../../../docs/deployment/local-launch.md).

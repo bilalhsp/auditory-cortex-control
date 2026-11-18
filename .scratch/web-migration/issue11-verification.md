@@ -156,4 +156,24 @@ metadata remains. GPU validation executes real CUDA operations before services
 start. Backend Pyright and frontend TypeScript checks pass. The backend archive
 build passes. Frontend assets were not rebuilt or modified, and scientific
 arithmetic and saved research data were unchanged. Final full-suite and review
-results follow below when complete.
+results are recorded below.
+
+
+## Final release closure — 2026-11-18 UTC
+
+All **76 backend tests passed in 357.573 seconds**, including both launch
+regressions. Backend Pyright and frontend TypeScript report zero errors. Shell
+syntax and updated backend archive build pass. The existing frontend build was
+preserved; address changes still use runtime configuration.
+
+The finalization review was pinned to
+`c6e50db05a65892b8b08a867e0fafa080b8daf93`, reviewing implementation `29b71b8`.
+The independent Standards reviewer found zero documented violations or actionable
+smells. The independent Spec reviewer found zero requirement mismatches or scope
+issues. No implementation findings remain. Earlier scientific verification and
+historical comparison limits remain intact.
+
+Issue 11 is resolved following the operator's explicit successful-pilot report
+and application release approval. No new approval is needed for these accepted
+application requirements. The legacy launcher/runtime is retained for rollback;
+a future public deployment must verify its own URLs, HTTPS, and access boundary.

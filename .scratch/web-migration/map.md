@@ -3,7 +3,7 @@
 ## Notes
 
 Implementation tickets live in [issues/](issues/); the approved requirements are
-in [spec.md](spec.md). Issues 01–10 are resolved.
+in [spec.md](spec.md). Issues 01–11 are resolved.
 
 ## Decisions-so-far
 
@@ -52,11 +52,15 @@ in [spec.md](spec.md). Issues 01–10 are resolved.
   real mVocs fits for both sources (18 correlations exactly equal), both mVocs
   objectives byte-identical under the approved controlled comparison, and isolated
   legacy rollback rehearsal. See [verification](issue11-verification.md) and the
-  [release runbook](../../docs/deployment/web-cutover.md). Operator pilot/release
-  sign-off remain pending; no production switch or Streamlit retirement occurred.
+  [release runbook](../../docs/deployment/web-cutover.md). The operator reported
+  the pilot successful and approved finalization on 2026-11-18 UTC. Final checks:
+  76 backend tests passed; both review axes found zero issues. The normal backend
+  command now supervises the API and one worker; API-only mode remains available.
+  URLs remain configurable; Streamlit is retained for rollback. See
+  [release status](../../docs/deployment/release-status.md).
 
 ## Fog
 
-Issue 11 awaits operator pilot and release sign-off. Local URL/port acceptance is
-approved and passed. Public HTTPS/proxy validation is required before public
-exposure. Streamlit remains available until separately approved retirement.
+No unresolved application acceptance decisions remain. Future deployment host/URL
+changes are operational configuration. Verify public HTTPS/access controls before
+public exposure. Streamlit remains available until separately approved retirement.

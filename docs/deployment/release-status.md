@@ -64,3 +64,10 @@ approved controlled initialization/RNG comparison. Historical cross-process
 variability remains documented; portable determinism is not promised. Scientific
 algorithms were not changed during finalization. Completed samples, metadata, and
 models are retained across restarts and deployment-address changes.
+
+
+Final release checks: **76 backend tests passed**, backend and frontend typechecks
+passed, backend archive build passed, and independent Standards/Spec reviews each
+reported zero findings. Real-GPU supervisor checks covered shutdown, API failure,
+worker failure, and occupied-port cleanup. See the verification record for measured
+scientific comparisons and the preserved limits of those claims.
