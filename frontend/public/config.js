@@ -1,3 +1,14 @@
-// Set to the HTTPS backend URL when hosting the services separately.
-// Empty uses the current origin, or Vite's API proxy during development.
-window.AUDITORY_CONFIG = { apiBaseUrl: "" };
+// Public runtime configuration: never include credentials here.
+// A nonempty apiBaseUrl selects one fixed backend and overrides apiBaseUrls.
+// Empty plus candidates discovers an available laptop SSH tunnel at sign-in.
+// After sign-in the selected endpoint stays pinned; jobs never fail over silently.
+window.AUDITORY_CONFIG = {
+  apiBaseUrl: "",
+  apiBaseUrls: [
+    "http://127.0.0.1:28000",
+    "http://127.0.0.1:28001",
+    "http://127.0.0.1:28002",
+    "http://127.0.0.1:18000",
+    "http://127.0.0.1:8000",
+  ],
+};

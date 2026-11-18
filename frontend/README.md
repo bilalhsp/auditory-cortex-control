@@ -96,3 +96,14 @@ views use job identities for polling; changing the selected session discards lat
 responses from the previous view. Retry eligibility comes from the server, so an
 interrupted batch whose targets all completed offers its saved download instead
 of an empty retry.
+
+
+## Laptop SSH tunnel port discovery
+
+`public/config.js` can provide `apiBaseUrls` for multiple local forwarded ports.
+The default candidates match `connect-gilbreth.sh`: 28000, 28001, 28002, 18000,
+and 8000. A nonempty `apiBaseUrl` overrides the list. Discovery checks health
+without credentials during login, then pins the connection; it never retries
+scientific commands against another endpoint. See
+[the laptop connection guide](../docs/deployment/laptop-connection.md) for existing
+Slurm allocation discovery, Windows Git Bash, CORS, and GitHub Pages base paths.

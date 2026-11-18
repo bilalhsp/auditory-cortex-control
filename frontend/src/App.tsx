@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { ApiError, makeApi } from "./api";
+import { ApiError, discoverApiBaseUrl, makeApi } from "./api";
 import type { Capabilities, Experiment } from "./api";
 import RecordingSelector from "./RecordingSelector";
 import RecordingUpload from "./RecordingUpload";
@@ -42,7 +42,8 @@ export default function App() {
     setBusy(true);
     setError("");
     try {
-      const connection = makeApi(username, password);
+      const baseUrl = await discoverApiBaseUrl();
+      const connection = makeApi(username, password, baseUrl);
       const result = await connection.capabilities();
       setApi(connection);
       setExperiment(null);

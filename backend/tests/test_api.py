@@ -26,6 +26,12 @@ class ExperimentApiTests(unittest.TestCase):
         self.client = TestClient(create_app(self.settings, lambda: self.gpus))
         self.client.auth = ("operator", "test-password")
 
+    def test_public_discovery_identifies_application_without_revealing_configuration(self):
+        anonymous = TestClient(create_app(self.settings, lambda: self.gpus))
+        response = anonymous.get("/healthz?identify=true")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"status": "ok", "service": "auditory-cortex-control"})
+
     def test_operator_can_read_supported_settings_and_local_gpu_capacity(self):
         response = self.client.get("/api/v1/capabilities")
         self.assertEqual(response.status_code, 200)

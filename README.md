@@ -17,7 +17,9 @@ The backend launcher starts and monitors the API and one worker together on an
 allocated GPU compute node. The first backend
 launch configures credentials if needed; subsequent launches reuse the private
 configuration. See [local launch instructions](docs/deployment/local-launch.md)
-for GPU allocation requirements and configurable URLs/SSH ports. The operator
+for GPU allocation requirements and configurable URLs/SSH ports. A laptop can
+start the backend in an existing allocation and open its SSH tunnel using
+[connect-gilbreth.sh](docs/deployment/laptop-connection.md). The operator
 pilot has passed; see [release status](docs/deployment/release-status.md).
 
 ## 📂 Dataset

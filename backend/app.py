@@ -75,7 +75,9 @@ def create_app(
         }
 
     @app.get("/healthz")
-    def health() -> dict:
+    def health(identify: bool = False) -> dict:
+        if identify:
+            return {"status": "ok", "service": "auditory-cortex-control"}
         return {"status": "ok"}
 
     @app.get("/api/v1/capabilities", dependencies=[Depends(operator)])
