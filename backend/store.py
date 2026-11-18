@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 from uuid import uuid4
 
-from backend.lifecycle import initialize, ensure_open, expose, save_job, cancellation_requested, ensure_command_available
+from backend.lifecycle import initialize, ensure_open, expose, save_job, cancellation_requested, ensure_command_available, normalize_session_timezone
 from backend.models import Experiment, ExperimentConfiguration, Recording, Fit, Generation, GenerationSubmission, Batch
 
 
@@ -232,7 +232,8 @@ class ExperimentStore:
                 generation.finished_at = datetime.now(timezone.utc).isoformat()
                 save_job(connection, 'generations', generation)
 
-    def create(self, configuration: ExperimentConfiguration, session_id: Optional[str] = None) -> Experiment:
+    def create(self, configuration: ExperimentConfiguration, session_id: Optional[str] = None,
+               session_timezone: Optional[str] = None) -> Experiment:
         experiment = Experiment(
             id=str(uuid4()), created_at=datetime.now(timezone.utc).isoformat(),
             configuration=configuration, session_id=session_id or str(uuid4()),
@@ -243,7 +244,10 @@ class ExperimentStore:
                 row = connection.execute('SELECT status FROM application_sessions WHERE id=?', (session_id,)).fetchone()
                 if row is None or row[0] != 'open': raise ValueError('Application session is closing or closed.')
             else:
-                connection.execute("INSERT INTO application_sessions VALUES (?,?,'open',NULL)", (experiment.session_id, experiment.created_at))
+                connection.execute(
+                    "INSERT INTO application_sessions (id,created_at,status,timezone) VALUES (?,?,'open',?)",
+                    (experiment.session_id, experiment.created_at, normalize_session_timezone(session_timezone)),
+                )
             connection.execute('INSERT INTO session_experiments VALUES (?,?)', (experiment.id, experiment.session_id))
             connection.execute("INSERT INTO experiments VALUES (?, ?, ?)", (
                 experiment.id, experiment.created_at, configuration.model_dump_json(),

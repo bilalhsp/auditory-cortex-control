@@ -4,22 +4,32 @@ import sqlite3
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from uuid import NAMESPACE_URL, uuid4, uuid5
+from pytz import all_timezones_set
 from backend.models import ApplicationSession
 if TYPE_CHECKING:
     from backend.store import ExperimentStore
+
+SESSION_TIMEZONE_FALLBACK = 'America/Los_Angeles'
+
+
+def normalize_session_timezone(value):
+    return value if value in all_timezones_set else SESSION_TIMEZONE_FALLBACK
+
 
 TERMINAL = {'succeeded', 'partial', 'failed', 'interrupted', 'cancelled'}
 
 
 def initialize(connection):
     connection.execute('CREATE TABLE IF NOT EXISTS application_sessions (id TEXT PRIMARY KEY, created_at TEXT NOT NULL, status TEXT NOT NULL, closed_at TEXT)')
+    if 'timezone' not in {column[1] for column in connection.execute('PRAGMA table_info(application_sessions)')}:
+        connection.execute('ALTER TABLE application_sessions ADD COLUMN timezone TEXT')
     connection.execute('CREATE TABLE IF NOT EXISTS session_experiments (experiment_id TEXT PRIMARY KEY, session_id TEXT NOT NULL)')
     connection.execute('CREATE TABLE IF NOT EXISTS job_controls (job_id TEXT PRIMARY KEY, requested_at TEXT NOT NULL)')
     connection.execute('CREATE TABLE IF NOT EXISTS retry_commands (request_id TEXT PRIMARY KEY, source_job_id TEXT NOT NULL, command_id TEXT UNIQUE NOT NULL, job_id TEXT)')
     connection.execute('CREATE TABLE IF NOT EXISTS job_retries (job_id TEXT PRIMARY KEY, previous_job_id TEXT NOT NULL)')
     for identity, created in connection.execute('SELECT e.id,e.created_at FROM experiments e LEFT JOIN session_experiments s ON s.experiment_id=e.id WHERE s.experiment_id IS NULL').fetchall():
         session = str(uuid5(NAMESPACE_URL, 'auditory-cortex:application-session:' + identity))
-        connection.execute("INSERT OR IGNORE INTO application_sessions VALUES (?,?,'open',NULL)", (session, created))
+        connection.execute("INSERT OR IGNORE INTO application_sessions (id,created_at,status,closed_at) VALUES (?,?,'open',NULL)", (session, created))
         connection.execute('INSERT INTO session_experiments VALUES (?,?)', (identity, session))
 
 
@@ -94,7 +104,7 @@ class Lifecycle:
 
     def session(self, identity):
         with sqlite3.connect(str(self.store.path)) as connection:
-            row = connection.execute('SELECT id,created_at,status,closed_at FROM application_sessions WHERE id=?', (identity,)).fetchone()
+            row = connection.execute('SELECT id,created_at,status,closed_at,timezone FROM application_sessions WHERE id=?', (identity,)).fetchone()
             if row is None: return None
             if row[2] == 'closing':
                 connection.execute('BEGIN IMMEDIATE')
@@ -102,8 +112,45 @@ class Lifecycle:
                 if not running:
                     closed = datetime.now(timezone.utc).isoformat()
                     connection.execute("UPDATE application_sessions SET status='closed',closed_at=? WHERE id=? AND status='closing'", (closed,identity))
-                    row = connection.execute('SELECT id,created_at,status,closed_at FROM application_sessions WHERE id=?', (identity,)).fetchone()
-        return ApplicationSession(id=row[0], created_at=row[1], status=row[2], closed_at=row[3])
+                    row = connection.execute('SELECT id,created_at,status,closed_at,timezone FROM application_sessions WHERE id=?', (identity,)).fetchone()
+        return ApplicationSession(id=row[0], created_at=row[1], status=row[2], closed_at=row[3], timezone=normalize_session_timezone(row[4]))
+
+    def resumable(self):
+        # One entry per open session. Prefer live work over a newer unfinished setup.
+        with sqlite3.connect(str(self.store.path)) as connection:
+            rows = connection.execute("""
+                WITH active_experiments AS (
+                    SELECT experiment_id FROM fits WHERE state IN ('queued','running')
+                    UNION
+                    SELECT f.experiment_id FROM generations g JOIN fits f ON f.id=g.fit_id
+                        WHERE g.state IN ('queued','running')
+                    UNION
+                    SELECT f.experiment_id FROM batches b JOIN fits f ON f.id=b.fit_id
+                        WHERE b.state IN ('queued','running')
+                ), candidates AS (
+                    SELECT a.id, a.created_at, a.timezone, s.experiment_id,
+                           active.experiment_id IS NOT NULL AS active_work,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY a.id ORDER BY active.experiment_id IS NOT NULL DESC, s.rowid DESC
+                           ) AS rank
+                    FROM application_sessions a
+                    JOIN session_experiments s ON s.session_id=a.id
+                    LEFT JOIN active_experiments active ON active.experiment_id=s.experiment_id
+                    WHERE a.status='open' AND (
+                        active.experiment_id IS NOT NULL OR NOT EXISTS (
+                            SELECT 1 FROM fits WHERE experiment_id=s.experiment_id AND state='succeeded'
+                        )
+                    )
+                )
+                SELECT id, created_at, timezone, experiment_id, active_work FROM candidates
+                WHERE rank=1 ORDER BY created_at DESC
+            """).fetchall()
+            return [{
+                'session': ApplicationSession(id=identity, created_at=created, status='open',
+                                              timezone=normalize_session_timezone(zone)),
+                'experiment': self.store._get(connection, experiment_id),
+                'active_work': bool(active),
+            } for identity, created, zone, experiment_id, active in rows]
 
     def work(self, experiment_id):
         with sqlite3.connect(str(self.store.path)) as connection:

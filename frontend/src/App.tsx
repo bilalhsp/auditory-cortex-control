@@ -5,6 +5,7 @@ import type { Capabilities, Experiment } from "./api";
 import RecordingSelector from "./RecordingSelector";
 import RecordingUpload from "./RecordingUpload";
 import FitPanel from "./FitPanel";
+import SessionWorkbench from "./SessionWorkbench";
 import SessionHistory from "./SessionHistory";
 import BackendConnection from "./BackendConnection";
 import WorkspaceHeader from "./WorkspaceHeader";
@@ -129,18 +130,12 @@ export default function App() {
     setSessionId((current) => (current === id ? null : current));
     setExperiment((current) => (current?.session_id === id ? null : current));
   }
-  async function newSession() {
-    setSessionId(null);
+  function startOver() {
     setExperiment(null);
+    setFamily(caps?.settings.stimulus_families[0] ?? "");
+    setGpuCount(caps?.gpu.available_count ?? 0);
     setExplicitGpu(false);
-    if (!api) return;
-    try {
-      const result = await api.capabilities();
-      setCaps(result);
-      setGpuCount(result.gpu.available_count);
-    } catch (cause) {
-      reportError(cause);
-    }
+    setError("");
   }
   function recordingSelected(updated: Experiment) {
     setExperiment((current) =>
@@ -159,13 +154,21 @@ export default function App() {
         <WorkspaceHeader key={api ? "signed-in" : "signed-out"} signedIn={Boolean(api)} checkConnection={api?.checkConnection} username={username} busy={busy} onSignOut={logout} />
         <main>
           {api && caps?.sessions?.supported && (
-            <SessionHistory
-              api={api}
-              currentExperiment={experiment}
-              onResume={resume}
-              onClosed={closed}
-              onNew={newSession}
-            />
+            <>
+              <SessionWorkbench
+                api={api}
+                sessionId={sessionId}
+                experimentId={experiment?.id}
+                busy={busy}
+                onResume={resume}
+                onStartOver={startOver}
+              />
+              <SessionHistory
+                api={api}
+                currentExperiment={experiment}
+                onClosed={closed}
+              />
+            </>
           )}
           <h1>
             {api ? "Set up your experiment" : "Connect to your research workspace"}

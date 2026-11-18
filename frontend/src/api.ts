@@ -150,6 +150,12 @@ export interface ApplicationSession {
   created_at: string;
   status: "open" | "closing" | "closed";
   closed_at: string | null;
+  timezone: string;
+}
+export interface ResumableSession {
+  session: ApplicationSession;
+  experiment: Experiment;
+  active_work: boolean;
 }
 export interface SessionDetail {
   session: ApplicationSession;
@@ -300,6 +306,7 @@ export function makeApi(
   }
   return {
     checkConnection: () => isBackendReachable(base),
+    resumableSessions: () => request<ResumableSession[]>("/sessions/resumable"),
     sessions: () => request<ApplicationSession[]>("/sessions"),
     session: (id: string) =>
       request<SessionDetail>(`/sessions/${encodeURIComponent(id)}`),
@@ -332,14 +339,16 @@ export function makeApi(
     downloadGeneration: (id: string) =>
       download(`/generations/${encodeURIComponent(id)}/download`),
     capabilities: () => request<Capabilities>("/capabilities"),
-    createExperiment: (
-      configuration: Configuration,
-      sessionId?: string | null,
-    ) =>
-      request<Experiment>(
-        `/experiments${sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : ""}`,
-        configuration,
-      ),
+    createExperiment: (configuration: Configuration, sessionId?: string | null) => {
+      const params = new URLSearchParams();
+      if (sessionId) {
+        params.set("session_id", sessionId);
+      } else {
+        const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (zone) params.set("session_timezone", zone);
+      }
+      return request<Experiment>(`/experiments?${params}`, configuration);
+    },
     recordings: (experimentId: string) =>
       request<RecordingCatalog>(
         `/experiments/${encodeURIComponent(experimentId)}/recordings`,

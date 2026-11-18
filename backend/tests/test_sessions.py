@@ -11,6 +11,35 @@ class SessionApiTests(unittest.TestCase):
         self.addCleanup(self.fixture.doCleanups)
         self.settings, self.client = self.fixture.settings, self.fixture.client
 
+    def test_resumable_sessions_prioritize_active_work_and_preserve_creation_timezone(self):
+        legacy = self.fixture.experiment
+        active = self.client.post(self.fixture.prefix + '/fits', json=self.fixture.request()).json()
+        path = '/api/v1/sessions/resumable'
+        response = self.client.get(path)
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()[0]['session']['timezone'], 'America/Los_Angeles')
+
+        experiment = self.client.post('/api/v1/experiments?session_timezone=Asia%2FTokyo',
+                                      json={'gpu_count': 1}).json()
+        session_id = experiment['session_id']
+        replacement = self.client.post('/api/v1/experiments',
+                                       params={'session_id': legacy['session_id'], 'session_timezone': 'UTC'},
+                                       json={'gpu_count': 1}).json()
+        restarted = TestClient(create_app(self.settings, lambda: 1))
+        self.assertEqual(restarted.get(path).status_code, 401)
+        restarted.auth = ('operator', 'test-password')
+        rows = {row['session']['id']: row for row in restarted.get(path).json()}
+        self.assertEqual(rows[session_id]['session']['timezone'], 'Asia/Tokyo')
+        self.assertFalse(rows[session_id]['active_work'])
+        self.assertEqual(rows[legacy['session_id']]['experiment']['id'], legacy['id'])
+        self.assertTrue(rows[legacy['session_id']]['active_work'])
+        self.assertEqual(rows[legacy['session_id']]['session']['timezone'], 'America/Los_Angeles')
+        detail = restarted.get('/api/v1/sessions/' + legacy['session_id']).json()
+        self.assertEqual({item['id'] for item in detail['experiments']}, {legacy['id'], replacement['id']})
+        self.assertEqual(detail['jobs'][0]['id'], active['id'])
+        restarted.post('/api/v1/sessions/' + legacy['session_id'] + '/close')
+        self.assertEqual([row['session']['id'] for row in restarted.get(path).json()], [session_id])
+
     def test_reconnect_recovers_work_and_close_cancels_queued_job_idempotently(self):
         fit = self.client.post(self.fixture.prefix + '/fits', json=self.fixture.request()).json()
         response = self.client.get('/api/v1/sessions')

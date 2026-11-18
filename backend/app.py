@@ -98,7 +98,8 @@ def create_app(
 
     @app.post("/api/v1/experiments", response_model=Experiment, status_code=201,
               dependencies=[Depends(operator)])
-    def create_experiment(configuration: ExperimentConfiguration, session_id: Optional[UUID] = None) -> Experiment:
+    def create_experiment(configuration: ExperimentConfiguration, session_id: Optional[UUID] = None,
+                          session_timezone: Optional[str] = None) -> Experiment:
         current = capacity()
         count = current["available_count"]
         if configuration.gpu_count > count:
@@ -109,7 +110,7 @@ def create_app(
         if count > 0 and configuration.gpu_count == 0:
             raise HTTPException(422, "Choose at least one available GPU")
         try:
-            return store.create(configuration, str(session_id) if session_id else None)
+            return store.create(configuration, str(session_id) if session_id else None, session_timezone)
         except ValueError as error:
             raise HTTPException(409, str(error)) from error
 
@@ -273,6 +274,10 @@ def create_app(
     @app.get('/api/v1/sessions', dependencies=[Depends(operator)])
     def sessions():
         return lifecycle.sessions()
+
+    @app.get('/api/v1/sessions/resumable', dependencies=[Depends(operator)])
+    def resumable_sessions():
+        return lifecycle.resumable()
 
     @app.get('/api/v1/sessions/{identity}', dependencies=[Depends(operator)])
     def session_detail(identity: UUID):

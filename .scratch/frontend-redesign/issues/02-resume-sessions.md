@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] Resume open incomplete or active sessions across dates.
 - [ ] Show creation timestamps and recording or experiment context. Persist the browser creation timezone with Pacific fallback.

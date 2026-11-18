@@ -8,19 +8,16 @@ import type {
 } from "./api";
 import { useJobPolling } from "./useJobPolling";
 import { saveDownload } from "./download";
+import { sessionDate } from "./sessionDate";
 
 export default function SessionHistory({
   api,
   currentExperiment,
-  onResume,
   onClosed,
-  onNew,
 }: {
   api: ReturnType<typeof makeApi>;
   currentExperiment: Experiment | null;
-  onResume: (experiment: Experiment) => void;
   onClosed: (sessionId: string) => void;
-  onNew: () => void;
 }) {
   const [sessions, setSessions] = useState<ApplicationSession[]>([]),
     [selected, setSelected] = useState("");
@@ -161,15 +158,12 @@ export default function SessionHistory({
           <option value="">Choose a session</option>
           {sessions.map((session) => (
             <option key={session.id} value={session.id}>
-              {new Date(session.created_at).toLocaleString()} · {session.status}{" "}
+              {sessionDate(session)} · {session.status}{" "}
               · {session.id.slice(0, 8)}
             </option>
           ))}
         </select>
       </label>
-      <button type="button" disabled={busy} onClick={onNew}>
-        Start a new session
-      </button>
       {detail && (
         <>
           <p role="status">Session {detail.session.status}</p>
@@ -185,17 +179,6 @@ export default function SessionHistory({
           >
             Stop / close session
           </button>
-          {open &&
-            detail.experiments.map((experiment) => (
-              <button
-                key={experiment.id}
-                type="button"
-                disabled={busy}
-                onClick={() => onResume(experiment)}
-              >
-                Resume setup {experiment.id.slice(0, 8)}
-              </button>
-            ))}
           <div className="correlations-scroll">
             <table className="history-table">
               <thead>

@@ -611,3 +611,50 @@ footer span {
   flex-wrap: wrap;
   gap: 10px;
 }
+
+.session-workbench {
+  margin-bottom: 18px;
+  border-top: 3px solid var(--sunset);
+}
+.workbench-heading,
+.resume-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+.session-workbench h3 {
+  font-size: 1rem;
+  margin: 16px 0 8px;
+}
+.session-workbench .help {
+  margin-bottom: 0;
+}
+.resume-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.resume-row {
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.resume-row div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.resume-row strong,
+.resume-row span,
+.resume-row small {
+  display: block;
+  margin-bottom: 4px;
+}
+.resume-row span,
+.resume-row small {
+  color: #526269;
+}
+.resume-row button,
+.workbench-heading button {
+  min-height: 44px;
+}

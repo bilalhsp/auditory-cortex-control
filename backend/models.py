@@ -195,6 +195,7 @@ class ApplicationSession(BaseModel):
     created_at: str
     status: Literal['open', 'closing', 'closed']
     closed_at: Optional[str] = None
+    timezone: str
 
 
 class RetryRequest(BaseModel):
