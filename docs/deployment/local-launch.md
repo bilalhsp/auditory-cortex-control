@@ -87,3 +87,8 @@ Slurm supplies the allocation; SQLite supplies the application job queue. No
 Slurm job is submitted per fit or generation. Allocation expiration interrupts
 running attempts; the next worker startup reconciles them for manual retry while
 retaining completed results. See [release status](release-status.md) for acceptance.
+
+
+For a GitHub Pages frontend and automatic laptop tunnel setup, see the
+[laptop connection launcher](laptop-connection.md). It discovers an existing
+allocation and opens one of the frontend's configured local ports.

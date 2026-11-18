@@ -54,8 +54,8 @@ pass; the latter resolves `/auditory-cortex-control/config.js` correctly.
 
 The existing browser harness required one persistent browser context for this
 container's single-process Chromium setup; that harness correction is separate
-from application behavior. Backend typechecks and the full backend regression
-result are recorded at final completion. No scientific algorithms changed.
+from application behavior. Backend typechecks pass. All 77 backend tests passed in 357.466 seconds; all
+six CLI tests passed. No scientific algorithms changed.
 
 ## Limits
 
@@ -64,3 +64,24 @@ and a real published GitHub Pages site's local-network permission cannot be
 exercised from this Linux workspace. CLI tests substitute those SSH boundary
 conditions; the remote Slurm service and actual browser/API behavior were tested
 separately. This work neither pushes to GitHub nor publishes a Pages site.
+
+
+## Review and final concurrency check
+
+Pinned review base: `c5a945feab650c064852dfba8ab03acb471462bd`.
+Implementation reviewed: `c8bc74c` plus the atomic lock follow-up.
+
+Standards: zero documented violations or substantive maintainability findings.
+A concurrency consideration was addressed: remote startup now acquires an
+inherited fd lock before touching launch state. A detached waiting Bash wrapper
+holds that lock for the service step lifetime even if srun closes its own fds.
+The reviewer confirmed the fix. Real simultaneous starts produced exactly one
+launch and one reuse, followed by successful reconnect/health. Evidence remains
+under `auditory-web-checks/laptop-remote/b6475cf1-0b8e-4eb5-b8cd-86aa10402a17`.
+Only isolated test step 12405213.1 was cancelled; the allocation was preserved.
+
+Spec: zero actionable findings. Existing-allocation selection, node discovery,
+port fallback, persistent service, and pinned authentication match the request.
+The untested complete Windows/MFA/published-Pages path remains explicitly stated.
+No review findings remain open. Backend typechecks, normal/Pages builds, Bash
+syntax, browser/API checks, 77 backend tests, and six CLI tests all pass.

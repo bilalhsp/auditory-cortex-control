@@ -19,10 +19,14 @@ launch_dir="$("$WEB_PYTHON" -c 'from pathlib import Path; import yaml; print(Pat
 umask 077
 mkdir -p -- "$launch_dir"
 instance="$launch_dir/$job-$node-$port"
-if flock -n "$instance.lock" true; then
+# Acquire before touching state; the detached Bash wrapper inherits this lock.
+exec 9>"$instance.lock"
+if flock -n 9; then
     rm -f -- "$instance.step"
     step_command='printf "%s.%s\n" "$SLURM_JOB_ID" "$SLURM_STEP_ID" > "$1"; cd "$2"; export AUDITORY_FRONTEND_ORIGIN="$3"; exec ./start-backend.sh --port "$4"'
-    nohup flock -n "$instance.lock" srun --jobid="$job" --overlap --nodes=1 --ntasks=1 --nodelist="$node" \
+    # The waiting wrapper retains fd 9 even if srun closes its inherited fds.
+    nohup bash -c 'srun "$@"; result=$?; exit "$result"' auditory-step \
+        --jobid="$job" --overlap --nodes=1 --ntasks=1 --nodelist="$node" \
         bash -c "$step_command" auditory-backend "$instance.step" "$WEB_REPO_ROOT" "$origin" "$port" \
         > "$instance.log" 2>&1 < /dev/null &
     client=$!
