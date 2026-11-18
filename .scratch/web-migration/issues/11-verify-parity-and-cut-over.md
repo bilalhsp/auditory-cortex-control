@@ -4,7 +4,7 @@
 
 **Blocked by:** 06: Fit an uploaded recording, 08: Generate batches using the selected GPU count, 09: Recover and manage long-running work, 10: Enforce deployment access and data lifecycle policies.
 
-**Status:** awaiting-operator-pilot-and-release-signoff
+**Status:** claimed
 
 - [x] Run the agreed acceptance workflow for both stimulus families and recording sources, fitting/correlations, both objectives, repeated generation, selected GPU counts, and scoped downloads.
 - [x] Compare scientific results against preserved baselines at measured tolerances and verify manifest completeness, audio format/duration, and configuration provenance.
@@ -35,3 +35,16 @@ retaining the legacy launcher until retirement is separately approved; no calend
 rollback window or backup implementation is introduced. Public HTTPS/proxy checks
 remain necessary before public exposure. See [verification](../issue11-verification.md)
 and the [cutover runbook](../../../docs/deployment/web-cutover.md).
+
+
+## Operator acceptance — 2026-11-18 UTC
+
+The operator explicitly reported the pilot successful and authorized finalizing
+the application. Future host/URL changes are deployment configuration work and
+are not outstanding application acceptance questions. The exercised local/SSH
+web workflow is accepted. Public hosting/TLS routing has not been changed here.
+
+The earlier pending-pilot note is superseded by this approval. Streamlit and
+scientific CLI/notebook compatibility remain retained for rollback under the
+accepted retirement policy; no separate retirement approval was given. Final
+launcher supervision/regression checks and release documentation are in progress.

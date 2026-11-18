@@ -97,3 +97,18 @@ implicitly accepted.
 
 Do not treat the next implementation ticket as unblocked until ticket 01's
 remaining acceptance criteria are satisfied.
+
+
+## Release acceptance — 2026-11-18 UTC
+
+The single operator reported the local/SSH pilot successful and authorized
+application finalization. Hostnames, URLs, and public deployment may change later;
+those remain deployment configuration, not unresolved application requirements.
+The normal backend launcher starts and monitors the API and one queue-owning
+worker together. API-only/manual-worker mode remains available. Slurm allocates
+the resources; SQLite manages the application queue. No automatic Slurm submission,
+service restart, scientific retry, or legacy retirement is introduced.
+
+Retain Streamlit, the existing environment, and compatible artifacts for rollback
+until retirement is separately approved. Verify HTTPS/access controls when moving
+to a public deployment; this approval does not claim a public proxy was configured.

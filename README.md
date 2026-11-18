@@ -11,13 +11,14 @@ With the frontend already built, start each service in a separate terminal:
 ```bash
 ./start-frontend.sh
 ./start-backend.sh
-./start-worker.sh
 ```
 
-Run the API and worker on the same allocated GPU compute node. The first backend
+The backend launcher starts and monitors the API and one worker together on an
+allocated GPU compute node. The first backend
 launch configures credentials if needed; subsequent launches reuse the private
 configuration. See [local launch instructions](docs/deployment/local-launch.md)
-for GPU allocation requirements and your alternate SSH ports.
+for GPU allocation requirements and configurable URLs/SSH ports. The operator
+pilot has passed; see [release status](docs/deployment/release-status.md).
 
 ## 📂 Dataset
 

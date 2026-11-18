@@ -24,3 +24,22 @@ def device_environment(index: int) -> dict:
     else:
         env['CUDA_VISIBLE_DEVICES'] = str(index)
     return env
+
+
+def check_gpu_access() -> None:
+    """Verify actual CUDA operations, including MPS access, on visible devices."""
+    import torch
+    count = torch.cuda.device_count()
+    if count < 1:
+        raise RuntimeError('No CUDA GPUs are visible.')
+    for device in range(count):
+        torch.ones(1, device='cuda:%d' % device)
+        torch.cuda.synchronize(device)
+        print('CUDA ready: GPU %d (%s)' % (device, torch.cuda.get_device_name(device)), flush=True)
+
+
+if __name__ == '__main__':
+    try:
+        check_gpu_access()
+    except (ImportError, RuntimeError, OSError) as error:
+        raise SystemExit('GPU preflight failed. Use a working Slurm GPU allocation and check CUDA/MPS access.\n' + str(error))

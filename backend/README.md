@@ -13,11 +13,17 @@ uv run --no-sync python -m backend.auth
 Set `AUDITORY_OPERATOR` and `AUDITORY_PASSWORD_HASH` in the server environment.
 Use the entire printed hash literally (including dollar signs); never put the
 password or hash in frontend configuration. There are no default credentials.
-Then start the independently deployable API:
+Then start the API and one compute worker together in the GPU allocation:
 
 ```bash
-uv run --no-sync python -m uvicorn backend.app:create_app --factory --host 127.0.0.1 --port 8000
+./start-backend.sh
 ```
+
+The launcher checks real CUDA access before starting, stops both services on
+Ctrl+C, and stops the peer if either service exits. For API-only metadata/history
+access or manual process management, use `./start-backend.sh --api-only` and start
+`./start-worker.sh` separately when needed. Normal combined startup needs no extra
+worker command. URL/port changes are described in `docs/deployment/local-launch.md`.
 
 The API uses HTTP Basic authentication with a salted PBKDF2-SHA256 password
 hash. Production requires an HTTPS reverse proxy and authentication request-rate
@@ -203,7 +209,9 @@ signs and decimals. NaN/infinite correlations serialize as null (Unavailable),
 after finite results; no finite values means no best-channel summary. Public
 errors identify the failing phase without serializing scientific exception details.
 
-Browser disconnect/sign-out and API restart leave accepted work intact. A worker
+Browser disconnect/sign-out leave accepted work intact. An API-only restart
+leaves a separately managed worker running; restarting the combined launcher
+stops its worker and follows interrupted/manual-retry recovery. A worker
 restart marks previously running fits `interrupted` without automatic retry;
 queued work survives and resumes. Owned compute children retain the allocator lock and receive a Linux parent-death
 signal. Cancellation waits for process exit before releasing reservations. Failed/interrupted attempts
@@ -366,7 +374,8 @@ Authenticated recovery routes:
 - Existing fit/job/generation/batch endpoints remain the authoritative resource
   views. History and downloads remain available with zero GPUs.
 
-Disconnect/sign-out and API restart leave accepted work running. Reconnect
+Disconnect/sign-out leave accepted work running. API-only restarts preserve the
+separate worker; restarting the combined backend stops both services. Reconnect
 requires sign-in, then history and Resume setup recover stable identities and
 current results. No compute is automatically resubmitted by page initialization.
 
@@ -407,7 +416,7 @@ retargeting an old command. No automatic scientific retries occur.
 Declined/out-of-scope guarantees remain unchanged: no seamless checkpoint
 continuation, automatic scientific retry, backup implementation, public
 registration, or multi-user collaboration. Session lifecycle never deletes saved
-scientific results. Final parity and cutover remain a later slice. Upgrade API and worker together using the existing coordinated-deployment
+scientific results. The operator pilot and application release are approved; see `docs/deployment/release-status.md`. Upgrade API and worker together using the existing coordinated-deployment
 procedure; lifecycle metadata migration is transactional.
 
 Retry command ownership is bound durably before enqueueing. The public retry UUID

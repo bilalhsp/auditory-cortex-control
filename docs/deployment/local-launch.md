@@ -13,16 +13,16 @@ Open http://127.0.0.1:5173. This serves `frontend/dist/` and dynamically supplie
 `config.js` with API URL http://127.0.0.1:8000. It never rebuilds or edits the saved
 build. Rebuild only after changing frontend source/dependencies.
 
-In a working Slurm GPU allocation, on the same compute node, start the API and
-one worker in separate terminals:
+In a working Slurm GPU allocation, start the backend in a second terminal:
 
 ```bash
 ./start-backend.sh
 ```
 
-```bash
-./start-worker.sh
-```
+This starts the API and one compute worker together. CUDA preflight must pass
+before services start. If either service exits, the launcher stops the other and
+returns an error; Ctrl+C stops both. The launcher does not automatically restart
+services or retry scientific jobs.
 
 The backend automatically loads `<configured cache_dir>/web/local.env`, including
 the username/password hash created earlier. If that file does not exist, the
@@ -30,11 +30,10 @@ first interactive backend launch prompts for a username and a password of at
 least 12 characters, then stores the hash in a private mode-0600 file. Sign in
 using the original password, not the hash. No password is included in frontend
 assets. To change a password later, generate a new hash with
-`.venv/bin/python -m backend.auth`, update `local.env`, and restart the API.
+`.venv/bin/python -m backend.auth`, update `local.env`, and restart the backend after finishing or stopping active work.
 
-The worker is required for fitting and generation; without it accepted jobs wait
-in the queue. It verifies actual CUDA access on every visible GPU before opening
-the queue. If CUDA/MPS fails, fix the GPU allocation/runtime before restarting the
+The automatically started worker handles fitting and generation. Startup verifies
+actual CUDA access on every visible GPU before opening the queue. If CUDA/MPS fails, fix the GPU allocation/runtime before restarting the
 worker. It does not start or reconfigure an MPS daemon. GPU visibility comes from
 the allocation environment; the scripts do not override `CUDA_VISIBLE_DEVICES`.
 
@@ -44,24 +43,20 @@ SQLite database and artifact paths. Stop an older worker before starting another
 the existing allocator lock rejects duplicate workers. The frontend may run on a
 separate host. These launchers do not request Slurm allocations or configure SSH.
 
-## Your current alternate SSH ports
+## Alternate SSH ports
 
-If Windows forwards local port 15173 to the frontend's port 5173 and local port
-18000 to the API's port 8000, run:
+If Windows forwards local port 25173 to the frontend's port 5173 and local port
+28000 to the API's port 8000, run:
 
 ```bash
-./start-frontend.sh --api-url http://127.0.0.1:18000
+./start-frontend.sh --api-url http://127.0.0.1:28000
 ```
 
 ```bash
-AUDITORY_FRONTEND_ORIGIN=http://127.0.0.1:15173 ./start-backend.sh
+AUDITORY_FRONTEND_ORIGIN=http://127.0.0.1:25173 ./start-backend.sh
 ```
 
-```bash
-./start-worker.sh
-```
-
-Open http://127.0.0.1:15173 in Windows. The API URL is the address reached by the
+Open http://127.0.0.1:25173 in Windows. The API URL is the address reached by the
 browser, not an address reached by the frontend server. The extra origin is
 appended to the configured CORS list. If you move the API to a compute node,
 forward the backend port to that same node. A tunnel to the login node will not
@@ -71,6 +66,9 @@ reach an API bound to the compute node's loopback address.
 
 - Frontend: `--port 5173`, `--host 127.0.0.1`, `--api-url URL`.
 - Backend: Uvicorn options such as `--port 8001`; defaults to loopback port 8000.
+- `./start-backend.sh --api-only` starts only the API, including without CUDA.
+  Use `./start-worker.sh` separately only in this manual mode. Never start an
+  extra worker alongside the default combined launcher.
 - Worker: existing worker options, including `--once` for a single queue pass.
 - `AUDITORY_ENV_FILE=/absolute/path/local.env` selects another trusted backend
   shell configuration. Both API and worker must select the same file.
@@ -78,8 +76,14 @@ reach an API bound to the compute node's loopback address.
 - Adjacent scientific dependency checkouts are automatically added to PYTHONPATH;
   existing custom PYTHONPATH entries are retained.
 
-Keep the three terminals open. Finish or explicitly stop accepted work through
+Keep the two terminals open. Finish or explicitly stop accepted work through
 the UI before stopping services, then use Ctrl+C. Stopping the worker during
 compute follows the existing interrupted/manual-retry behavior; completed saved
 results remain. Public deployment still requires the HTTPS/access boundary in
 [the cutover runbook](web-cutover.md).
+
+
+Slurm supplies the allocation; SQLite supplies the application job queue. No
+Slurm job is submitted per fit or generation. Allocation expiration interrupts
+running attempts; the next worker startup reconciles them for manual retry while
+retaining completed results. See [release status](release-status.md) for acceptance.

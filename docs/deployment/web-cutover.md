@@ -1,5 +1,9 @@
 # Web release, local acceptance, and rollback
 
+The operator reported a successful pilot and approved the application release on
+2026-11-18 UTC. See [release status](release-status.md). The checklist below still
+applies when changing deployment hosts or exposing a public URL.
+
 The approved initial deployment is one authenticated operator, one backend
 allocator, SQLite metadata, private filesystem artifacts, and independently
 built React assets. Use the existing `.venv` with `uv run --no-sync`; do not
