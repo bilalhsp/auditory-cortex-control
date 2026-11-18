@@ -7,6 +7,7 @@ import RecordingUpload from "./RecordingUpload";
 import FitPanel from "./FitPanel";
 import SessionHistory from "./SessionHistory";
 import BackendConnection from "./BackendConnection";
+import WorkspaceHeader from "./WorkspaceHeader";
 
 export default function App() {
   const [resumeCount, setResumeCount] = useState(0);
@@ -154,35 +155,8 @@ export default function App() {
 
   return (
     <div className="shell">
-      <aside className="sidebar">
-        <a className="brand" href={import.meta.env.BASE_URL} aria-label="Auditory Cortex Control home">
-          <span className="brand-mark">∿</span>
-          <span>
-            Auditory Cortex
-            <br />
-            <strong>Control</strong>
-          </span>
-        </a>
-        <div className="nav-caption">WORKSPACE</div>
-        <div className="nav-item active">◈ &nbsp; Experiment setup</div>
-        <div className="sidebar-note">
-          <span className="dot" /> Single-operator workspace
-          <br />
-          <small>Neural response · Optimal stimulus</small>
-        </div>
-      </aside>
       <div className="workspace">
-        <header>
-          <span>
-            Research workspace <span className="slash">/</span>{" "}
-            <strong>New experiment</strong>
-          </span>
-          {api && (
-            <button className="text-button" onClick={logout} disabled={busy}>
-              Disconnect
-            </button>
-          )}
-        </header>
+        <WorkspaceHeader checkConnection={api?.checkConnection} username={username} busy={busy} onSignOut={logout} />
         <main>
           {api && caps?.sessions?.supported && (
             <SessionHistory
@@ -193,9 +167,8 @@ export default function App() {
               onNew={newSession}
             />
           )}
-          <div className="eyebrow">AUDITORY CORTEX CONTROL</div>
           <h1>
-            {api ? "Set up your experiment" : "Your research, connected."}
+            {api ? "Set up your experiment" : "Connect to your research workspace"}
           </h1>
           <p className="intro">
             Configure an encoding model and the compute resources for your next

@@ -208,24 +208,26 @@ export async function checkBackendConnection(): Promise<string> {
     : [...new Set(configuration?.apiBaseUrls?.length ? configuration.apiBaseUrls : [""])];
   for (const candidate of candidates) {
     const base = candidate.trim().replace(/\/+$/, "");
-    const abort = new AbortController();
-    const timeout = window.setTimeout(() => abort.abort(), 5000);
-    try {
-      // Discover without credentials; pin all subsequent requests to this endpoint.
-      const response = await fetch(`${base}/healthz?identify=true`, {
-        signal: abort.signal, cache: "no-store", credentials: "omit", redirect: "error",
-      });
-      if (response.ok) {
-        const health = await response.json();
-        if (health.status === "ok" && health.service === "auditory-cortex-control") return base;
-      }
-    } catch {
-      // An unavailable forwarded port is expected; try the next configured URL.
-    } finally {
-      window.clearTimeout(timeout);
-    }
+    if (await isBackendReachable(base)) return base;
   }
   throw new Error("No configured backend is reachable. Run your connection script and allow browser local-network access if prompted.");
+}
+
+export async function isBackendReachable(base: string): Promise<boolean> {
+  const abort = new AbortController();
+  const timeout = window.setTimeout(() => abort.abort(), 5000);
+  try {
+    const response = await fetch(`${base}/healthz?identify=true`, {
+      signal: abort.signal, cache: "no-store", credentials: "omit", redirect: "error",
+    });
+    if (!response.ok) return false;
+    const health = await response.json();
+    return health?.status === "ok" && health.service === "auditory-cortex-control";
+  } catch {
+    return false;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 }
 
 export function makeApi(
@@ -297,6 +299,7 @@ export function makeApi(
     return response.blob();
   }
   return {
+    checkConnection: () => isBackendReachable(base),
     sessions: () => request<ApplicationSession[]>("/sessions"),
     session: (id: string) =>
       request<SessionDetail>(`/sessions/${encodeURIComponent(id)}`),
