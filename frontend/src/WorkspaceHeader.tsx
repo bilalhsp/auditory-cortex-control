@@ -3,12 +3,13 @@ import { checkBackendConnection } from "./api";
 
 type Props = {
   checkConnection?: () => Promise<boolean>;
+  signedIn: boolean;
   username: string;
   busy: boolean;
   onSignOut: () => void;
 };
 
-export default function WorkspaceHeader({ checkConnection, username, busy, onSignOut }: Props) {
+export default function WorkspaceHeader({ checkConnection, signedIn, username, busy, onSignOut }: Props) {
   const [reachable, setReachable] = useState<boolean | null>(null);
   const account = useRef<HTMLDetailsElement>(null);
   const accountButton = useRef<HTMLElement>(null);
@@ -31,6 +32,8 @@ export default function WorkspaceHeader({ checkConnection, username, busy, onSig
     };
   }, [checkConnection]);
 
+  const status = reachable === null ? "Checking connection" : reachable ? "Connected" : "Disconnected";
+
   return (
     <header className="workspace-header">
       <a className="brand" href={import.meta.env.BASE_URL}>
@@ -39,10 +42,10 @@ export default function WorkspaceHeader({ checkConnection, username, busy, onSig
       </a>
       <div className="header-controls">
         <span role="status" className="backend-status">
-          <span aria-hidden="true" className={`status-led ${reachable === null ? "" : reachable ? "connected" : "disconnected"}`} />
-          {reachable === null ? "Checking connection" : reachable ? "Connected" : "Disconnected"}
+          <span aria-hidden="true" className={`status-led ${reachable === null ? "" : status.toLowerCase()}`} />
+          {status}
         </span>
-        {checkConnection && (
+        {signedIn && (
           <details className="account" ref={account} onKeyDown={(event) => {
             if (event.key === "Escape" && account.current?.open) {
               account.current.open = false;

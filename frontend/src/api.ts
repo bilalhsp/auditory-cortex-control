@@ -213,7 +213,7 @@ export async function checkBackendConnection(): Promise<string> {
   throw new Error("No configured backend is reachable. Run your connection script and allow browser local-network access if prompted.");
 }
 
-export async function isBackendReachable(base: string): Promise<boolean> {
+async function isBackendReachable(base: string): Promise<boolean> {
   const abort = new AbortController();
   const timeout = window.setTimeout(() => abort.abort(), 5000);
   try {

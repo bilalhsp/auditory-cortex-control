@@ -156,7 +156,7 @@ export default function App() {
   return (
     <div className="shell">
       <div className="workspace">
-        <WorkspaceHeader checkConnection={api?.checkConnection} username={username} busy={busy} onSignOut={logout} />
+        <WorkspaceHeader key={api ? "signed-in" : "signed-out"} signedIn={Boolean(api)} checkConnection={api?.checkConnection} username={username} busy={busy} onSignOut={logout} />
         <main>
           {api && caps?.sessions?.supported && (
             <SessionHistory
@@ -311,7 +311,6 @@ export default function App() {
                     </div>
                     <div className="capacity">
                       <div>
-                        <span className={available ? "dot" : "dot muted"} />
                         {available
                           ? "Compute available"
                           : "Compute unavailable"}

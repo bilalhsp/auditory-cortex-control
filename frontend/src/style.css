@@ -97,17 +97,6 @@ summary:focus-visible {
   display: flex;
   min-height: 100vh;
 }
-.dot {
-  display: inline-block;
-  height: 7px;
-  width: 7px;
-  border-radius: 50%;
-  background: #71bc98;
-  margin-right: 8px;
-}
-.dot.muted {
-  background: #9baba6;
-}
 .workspace {
   flex: 1;
   min-width: 0;
@@ -383,7 +372,7 @@ select:disabled {
 }
 .capacity > div {
   font-size: 11px;
-  color: #648573;
+  color: #526269;
 }
 .capacity > strong {
   display: block;
