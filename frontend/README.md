@@ -21,6 +21,7 @@ only a local build check, not the production web server.
 
 ## Independent backend deployment
 
+
 Edit the served `config.js` to set `window.AUDITORY_CONFIG.apiBaseUrl` to the
 backend's HTTPS origin, without a trailing slash. No frontend rebuild is needed.
 Empty uses the current origin, suitable for a reverse proxy that forwards `/api`.
