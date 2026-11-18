@@ -1,5 +1,9 @@
 import { useEffect } from "react";
 
+export function isActiveJobState(state?: string): boolean {
+  return state === "queued" || state === "running" || state === "cancelling";
+}
+
 export function useJobPolling<T extends { id: string; state: string }>(
   operation: T | null,
   read: (id: string) => Promise<T>,
@@ -11,11 +15,7 @@ export function useJobPolling<T extends { id: string; state: string }>(
   const id = pollIdentity ?? operation?.id;
   const state = operation?.state;
   useEffect(() => {
-    if (
-      !id ||
-      (state !== "queued" && state !== "running" && state !== "cancelling")
-    )
-      return;
+    if (!id || !isActiveJobState(state)) return;
     let current = true;
     const timer = window.setInterval(() => {
       read(id)

@@ -1,4 +1,4 @@
-import { useJobPolling } from "./useJobPolling";
+import { isActiveJobState, useJobPolling } from "./useJobPolling";
 import { useEffect, useRef, useState } from "react";
 import type {
   Capabilities,
@@ -21,7 +21,7 @@ interface Props {
 }
 
 function isActiveJob(job: { state: string }): boolean {
-  return job.state === "queued" || job.state === "running";
+  return isActiveJobState(job.state);
 }
 
 function preferActive<T extends { state: string }>(jobs: T[]): T | undefined {

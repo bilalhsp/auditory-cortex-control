@@ -61,14 +61,14 @@ export default function App() {
       setBusy(false);
     }
   }
-  async function refresh() {
+  async function refresh(resetGpu = false) {
     if (!api) return;
     setBusy(true);
     setError("");
     try {
       const result = await api.capabilities();
       setCaps(result);
-      if (!explicitGpu) {
+      if (resetGpu || !explicitGpu) {
         setGpuCount(result.gpu.available_count);
         if (result.gpu.available_count !== gpuCount) setExperiment(null);
       } else if (
@@ -87,11 +87,14 @@ export default function App() {
     event.preventDefault();
     await createExperiment(family, gpuCount);
   }
-  async function createExperiment(nextFamily: string, nextGpuCount: number) {
+  async function createExperiment(nextFamily: string, nextGpuCount?: number) {
     if (!api || !caps || busy) return;
     setBusy(true);
     setError("");
     try {
+      const current = nextGpuCount === undefined ? await api.capabilities() : caps;
+      const count = nextGpuCount ?? current.gpu.available_count;
+      setCaps(current);
       setExperiment(
         await api.createExperiment(
           {
@@ -101,13 +104,13 @@ export default function App() {
             layer_id: caps.settings.layers[0],
             bin_width_ms: caps.settings.bin_width_ms,
             receptive_field_ms: caps.settings.receptive_field_ms,
-            gpu_count: nextGpuCount,
+            gpu_count: count,
           },
           sessionId,
         ),
       );
       setFamily(nextFamily);
-      setGpuCount(nextGpuCount);
+      setGpuCount(count);
       return true;
     } catch (cause) {
       reportError(cause);
@@ -135,17 +138,17 @@ export default function App() {
     setSessionId((current) => (current === id ? null : current));
     setExperiment((current) => (current?.session_id === id ? null : current));
   }
-  function newLegacySession() {
+  async function newLegacySession() {
     setSessionId(null);
     setExperiment(null);
     setFamily(caps?.settings.stimulus_families[0] ?? "");
     setGpuCount(caps?.gpu.available_count ?? 0);
     setExplicitGpu(false);
-    setError("");
+    await refresh(true);
   }
   async function startOver() {
     if (!caps || !sessionId) return;
-    if (await createExperiment(caps.settings.stimulus_families[0], caps.gpu.available_count)) {
+    if (await createExperiment(caps.settings.stimulus_families[0])) {
       setExplicitGpu(false);
     }
   }
@@ -396,7 +399,7 @@ export default function App() {
                       <button
                         type="button"
                         className="text-button"
-                        onClick={refresh}
+                        onClick={() => void refresh()}
                         disabled={busy}
                       >
                         {busy ? "Checking…" : "↻ Refresh capacity"}

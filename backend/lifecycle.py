@@ -130,7 +130,7 @@ class Lifecycle:
         return ApplicationSession(id=row[0], created_at=row[1], status=row[2], closed_at=row[3], timezone=normalize_session_timezone(row[4]))
 
     def resumable(self):
-        # One entry per open session. Prefer live work over a newer unfinished setup.
+        # Keep unfinished setups visible even while another experiment is running.
         with sqlite3.connect(str(self.store.path)) as connection:
             rows = connection.execute("""
                 WITH active_experiments AS (
@@ -141,26 +141,21 @@ class Lifecycle:
                     UNION
                     SELECT f.experiment_id FROM batches b JOIN fits f ON f.id=b.fit_id
                         WHERE b.state IN ('queued','running')
-                ), candidates AS (
-                    SELECT a.id, a.created_at, a.timezone, s.experiment_id,
-                           active.experiment_id IS NOT NULL AS active_work,
-                           ROW_NUMBER() OVER (
-                               PARTITION BY a.id ORDER BY active.experiment_id IS NOT NULL DESC, s.rowid DESC
-                           ) AS rank
-                    FROM application_sessions a
-                    JOIN session_experiments s ON s.session_id=a.id
-                    LEFT JOIN active_experiments active ON active.experiment_id=s.experiment_id
-                    WHERE a.status='open' AND (
-                        active.experiment_id IS NOT NULL OR NOT EXISTS (
-                            SELECT 1 FROM fits f
-                            JOIN experiment_recordings r ON r.experiment_id=f.experiment_id
-                            WHERE f.experiment_id=s.experiment_id AND f.state='succeeded'
-                                  AND json_extract(f.data, '$.recording_revision')=r.revision
-                        )
+                )
+                SELECT a.id, a.created_at, a.timezone, s.experiment_id,
+                       active.experiment_id IS NOT NULL AS active_work
+                FROM application_sessions a
+                JOIN session_experiments s ON s.session_id=a.id
+                LEFT JOIN active_experiments active ON active.experiment_id=s.experiment_id
+                WHERE a.status='open' AND (
+                    active.experiment_id IS NOT NULL OR NOT EXISTS (
+                        SELECT 1 FROM fits f
+                        JOIN experiment_recordings r ON r.experiment_id=f.experiment_id
+                        WHERE f.experiment_id=s.experiment_id AND f.state='succeeded'
+                              AND json_extract(f.data, '$.recording_revision')=r.revision
                     )
                 )
-                SELECT id, created_at, timezone, experiment_id, active_work FROM candidates
-                WHERE rank=1 ORDER BY created_at DESC
+                ORDER BY a.created_at DESC, a.id, active_work DESC, s.rowid DESC
             """).fetchall()
             return [{
                 'session': ApplicationSession(id=identity, created_at=created, status='open',

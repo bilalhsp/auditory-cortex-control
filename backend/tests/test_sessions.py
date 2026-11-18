@@ -13,7 +13,7 @@ class SessionApiTests(unittest.TestCase):
         self.addCleanup(self.fixture.doCleanups)
         self.settings, self.client = self.fixture.settings, self.fixture.client
 
-    def test_resumable_sessions_prioritize_active_work_and_preserve_creation_timezone(self):
+    def test_resumable_sessions_include_active_and_unfinished_work_across_dates(self):
         legacy = self.fixture.experiment
         active = self.client.post(self.fixture.prefix + '/fits', json=self.fixture.request()).json()
         path = '/api/v1/sessions/resumable'
@@ -32,13 +32,14 @@ class SessionApiTests(unittest.TestCase):
         restarted = TestClient(create_app(self.settings, lambda: 1))
         self.assertEqual(restarted.get(path).status_code, 401)
         restarted.auth = ('operator', 'test-password')
-        rows = {row['session']['id']: row for row in restarted.get(path).json()}
-        self.assertEqual(rows[session_id]['session']['timezone'], 'Asia/Tokyo')
-        self.assertTrue(rows[session_id]['session']['created_at'].startswith('2020-01-02'))
-        self.assertFalse(rows[session_id]['active_work'])
-        self.assertEqual(rows[legacy['session_id']]['experiment']['id'], legacy['id'])
-        self.assertTrue(rows[legacy['session_id']]['active_work'])
-        self.assertEqual(rows[legacy['session_id']]['session']['timezone'], 'America/Los_Angeles')
+        rows = {row['experiment']['id']: row for row in restarted.get(path).json()}
+        self.assertEqual(rows[experiment['id']]['session']['timezone'], 'Asia/Tokyo')
+        self.assertTrue(rows[experiment['id']]['session']['created_at'].startswith('2020-01-02'))
+        self.assertFalse(rows[experiment['id']]['active_work'])
+        self.assertEqual(rows[legacy['id']]['experiment']['id'], legacy['id'])
+        self.assertTrue(rows[legacy['id']]['active_work'])
+        self.assertFalse(rows[replacement['id']]['active_work'])
+        self.assertEqual(rows[legacy['id']]['session']['timezone'], 'America/Los_Angeles')
         detail = restarted.get('/api/v1/sessions/' + legacy['session_id']).json()
         self.assertEqual({item['id'] for item in detail['experiments']}, {legacy['id'], replacement['id']})
         self.assertEqual(detail['jobs'][0]['id'], active['id'])

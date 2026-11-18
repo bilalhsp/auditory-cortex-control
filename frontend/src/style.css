@@ -636,15 +636,20 @@ footer span {
   padding: 0;
   margin: 0;
 }
-.resume-row {
+.resume-session {
   padding: 12px 0;
   border-top: 1px solid var(--line);
+}
+.resume-session h4 {
+  margin: 0;
+}
+.resume-row {
+  padding-top: 8px;
 }
 .resume-row div {
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.resume-row strong,
 .resume-row span,
 .resume-row small {
   display: block;
