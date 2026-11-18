@@ -1,5 +1,9 @@
 # Local launch commands
 
+For a fresh GPU runtime without cluster CUDA modules, first follow
+[the reproducible runtime setup](python-runtime.md). Regular launches below do
+not install or synchronize packages.
+
 The frontend is already built. Run these from the repository root in separate
 terminals, using the existing `.venv`; no environment creation or dependency
 installation is performed. Each script also works when invoked by absolute path

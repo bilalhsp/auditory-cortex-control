@@ -35,11 +35,20 @@ def check_gpu_access() -> None:
     for device in range(count):
         torch.ones(1, device='cuda:%d' % device)
         torch.cuda.synchronize(device)
-        print('CUDA ready: GPU %d (%s)' % (device, torch.cuda.get_device_name(device)), flush=True)
+        import cupy as cp
+        with cp.cuda.Device(device):
+            if cp.arange(10).sum().item() != 45:
+                raise RuntimeError('CuPy CUDA kernel check failed.')
+            answer = cp.linalg.solve(cp.asarray([[3., 1.], [1., 2.]]), cp.asarray([9., 8.]))
+            if not bool(cp.allclose(answer, cp.asarray([2., 3.])).item()):
+                raise RuntimeError('CuPy CUDA linear algebra check failed.')
+            cp.cuda.get_current_stream().synchronize()
+        print('PyTorch and CuPy CUDA ready: GPU %d (%s)' % (device, torch.cuda.get_device_name(device)), flush=True)
 
 
 if __name__ == '__main__':
     try:
         check_gpu_access()
-    except (ImportError, RuntimeError, OSError) as error:
-        raise SystemExit('GPU preflight failed. Use a working Slurm GPU allocation and check CUDA/MPS access.\n' + str(error))
+    except Exception as error:
+        raise SystemExit('GPU preflight failed. Use a working Slurm GPU allocation and the configured CUDA runtime. '
+                         'See docs/deployment/python-runtime.md.\n' + str(error))

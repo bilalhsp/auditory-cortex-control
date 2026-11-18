@@ -59,6 +59,10 @@ load_backend_config() {
         export AUDITORY_ALLOWED_ORIGINS="${AUDITORY_ALLOWED_ORIGINS:+$AUDITORY_ALLOWED_ORIGINS,}$AUDITORY_FRONTEND_ORIGIN"
     fi
     export PYTHONPATH="$WEB_REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}"
+    if [[ -f "$WEB_REPO_ROOT/.venv/runtime.env" ]]; then
+        source "$WEB_REPO_ROOT/.venv/runtime.env"
+        return
+    fi
     for dependency_dir in "$WEB_REPO_ROOT/../deepspeech.pytorch" "$WEB_REPO_ROOT/../Wav2Letter" "$WEB_REPO_ROOT/../utils_jgm" "$WEB_REPO_ROOT/../pycochleagram"; do
         if [[ -d "$dependency_dir" ]]; then
             export PYTHONPATH="$PYTHONPATH:$dependency_dir"

@@ -1,0 +1,24 @@
+[
+  {
+    "name": "deepspeech.pytorch",
+    "url": "https://github.com/SeanNaren/deepspeech.pytorch.git",
+    "revision": "b88a631ef6b96553e16bbaa5bd6a621435bed278",
+    "patch": "deepspeech.pytorch.patch.json"
+  },
+  {
+    "name": "Wav2Letter",
+    "url": "https://github.com/bilalhsp/Wav2Letter.git",
+    "revision": "c6f598779e6f15f6214f2508f6ed406c5bef6373"
+  },
+  {
+    "name": "utils_jgm",
+    "url": "https://github.com/jgmakin/utils_jgm.git",
+    "revision": "f546e461116f64e0d019b8ba44a3306740791f8b",
+    "patch": "utils_jgm.patch.json"
+  },
+  {
+    "name": "pycochleagram",
+    "url": "https://github.com/mcdermottLab/pycochleagram.git",
+    "revision": "38548920befa6bf5a9c60fc1386e6bb15953e871"
+  }
+]

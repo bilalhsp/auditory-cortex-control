@@ -1,0 +1,19 @@
+[project]
+name = "auditory-cuda12"
+version = "1.0.0"
+requires-python = ">=3.8.5,<3.9"
+dependencies = [
+ "nvidia-cuda-runtime-cu12==12.6.37",
+ "nvidia-cuda-nvrtc-cu12==12.6.20",
+ "nvidia-cuda-nvcc-cu12==12.6.20",
+ "nvidia-cuda-cccl-cu12==12.6.37",
+ "nvidia-cublas-cu12==12.6.0.22",
+ "nvidia-cufft-cu12==11.2.6.28",
+ "nvidia-curand-cu12==10.3.7.37",
+ "nvidia-cusolver-cu12==11.6.4.38",
+ "nvidia-cusparse-cu12==12.5.2.23",
+ "nvidia-nvjitlink-cu12==12.6.20",
+]
+[tool.uv]
+cache-dir = "/scratch/gilbreth/ahmedb/cache/uv"
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
