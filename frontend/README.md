@@ -107,3 +107,11 @@ without credentials during login, then pins the connection; it never retries
 scientific commands against another endpoint. See
 [the laptop connection guide](../docs/deployment/laptop-connection.md) for existing
 Slurm allocation discovery, Windows Git Bash, CORS, and GitHub Pages base paths.
+
+
+The connection card on the sign-in screen copies the laptop launcher command and
+checks backend reachability before authentication. `connectionCommand` in the
+public runtime config controls the displayed command. The Pages origin is
+`https://bilalhsp.github.io`; the command's current node override is gilbreth-n6.
+SSH/MFA and startup progress stay in the laptop terminal. The web page performs
+health/identity checks only and never runs shell commands or requests SSH secrets.

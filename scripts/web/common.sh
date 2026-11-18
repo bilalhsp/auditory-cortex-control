@@ -34,7 +34,7 @@ load_backend_config() {
             printf 'export AUDITORY_OPERATOR=%q\n' "$operator_name"
             printf 'export AUDITORY_PASSWORD_HASH=%q\n' "$password_hash"
             printf 'export AUDITORY_DATABASE_PATH=%q\n' "$database_path"
-            printf 'export AUDITORY_ALLOWED_ORIGINS=%q\n' "${AUDITORY_ALLOWED_ORIGINS:-http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:4173,http://localhost:4173,http://127.0.0.1:15173,http://localhost:15173}"
+            printf 'export AUDITORY_ALLOWED_ORIGINS=%q\n' "${AUDITORY_ALLOWED_ORIGINS:-http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:4173,http://localhost:4173,http://127.0.0.1:15173,http://localhost:15173,https://bilalhsp.github.io}"
             for setting in AUDITORY_NEURAL_DATA_DIR AUDITORY_RECORDINGS_METADATA AUDITORY_UPLOAD_DIR AUDITORY_FIT_DIR AUDITORY_MAX_UPLOAD_BYTES; do
                 if [[ -n "${!setting:-}" ]]; then
                     printf 'export %s=%q\n' "$setting" "${!setting}"

@@ -605,3 +605,24 @@ footer span {
 .history-table button {
   margin: 4px;
 }
+
+
+.connection-panel {
+  min-width: 0;
+  padding-bottom: 24px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid #dce5df;
+}
+.connection-panel pre {
+  padding: 12px;
+  background: #edf6ef;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.connection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}

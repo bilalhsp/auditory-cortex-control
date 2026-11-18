@@ -40,7 +40,7 @@ Slurm job is submitted per fit or generation.
 | Browser-visible backend URL | `./start-frontend.sh --api-url https://api.example.org` |
 | Frontend listening address/port | `./start-frontend.sh --host 127.0.0.1 --port 5173` |
 | API listening address/port | `./start-backend.sh --host 127.0.0.1 --port 8000` |
-| Browser origin permitted by CORS | `AUDITORY_FRONTEND_ORIGIN=https://app.example.org ./start-backend.sh` |
+| Browser origin permitted by CORS | `AUDITORY_FRONTEND_ORIGIN=https://bilalhsp.github.io ./start-backend.sh` |
 | Operator credentials, persistent database/storage, multiple allowed origins | Private `<configured cache_dir>/web/local.env` |
 | Alternative trusted backend configuration | `AUDITORY_ENV_FILE=/absolute/path/local.env` for the launcher |
 
@@ -71,3 +71,9 @@ passed, backend archive build passed, and independent Standards/Spec reviews eac
 reported zero findings. Real-GPU supervisor checks covered shutdown, API failure,
 worker failure, and occupied-port cleanup. See the verification record for measured
 scientific comparisons and the preserved limits of those claims.
+
+
+GitHub Pages owner/origin: `bilalhsp` / `https://bilalhsp.github.io`. The sign-in
+page provides a launcher-command copy action and a credential-free connection
+check. See [laptop connection](laptop-connection.md) for the selected terminal-led
+workflow. Operator credentials remain separate from the GitHub username.

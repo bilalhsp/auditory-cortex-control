@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+const root=process.env.AUDITORY_CHECK_ROOT;
+const {chromium}=await import(root+'/node_modules/playwright/index.mjs');
+const browser=await chromium.launch({headless:true,args:['--disable-gpu','--no-sandbox','--disable-dev-shm-usage','--no-zygote','--single-process'],env:{...process.env,LD_LIBRARY_PATH:''}});
+try {
+ const context=await browser.newContext({permissions:['clipboard-read','clipboard-write']});
+ const page=await context.newPage();const api=process.env.CHECK_API,front=process.env.CHECK_FRONT;
+ let authentication=0,checks=0;
+ const command='bash connect-gilbreth.sh --login cluster-alias --node gilbreth-n6 --frontend-origin https://bilalhsp.github.io';
+ page.on('request',request=>{if(request.headers().authorization)authentication++;if(request.url()===api+'/healthz?identify=true')checks++;});
+ await page.route('**/config.js',route=>route.fulfill({contentType:'application/javascript',body:'window.AUDITORY_CONFIG='+JSON.stringify({apiBaseUrl:api,connectionCommand:command})+';'}));
+ await page.goto(front);
+ await page.getByRole('button',{name:'Check backend connection',exact:true}).waitFor({timeout:3000});
+ await page.getByRole('button',{name:'Copy launcher command',exact:true}).click();
+ assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),command);
+ await page.getByRole('button',{name:'Check backend connection',exact:true}).click();
+ await page.getByText('Backend reachable: '+api,{exact:true}).waitFor();
+ assert.equal(authentication,0);assert.equal(checks,1);
+ await page.route(api+'/healthz?identify=true',route=>route.abort());
+ await page.getByRole('button',{name:'Check backend connection',exact:true}).click();
+ await page.getByText(/No configured backend is reachable/).waitFor();
+ assert.equal(await page.getByText('Backend reachable: '+api,{exact:true}).count(),0);
+ assert.equal(authentication,0);
+ await page.unroute(api+'/healthz?identify=true');
+ await page.getByRole('button',{name:'Check backend connection',exact:true}).click();
+ await page.getByText('Backend reachable: '+api,{exact:true}).waitFor();
+ await page.getByLabel('Username',{exact:true}).fill('operator');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:/Sign in/}).click();await page.getByLabel('GPUs to use').waitFor();
+ assert(authentication>0);
+ await page.getByRole('button',{name:'Disconnect',exact:true}).click();
+ await page.setViewportSize({width:390,height:844});
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+ console.log('PASS: copy launcher, credential-free fixed-URL connection check, failure/recovery, normal sign-in, and mobile layout.');
+} finally {await browser.close();}

@@ -92,3 +92,14 @@ retaining completed results. See [release status](release-status.md) for accepta
 For a GitHub Pages frontend and automatic laptop tunnel setup, see the
 [laptop connection launcher](laptop-connection.md). It discovers an existing
 allocation and opens one of the frontend's configured local ports.
+
+
+The connection card can display your own laptop command when serving locally:
+
+```bash
+./start-frontend.sh --api-url http://127.0.0.1:28000 --connection-command 'bash connect-gilbreth.sh --login gilbreth-fe02 --node gilbreth-n6'
+```
+
+For the Pages site, edit `connectionCommand` in its deployed config.js instead.
+The backend launcher now includes `https://bilalhsp.github.io` by default; explicit
+`AUDITORY_FRONTEND_ORIGIN` values still override the default for other deployments.

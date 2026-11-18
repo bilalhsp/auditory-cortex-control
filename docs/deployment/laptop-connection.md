@@ -17,7 +17,7 @@ Use your configured login-node SSH alias and your GitHub Pages origin:
 bash connect-gilbreth.sh \
   --login gilbreth-fe02 \
   --node gilbreth-n6 \
-  --frontend-origin https://YOUR_USERNAME.github.io
+  --frontend-origin https://bilalhsp.github.io
 ```
 
 Replace `gilbreth-fe02` with the login alias that works in your laptop's SSH
@@ -31,7 +31,7 @@ Future nodes can be selected with `--node`, or selected by allocation job ID:
 
 ```bash
 bash connect-gilbreth.sh --login YOUR_LOGIN_ALIAS --job-id YOUR_JOB_ID \
-  --frontend-origin https://YOUR_USERNAME.github.io
+  --frontend-origin https://bilalhsp.github.io
 ```
 
 With exactly one running single-node GPU allocation, omit both selectors and the
@@ -61,7 +61,7 @@ You can override the candidate list, but keep it synchronized with frontend conf
 
 ```bash
 bash connect-gilbreth.sh --login YOUR_LOGIN_ALIAS --node gilbreth-n6 \
-  --frontend-origin https://YOUR_USERNAME.github.io --ports '28000 28001 28002'
+  --frontend-origin https://bilalhsp.github.io --ports '28000 28001 28002'
 ```
 
 Other options: `--repo /absolute/remote/project/path`, `--api-port 8000`, and
@@ -86,10 +86,10 @@ candidate-list edits can be made in the deployed runtime `config.js` without a
 bundle rebuild. The local frontend launcher still supplies a fixed `apiBaseUrl`
 and preserves its existing behavior.
 
-For a repository-path GitHub Pages deployment, use the corresponding Vite base:
+For your repository-path GitHub Pages deployment, use the corresponding Vite base:
 
 ```bash
-npm run build --prefix frontend -- --base /YOUR_REPOSITORY/
+npm run build --prefix frontend -- --base /auditory-cortex-control/
 ```
 
 `index.html` now resolves `config.js` through `%BASE_URL%`, so it loads under the
@@ -122,3 +122,24 @@ Do not replace that with the allocation ID alone. Before using a different
 allocation with the same database, stop the old backend; the existing allocator
 lock rejects duplicate workers. Existing manually started API/worker processes
 should likewise be stopped before first switching to this launcher.
+
+
+## Connect/check from the web page
+
+Your Pages address is https://bilalhsp.github.io/auditory-cortex-control/ and its
+backend CORS origin is https://bilalhsp.github.io. These are the configured
+GitHub account defaults; your research operator credentials remain unchanged.
+
+The sign-in page now shows **Copy launcher command** and **Check backend
+connection**. Copy and run the command in laptop Git Bash, keep its terminal open,
+then check the connection and sign in. The check verifies the forwarded app's
+public identity without sending credentials. A failed recheck clears the prior
+reachable message. GPU capacity and protected workflows remain behind operator
+sign-in; allocation selection and service-start progress appear in the terminal.
+
+This is the operator-selected check/copy flow: the web page does not execute SSH
+or open a terminal. No laptop helper, browser extension, or SSH credentials in the
+page are required. The command shown can be changed through the public runtime
+`connectionCommand` field in config.js. Its current `--node gilbreth-n6` override
+should be changed/removed when your allocation changes. The script still resolves
+that alias using the live Slurm assignment.

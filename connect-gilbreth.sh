@@ -3,7 +3,7 @@
 set -euo pipefail
 login="${GILBRETH_LOGIN_HOST:-gilbreth}"
 repo="${GILBRETH_REPO:-/home/ahmedb/projects/project-phase-2}"
-origin="${GILBRETH_FRONTEND_ORIGIN:-http://127.0.0.1:5173}"
+origin="${GILBRETH_FRONTEND_ORIGIN:-https://bilalhsp.github.io}"
 ports="${GILBRETH_LOCAL_PORTS:-28000 28001 28002 18000 8000}"
 job_id=""
 requested_node=""
@@ -15,7 +15,7 @@ Usage: bash connect-gilbreth.sh [options]
   --repo PATH               Repository path on Gilbreth
   --job-id ID               Existing running GPU allocation; required if ambiguous
   --node NODE               Choose a node/allocation, e.g. gilbreth-n6
-  --frontend-origin URL     Frontend origin, e.g. https://USERNAME.github.io
+  --frontend-origin URL     Frontend origin, e.g. https://bilalhsp.github.io
   --ports "28000 28001 ..." Ordered laptop ports also configured in the frontend
   --api-port PORT           Compute-node API port (default: 8000)
 No allocation is requested or cancelled. Backend remains running after disconnect.

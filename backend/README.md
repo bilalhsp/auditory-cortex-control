@@ -19,6 +19,8 @@ Then start the API and one compute worker together in the GPU allocation:
 ./start-backend.sh
 ```
 
+The launcher adds `https://bilalhsp.github.io` as its default frontend origin;
+`AUDITORY_FRONTEND_ORIGIN` overrides it for another deployment.
 The launcher checks real CUDA access before starting, stops both services on
 Ctrl+C, and stops the peer if either service exits. For API-only metadata/history
 access or manual process management, use `./start-backend.sh --api-only` and start

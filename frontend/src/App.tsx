@@ -6,6 +6,7 @@ import RecordingSelector from "./RecordingSelector";
 import RecordingUpload from "./RecordingUpload";
 import FitPanel from "./FitPanel";
 import SessionHistory from "./SessionHistory";
+import BackendConnection from "./BackendConnection";
 
 export default function App() {
   const [resumeCount, setResumeCount] = useState(0);
@@ -154,7 +155,7 @@ export default function App() {
   return (
     <div className="shell">
       <aside className="sidebar">
-        <a className="brand" href="/" aria-label="Auditory Cortex Control home">
+        <a className="brand" href={import.meta.env.BASE_URL} aria-label="Auditory Cortex Control home">
           <span className="brand-mark">∿</span>
           <span>
             Auditory Cortex
@@ -207,6 +208,7 @@ export default function App() {
           )}
           {!api || !caps ? (
             <section className="card login-card">
+              <BackendConnection />
               <div className="section-heading">
                 <span className="step">01</span>
                 <div>

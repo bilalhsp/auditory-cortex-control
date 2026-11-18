@@ -127,3 +127,13 @@ printf '%s' '{"status":"ok","service":"auditory-cortex-control"}'
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('does not allow', result.stderr)
         self.assertNotIn('Connected:', result.stdout)
+
+    def test_default_origin_is_bilalhsp_pages(self):
+        # Stop at SSH authentication rather than leaving a connected tunnel open.
+        env = dict(self.env, CHECK_MODE='auth_failure')
+        env.pop('GILBRETH_FRONTEND_ORIGIN', None)
+        result = subprocess.run(self.command[:-2], env=env,
+                                capture_output=True, text=True, timeout=15)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('authentication/host-key', result.stderr)
+        self.assertIn('https://bilalhsp.github.io', self.ssh_log.read_text())

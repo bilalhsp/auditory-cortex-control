@@ -31,7 +31,8 @@ class BackendLaunchTests(unittest.TestCase):
 
     def launch(self, *args):
         return subprocess.Popen([str(self.repo / 'start-backend.sh'), '--port', str(self.port), *args],
-            cwd=str(self.root), env=dict(os.environ, AUDITORY_ENV_FILE=str(self.config), CUDA_VISIBLE_DEVICES='-1'),
+            cwd=str(self.root), env=dict({key: value for key, value in os.environ.items()
+                if key != 'AUDITORY_FRONTEND_ORIGIN'}, AUDITORY_ENV_FILE=str(self.config), CUDA_VISIBLE_DEVICES='-1'),
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, start_new_session=True)
 
     def stop(self, process):
@@ -87,3 +88,26 @@ class BackendLaunchTests(unittest.TestCase):
             self.stop(process)
         with socket.socket() as connection:
             self.assertNotEqual(connection.connect_ex(('127.0.0.1', self.port)), 0)
+
+    def test_default_launcher_allows_bilalhsp_pages_origin(self):
+        import time
+        import urllib.request
+        process = self.launch('--api-only')
+        try:
+            request = urllib.request.Request('http://127.0.0.1:%d/api/v1/capabilities' % self.port,
+                method='OPTIONS', headers={'Origin': 'https://bilalhsp.github.io',
+                    'Access-Control-Request-Method': 'GET', 'Access-Control-Request-Headers': 'authorization'})
+            deadline = time.monotonic() + 25
+            while time.monotonic() < deadline:
+                self.assertIsNone(process.poll(), 'API-only launch exited unexpectedly')
+                try:
+                    with urllib.request.urlopen(request, timeout=1) as response:
+                        self.assertEqual(response.status, 200)
+                        self.assertEqual(response.headers['Access-Control-Allow-Origin'], 'https://bilalhsp.github.io')
+                    break
+                except OSError:
+                    time.sleep(.2)
+            else:
+                self.fail('Default launcher did not allow the configured Pages origin')
+        finally:
+            self.stop(process)

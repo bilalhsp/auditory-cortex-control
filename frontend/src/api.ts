@@ -180,7 +180,7 @@ interface FitSubmission {
 
 declare global {
   interface Window {
-    AUDITORY_CONFIG?: { apiBaseUrl?: string; apiBaseUrls?: string[] };
+    AUDITORY_CONFIG?: { apiBaseUrl?: string; apiBaseUrls?: string[]; connectionCommand?: string };
   }
 }
 
@@ -195,9 +195,17 @@ export class ApiError extends Error {
 
 export async function discoverApiBaseUrl(): Promise<string> {
   const configuration = window.AUDITORY_CONFIG;
+  // Preserve fixed-URL/legacy sign-in behavior; an explicit check always probes.
   if (configuration?.apiBaseUrl?.trim()) return configuration.apiBaseUrl.replace(/\/+$/, "");
-  const candidates = [...new Set(configuration?.apiBaseUrls ?? [])];
-  if (!candidates.length) return "";
+  if (!configuration?.apiBaseUrls?.length) return "";
+  return checkBackendConnection();
+}
+
+export async function checkBackendConnection(): Promise<string> {
+  const configuration = window.AUDITORY_CONFIG;
+  const candidates = configuration?.apiBaseUrl?.trim()
+    ? [configuration.apiBaseUrl]
+    : [...new Set(configuration?.apiBaseUrls?.length ? configuration.apiBaseUrls : [""])];
   for (const candidate of candidates) {
     const base = candidate.trim().replace(/\/+$/, "");
     const abort = new AbortController();

@@ -16,13 +16,18 @@ def main():
     parser.add_argument('--port', type=int, default=5173)
     parser.add_argument('--api-url', default=os.environ.get('AUDITORY_API_URL', 'http://127.0.0.1:8000'),
                         help='Backend URL as reached by your browser, including any SSH forwarded port')
+    parser.add_argument('--connection-command', default=os.environ.get('AUDITORY_CONNECTION_COMMAND'),
+                        help='Launcher command displayed by the connection card (copied, never executed by the page)')
     args = parser.parse_args()
     if not (args.directory / 'index.html').is_file():
         parser.error('Frontend build missing. Run: npm run build --prefix frontend')
     parsed = urlsplit(args.api_url)
     if parsed.scheme not in ('http', 'https') or not parsed.netloc:
         parser.error('--api-url must be an absolute HTTP or HTTPS URL')
-    configuration = ('window.AUDITORY_CONFIG = ' + json.dumps({'apiBaseUrl': args.api_url.rstrip('/')}) + ';\n').encode()
+    config = {'apiBaseUrl': args.api_url.rstrip('/')}
+    if args.connection_command:
+        config['connectionCommand'] = args.connection_command
+    configuration = ('window.AUDITORY_CONFIG = ' + json.dumps(config) + ';\n').encode()
 
     class Handler(SimpleHTTPRequestHandler):
         def send_head(self):
