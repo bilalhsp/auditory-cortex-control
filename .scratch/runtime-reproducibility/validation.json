@@ -1,0 +1,195 @@
+{
+  "runtime-manifest.json": {
+    "python": "3.8.5 (default, Aug 23 2020, 01:02:51) \n[Clang 10.0.1 ]",
+    "executable": "/scratch/gilbreth/ahmedb/cache/runtime/f4d7729c10608a5f/python/bin/python",
+    "torch": "2.0.1+cu117",
+    "torch_cuda_build": "11.7",
+    "cupy": "12.0.0",
+    "cupy_cuda_path": "/scratch/gilbreth/ahmedb/cache/runtime/f4d7729c10608a5f/toolkit",
+    "cuda_runtime": 12060,
+    "cuda_driver_api": 13020,
+    "gpu": "NVIDIA A100-SXM4-40GB",
+    "nvidia_driver": "595.91.07"
+  },
+  "no-cluster-cuda.json": {
+    "passed": true,
+    "path": "/usr/bin:/bin",
+    "loaded_modules": null,
+    "cuda_path": "/scratch/gilbreth/ahmedb/cache/runtime/f4d7729c10608a5f/toolkit",
+    "loaded_cuda_libraries": [
+      "/scratch/gilbreth/ahmedb/cache/runtime/f4d7729c10608a5f/cuda12/lib/python3.8/site-packages/nvidia/cublas/lib/libcublas.so.12",
+      "/scratch/gilbreth/ahmedb/cache/runtime/f4d7729c10608a5f/cuda12/lib/python3.8/site-packages/nvidia/cublas/lib/libcublasLt.so.12",
+      "/scratch/gilbreth/ahmedb/cache/runtime/f4d7729c10608a5f/cuda12/lib/python3.8/site-packages/nvidia/cuda_nvrtc/lib/libnvrtc-builtins.so.12.6",
+      "/scratch/gilbreth/ahmedb/cache/runtime/f4d7729c10608a5f/cuda12/lib/python3.8/site-packages/nvidia/cuda_nvrtc/lib/libnvrtc.so.12",
+      "/scratch/gilbreth/ahmedb/cache/runtime/f4d7729c10608a5f/cuda12/lib/python3.8/site-packages/nvidia/cuda_runtime/lib/libcudart.so.12",
+      "/scratch/gilbreth/ahmedb/cache/runtime/f4d7729c10608a5f/cuda12/lib/python3.8/site-packages/nvidia/cufft/lib/libcufft.so.11",
+      "/scratch/gilbreth/ahmedb/cache/runtime/f4d7729c10608a5f/cuda12/lib/python3.8/site-packages/nvidia/cusolver/lib/libcusolver.so.11",
+      "/scratch/gilbreth/ahmedb/cache/runtime/f4d7729c10608a5f/python/lib/python3.8/site-packages/nvidia/cublas/lib/libcublas.so.11",
+      "/scratch/gilbreth/ahmedb/cache/runtime/f4d7729c10608a5f/python/lib/python3.8/site-packages/nvidia/cublas/lib/libcublasLt.so.11",
+      "/scratch/gilbreth/ahmedb/cache/runtime/f4d7729c10608a5f/python/lib/python3.8/site-packages/nvidia/cuda_nvrtc/lib/libnvrtc.so.11.2",
+      "/scratch/gilbreth/ahmedb/cache/runtime/f4d7729c10608a5f/python/lib/python3.8/site-packages/nvidia/cuda_runtime/lib/libcudart.so.11.0",
+      "/scratch/gilbreth/ahmedb/cache/runtime/f4d7729c10608a5f/python/lib/python3.8/site-packages/nvidia/cufft/lib/libcufft.so.10",
+      "/scratch/gilbreth/ahmedb/cache/runtime/f4d7729c10608a5f/python/lib/python3.8/site-packages/nvidia/curand/lib/libcurand.so.10"
+    ]
+  },
+  "package-comparison.json": {
+    "changed_versions": {},
+    "not_in_new": {
+      "predictor-corrector": "0.0.1"
+    },
+    "new_only": {},
+    "matched_distribution_versions": 370,
+    "cross_environment_fit_correlation_delta": 0.0
+  },
+  "native.json": {
+    "completed": true,
+    "root": "/scratch/gilbreth/ahmedb/cache/auditory-web-checks/issue11-native/a6520fcd-d32a-4307-b158-627dd77fb430",
+    "family": "mVocs",
+    "fits": [
+      {
+        "source": "existing",
+        "fit_id": "a919fa10-c570-4455-b853-7f89a223ff4e",
+        "job_id": "d671d053-4608-4934-a73a-8d91b6d39b08",
+        "seconds": 193.8069043820724,
+        "channels": 18,
+        "queue_wait_seconds": 1.113108,
+        "max_absolute_legacy_delta": 0.0,
+        "session_id": "6ce9dd6c-1991-4800-b3a2-5d77708c6cdf"
+      },
+      {
+        "source": "upload",
+        "fit_id": "b38dcd2c-64bf-4084-85c5-412cebbde174",
+        "job_id": "9326f4b4-3ee2-42cc-8113-d1f7b71390f2",
+        "seconds": 203.0326692466624,
+        "channels": 18,
+        "queue_wait_seconds": 1.102595,
+        "max_absolute_legacy_delta": 0.0,
+        "session_id": "63e335a9-c892-476d-a2e5-a16ef411f678"
+      }
+    ],
+    "latency_threshold": null,
+    "scope": "native fit parity; generation separately gated",
+    "gpu": "NVIDIA A100-SXM4-40GB",
+    "initialization_seconds": 75.17223338410258,
+    "legacy_fit_seconds": 79.84103321004659,
+    "legacy_correlations": {
+      "-2.02": 0.04848022874238261,
+      "-2.01": 0.11097807046693309,
+      "2.01": 0.16354380248738654,
+      "4.01": 0.16564082392051557,
+      "4.02": 0.18599916670837488,
+      "6.01": 0.3185705169715587,
+      "-7.01": 0.07117445968302756,
+      "7.01": 0.21298326221348637,
+      "-9.01": 0.2298682128679713,
+      "-11.01": 0.029756243884313745,
+      "11.01": 0.3679528353096504,
+      "12.01": 0.19763033366257318,
+      "12.02": 0.09789574185109157,
+      "12.03": 0.4807946501753122,
+      "-14.01": 0.120893093395489,
+      "14.01": 0.1366247380717813,
+      "-15.01": 0.10795154975864174,
+      "-100.0": 0.1972634822091152
+    },
+    "total_seconds": 617.2021128400229
+  },
+  "generation.json": {
+    "completed": true,
+    "family": "mVocs",
+    "root": "/scratch/gilbreth/ahmedb/cache/uv-validation/generation-fixture",
+    "results": [
+      {
+        "objective": "stretch",
+        "source": "existing",
+        "fit_id": "806ece3d-c4cd-4065-bc97-316390117580",
+        "generation_id": "a650389c-0197-40af-bffa-72e44ec7d979",
+        "job_id": "7d6137e0-2613-43a0-816d-a13085762940",
+        "channel_id": "12.03",
+        "legacy_seconds": 296.48485027998686,
+        "web_seconds": 235.42040174501017,
+        "queue_wait_seconds": 0.262833,
+        "max_fit_parameter_delta": 0.0,
+        "initialization_rng": {
+          "cpu_sha256": "5feb54a46230d321d888e9b43cf5a57492665f199e4377408d79ee460e36679c",
+          "cuda_sha256": "d77fb61ef1844a93ae98982359cb188ea3cfdcd3547d036946a1aebaa7a2949c"
+        },
+        "frames": 15392,
+        "rate": 16000,
+        "subtype": "PCM_16",
+        "web_sha256": "c2c45a47d7cf3d79f31a8ad5f674282b1ce8ca981a637814ff82b8af0094b448",
+        "legacy_sha256": "c2c45a47d7cf3d79f31a8ad5f674282b1ce8ca981a637814ff82b8af0094b448",
+        "max_absolute_pcm_difference": 0.0,
+        "rms_pcm_difference": 0.0,
+        "byte_identical": true,
+        "exit_code": 0
+      },
+      {
+        "objective": "one-hot",
+        "source": "upload",
+        "fit_id": "e6c09720-c26e-4f8b-bf17-370b0dc23231",
+        "generation_id": "16ac4551-1ce3-4aad-b9b2-1126e6a27b0a",
+        "job_id": "639ce077-a5fa-4c55-adda-de500a95a7c5",
+        "channel_id": "12.03",
+        "legacy_seconds": 193.49734918400645,
+        "web_seconds": 218.61328334501013,
+        "queue_wait_seconds": 0.167842,
+        "max_fit_parameter_delta": 0.0,
+        "initialization_rng": {
+          "cpu_sha256": "5feb54a46230d321d888e9b43cf5a57492665f199e4377408d79ee460e36679c",
+          "cuda_sha256": "d77fb61ef1844a93ae98982359cb188ea3cfdcd3547d036946a1aebaa7a2949c"
+        },
+        "frames": 15392,
+        "rate": 16000,
+        "subtype": "PCM_16",
+        "web_sha256": "9a830e34ad5c47f30d6ecedc925204d895b1ea9867827e4b6c9d9cc4360ad5b7",
+        "legacy_sha256": "9a830e34ad5c47f30d6ecedc925204d895b1ea9867827e4b6c9d9cc4360ad5b7",
+        "max_absolute_pcm_difference": 0.0,
+        "rms_pcm_difference": 0.0,
+        "byte_identical": true,
+        "exit_code": 0
+      }
+    ],
+    "acceptance": "Approved controlled legacy/web initialization and RNG comparison",
+    "total_seconds": 949.2905343216844
+  },
+  "promotion.json": {
+    "previous_environment": "/depot/jgmakin/data/bilal/env/auditory-cortex",
+    "active_environment": "/scratch/gilbreth/ahmedb/cache/runtime/f4d7729c10608a5f/python",
+    "previous_step": "12405213.2",
+    "new_step": "12405213.3",
+    "health": {
+      "status": "ok",
+      "service": "auditory-cortex-control"
+    },
+    "github_pages_cors": true,
+    "metadata_before": {
+      "fits": [
+        [
+          "failed",
+          4
+        ],
+        [
+          "succeeded",
+          1
+        ]
+      ],
+      "generations": [
+        [
+          "succeeded",
+          1
+        ]
+      ],
+      "batches": []
+    }
+  },
+  "metadata_preserved_after_restart": true,
+  "verification": {
+    "backend_tests": 78,
+    "launcher_tests": 8,
+    "activated_launch_tests": 3,
+    "pyright_errors": 0,
+    "standards_findings": 0,
+    "spec_findings": 0
+  }
+}
