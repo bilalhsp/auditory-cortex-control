@@ -4,6 +4,21 @@
 This repository provides the code used to model and analyze spiking activity in the auditory cortex using deep neural networks...
 
 
+## Web application
+
+With the frontend already built, start each service in a separate terminal:
+
+```bash
+./start-frontend.sh
+./start-backend.sh
+./start-worker.sh
+```
+
+Run the API and worker on the same allocated GPU compute node. The first backend
+launch configures credentials if needed; subsequent launches reuse the private
+configuration. See [local launch instructions](docs/deployment/local-launch.md)
+for GPU allocation requirements and your alternate SSH ports.
+
 ## 📂 Dataset
 
 The neural dataset used in this project is publicly available on Zenodo:  
