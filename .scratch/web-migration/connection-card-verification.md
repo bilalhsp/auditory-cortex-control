@@ -41,8 +41,8 @@ The probe uses the existing cached Chromium/Playwright tools and configured cach
 Three targeted backend launch tests and seven CLI tests pass, including the
 bilalhsp default CORS origin and laptop command origin. Backend Pyright reports
 zero errors; frontend TypeScript and normal production build pass. The Pages
-subdirectory build is checked separately. Final full-suite/review results are
-recorded when complete.
+subdirectory build also passes and resolves config.js under
+/auditory-cortex-control/. Final full-suite/review results follow below.
 
 ## Scope
 
@@ -51,3 +51,23 @@ updated frontend must be published and backend launcher restarted to use the new
 UI/defaults. Windows SSH/MFA and an actual published site's local-network
 permissions still require the operator's laptop, as in the prior launcher check.
 No scientific algorithms, models, saved samples, or passwords were changed.
+
+
+## Final checks and review
+
+All **78 backend tests passed in 358.642 seconds**. All **7 laptop CLI tests**
+passed. Backend typechecks and Bash syntax checks pass. Normal frontend build,
+Pages subdirectory build, and the preserved Chromium/API acceptance probe pass.
+The new local --connection-command runtime field was verified over actual HTTP
+before exercising copy/check/sign-in in the browser.
+
+Pinned review base: `0f1d47ea39ffddd512af66ebb4a49e41617d7f97`.
+Implementation: `630c048`. Independent fresh Standards and Spec reviewers each
+reported zero findings. Standards confirmed targeted implementation/no new
+dependencies and clear command/probe boundaries; Spec confirmed the operator's
+selected copy/check scope, personalized origin, authentication isolation, and
+runtime overrides. No open implementation findings remain.
+
+The updated frontend must be published and the backend launcher restarted to
+apply new defaults. No GitHub push, Pages publishing, SSH session, allocation
+change, or modification of a running deployment was performed in this change.
