@@ -8,7 +8,6 @@ import FitPanel from "./FitPanel";
 import SessionWorkbench from "./SessionWorkbench";
 import SessionActivity from "./SessionActivity";
 import SessionHistory from "./SessionHistory";
-import BackendConnection from "./BackendConnection";
 import { isActiveJobState } from "./useJobPolling";
 import WorkspaceHeader from "./WorkspaceHeader";
 
@@ -259,22 +258,14 @@ export default function App() {
             </>
           )}
           <h1>
-            {api ? ({ Setup: "Set up your experiment", Recording: "Choose a recording", Fit: "Fit the encoding model", Generate: "Generate samples", Results: "Sample results" })[activeStep] : "Connect to your research workspace"}
+            {api ? ({ Setup: "Set up your experiment", Recording: "Choose a recording", Fit: "Fit the encoding model", Generate: "Generate samples", Results: "Sample results" })[activeStep] : "Operator sign in"}
           </h1>
-          {(!api || activeStep === "Setup") && <p className="intro">
+          {(api && activeStep === "Setup") && <p className="intro">
             Configure an encoding model and the compute resources for your next
             experiment.
           </p>}
           {!api || !caps ? (
             <section className="card login-card">
-              <BackendConnection />
-              <div className="section-heading">
-                <span className="step">01</span>
-                <div>
-                  <h2>Operator sign in</h2>
-                  <p>Connect to your research backend.</p>
-                </div>
-              </div>
               <form onSubmit={login}>
                 <label>
                   Username
@@ -296,7 +287,7 @@ export default function App() {
                   />
                 </label>
                 <button className="primary" disabled={busy}>
-                  {busy ? "Connecting…" : "Sign in →"}
+                  {busy ? "Connecting…" : "Sign in"}
                 </button>
               </form>
             </section>

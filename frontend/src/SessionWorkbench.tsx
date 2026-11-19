@@ -72,10 +72,12 @@ export default function SessionWorkbench({
                           `${experiment.configuration.stimulus_family} / ${experiment.configuration.model_name}`}</span>
                         <small>{active_work ? "Work in progress" : "Setup in progress"}</small>
                       </div>
-                      <button type="button" className="text-button" disabled={busy || error || experimentId === experiment.id}
-                        onClick={() => onResume(experiment)}>
-                        {experimentId === experiment.id ? "Current experiment" : "Resume"}
-                      </button>
+                      {experimentId === experiment.id ? (
+                        <span className="current-experiment">Current experiment</span>
+                      ) : (
+                        <button type="button" className="text-button" disabled={busy || error}
+                          onClick={() => onResume(experiment)}>Resume</button>
+                      )}
                     </li>
                   ))}
                 </ul>

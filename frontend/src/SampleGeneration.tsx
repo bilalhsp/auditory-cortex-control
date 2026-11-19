@@ -109,7 +109,10 @@ export default function SampleGeneration({ api, fit, options, recovered, onBusy,
     <section className="sample-generation" aria-label="Sample generation controls">
       {(error || pollError) && <p role="alert" className="notice error">{error || pollError}</p>}
       {batch && <div className="fit-status">
-        <p role="status"><strong>{runStatus[batch.state]}</strong></p>
+        <p role="status"><strong className="sample-status">
+          {runStatus[batch.state]}
+          {active && !pollError && <span className="sample-pulse" aria-hidden="true"><span /><span /><span /></span>}
+        </strong></p>
         {batch.error && <p>{batch.error}</p>}
         <ul>{batch.targets.map(target => <li key={target.id}>
           {target.channel_id} / {target.objective} · {target.state} · {target.clips.length} {target.clips.length === 1 ? "clip" : "clips"}
