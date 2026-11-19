@@ -814,3 +814,17 @@ footer span {
 }
 
 .account-actions { min-width: 190px; }
+
+.sample-generation fieldset {
+  display: grid;
+  gap: 14px;
+}
+.sample-generation fieldset > button {
+  justify-self: start;
+}
+.sample-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  align-items: center;
+}

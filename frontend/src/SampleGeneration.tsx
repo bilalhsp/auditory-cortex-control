@@ -4,6 +4,17 @@ import type { Batch, Capabilities, Fit, makeApi } from "./api";
 import { isActiveJobState, useJobPolling } from "./useJobPolling";
 import { saveDownload } from "./download";
 
+const runStatus: Record<Batch["state"], string> = {
+  queued: "Waiting to generate",
+  running: "Generating samples",
+  cancelling: "Stopping generation",
+  succeeded: "Samples ready",
+  partial: "Some samples are ready",
+  failed: "Generation failed",
+  interrupted: "Generation interrupted",
+  cancelled: "Generation stopped",
+};
+
 type Props = {
   api: ReturnType<typeof makeApi>;
   fit: Fit;
@@ -95,21 +106,22 @@ export default function SampleGeneration({ api, fit, options, recovered, onBusy,
   }
 
   return (
-    <section className="generation-panel" aria-labelledby="samples-heading">
-      <h3 id="samples-heading">Generate samples</h3>
+    <section className="sample-generation" aria-label="Sample generation controls">
       {(error || pollError) && <p role="alert" className="notice error">{error || pollError}</p>}
       {batch && <div className="fit-status">
-        <p role="status"><strong>Sample run {batch.state}</strong></p>
+        <p role="status"><strong>{runStatus[batch.state]}</strong></p>
         {batch.error && <p>{batch.error}</p>}
         <ul>{batch.targets.map(target => <li key={target.id}>
-          {target.channel_id} / {target.objective} · {target.state} · {target.clips.length} clips
+          {target.channel_id} / {target.objective} · {target.state} · {target.clips.length} {target.clips.length === 1 ? "clip" : "clips"}
         </li>)}</ul>
+        <div className="sample-actions">
         {batch.artifacts_ready && <button type="button" className="text-button" onClick={download}>Download results</button>}
         {!active && !composing && <button type="button" className="primary" onClick={() => {
           setComposing(true);
           onPhase("Generate");
           setTargets([]);
         }}>Generate more</button>}
+        </div>
       </div>}
       {composing && !pending && <fieldset disabled={active || busy}>
         <legend>Choose targets</legend>
