@@ -812,3 +812,5 @@ footer span {
   border-bottom-color: var(--sunset);
   font-weight: 700;
 }
+
+.account-actions { min-width: 190px; }

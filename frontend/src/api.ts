@@ -1,5 +1,5 @@
 export interface Capabilities {
-  sessions?: { supported: boolean; resumable?: boolean; activity?: boolean; exports?: boolean };
+  sessions?: { supported: boolean; resumable?: boolean; activity?: boolean; exports?: boolean; confirm_close?: boolean };
   batch?: { supported: boolean; unified?: boolean };
   generation?: {
     objectives: string[];
@@ -321,9 +321,9 @@ export function makeApi(
     sessions: () => request<ApplicationSession[]>("/sessions"),
     session: (id: string) =>
       request<SessionDetail>(`/sessions/${encodeURIComponent(id)}`),
-    closeSession: (id: string) =>
+    closeSession: (id: string, requireIdle = false) =>
       request<ApplicationSession>(
-        `/sessions/${encodeURIComponent(id)}/close`,
+        `/sessions/${encodeURIComponent(id)}/close${requireIdle ? "?require_idle=true" : ""}`,
         {},
       ),
     job: (id: string) => request<Job>(`/jobs/${encodeURIComponent(id)}`),

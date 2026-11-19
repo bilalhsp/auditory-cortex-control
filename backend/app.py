@@ -19,7 +19,7 @@ from backend.config import Settings
 from backend.models import Experiment, ExperimentConfiguration, RecordingCatalogResult, RecordingSelection, UploadResult, Fit, FitSubmission, Generation, GenerationSubmission, Batch, BatchSubmission, RetryRequest, GENERATION_OBJECTIVES, GENERATION_DURATIONS, GENERATION_CLIP_COUNTS
 from backend.recordings import CatalogUnavailable, RecordingCatalog
 from backend.store import ExperimentStore
-from backend.lifecycle import Lifecycle
+from backend.lifecycle import ActiveSessionWork, Lifecycle
 from backend.session_exports import sample_archive
 from backend.retries import retry_job
 from backend.uploads import UploadError, receive_upload
@@ -92,7 +92,7 @@ def create_app(
             "gpu": capacity(),
             "upload": {"max_bytes": settings.max_upload_bytes, "formats": [".mat"]},
             "fit": {"supported_sources": ["existing", "upload"], "default_seed": 42, "preserve_fits_on_recording_change": True},
-            "sessions": {"supported": True, "resumable": True, "activity": True, "exports": True},
+            "sessions": {"supported": True, "resumable": True, "activity": True, "exports": True, "confirm_close": True},
             "batch": {"supported": True, "unified": True},
             "generation": {"objectives": GENERATION_OBJECTIVES, "durations": GENERATION_DURATIONS, "clip_counts": GENERATION_CLIP_COUNTS},
         }
@@ -327,8 +327,9 @@ def create_app(
         return lifecycle.work(str(identity))
 
     @app.post('/api/v1/sessions/{identity}/close', dependencies=[Depends(operator)])
-    def close_session(identity: UUID):
-        try: return lifecycle.close(str(identity))
+    def close_session(identity: UUID, require_idle: bool = False):
+        try: return lifecycle.close(str(identity), require_idle)
+        except ActiveSessionWork as error: raise HTTPException(409, str(error)) from error
         except KeyError as error: raise HTTPException(404, str(error)) from error
 
     @app.post('/api/v1/jobs/{identity}/cancel', dependencies=[Depends(operator)])

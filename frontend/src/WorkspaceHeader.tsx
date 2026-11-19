@@ -6,10 +6,11 @@ type Props = {
   signedIn: boolean;
   username: string;
   busy: boolean;
+  hasSession: boolean;
   onSignOut: () => void;
 };
 
-export default function WorkspaceHeader({ checkConnection, signedIn, username, busy, onSignOut }: Props) {
+export default function WorkspaceHeader({ checkConnection, signedIn, username, busy, hasSession, onSignOut }: Props) {
   const [reachable, setReachable] = useState<boolean | null>(null);
   const account = useRef<HTMLDetailsElement>(null);
   const accountButton = useRef<HTMLElement>(null);
@@ -54,7 +55,7 @@ export default function WorkspaceHeader({ checkConnection, signedIn, username, b
           }}>
             <summary ref={accountButton} aria-label="Account">{username.trim().slice(0, 1).toUpperCase() || "?"}</summary>
             <div className="account-actions">
-              <button type="button" disabled={busy} onClick={onSignOut}>Sign out</button>
+              <button type="button" disabled={busy} onClick={onSignOut}>{hasSession ? "End session and sign out" : "Sign out"}</button>
             </div>
           </details>
         )}

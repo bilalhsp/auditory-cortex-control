@@ -111,6 +111,10 @@ def _cancel(connection, table, identity):
             _cancel(connection, 'generations', target[0])
 
 
+class ActiveSessionWork(ValueError):
+    """Closing this session requires confirmation."""
+
+
 class Lifecycle:
     def __init__(self, store: 'ExperimentStore'):
         self.store = store
@@ -251,14 +255,27 @@ class Lifecycle:
                     _cancel(connection, table, row[0]);return
         raise KeyError('Job not found')
 
-    def close(self, identity):
+    def close(self, identity, require_idle=False):
         with sqlite3.connect(str(self.store.path)) as connection:
             connection.execute('BEGIN IMMEDIATE')
             row = connection.execute('SELECT status FROM application_sessions WHERE id=?', (identity,)).fetchone()
-            if row is None: raise KeyError('Application session not found')
-            if row[0] == 'open': connection.execute("UPDATE application_sessions SET status='closing' WHERE id=?", (identity,))
-            for table in ('fits','generations','batches'):
+            if row is None:
+                raise KeyError('Application session not found')
+            if row[0] == 'closed':
+                return self.session(identity)
+            jobs = {}
+            for table in ('fits', 'generations', 'batches'):
                 experiment = 'j.experiment_id' if table == 'fits' else '(SELECT experiment_id FROM fits WHERE id=j.fit_id)'
-                ids = connection.execute('SELECT j.id FROM ' + table + ' j JOIN session_experiments s ON s.experiment_id=' + experiment + ' WHERE s.session_id=?', (identity,)).fetchall()
-                for job in ids: _cancel(connection, table, job[0])
+                jobs[table] = connection.execute(
+                    'SELECT j.id FROM ' + table + ' j JOIN session_experiments s ON s.experiment_id=' +
+                    experiment + " WHERE s.session_id=? AND j.state IN ('queued','running')",
+                    (identity,),
+                ).fetchall()
+            if require_idle and row[0] == 'open' and any(jobs.values()):
+                raise ActiveSessionWork('This session has unfinished work.')
+            if row[0] == 'open':
+                connection.execute("UPDATE application_sessions SET status='closing' WHERE id=?", (identity,))
+            for table, rows in jobs.items():
+                for (job_id,) in rows:
+                    _cancel(connection, table, job_id)
         return self.session(identity)

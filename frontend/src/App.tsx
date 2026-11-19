@@ -9,6 +9,7 @@ import SessionWorkbench from "./SessionWorkbench";
 import SessionActivity from "./SessionActivity";
 import SessionHistory from "./SessionHistory";
 import BackendConnection from "./BackendConnection";
+import { isActiveJobState } from "./useJobPolling";
 import WorkspaceHeader from "./WorkspaceHeader";
 
 function setupCapacity(caps: Capabilities): number {
@@ -138,6 +139,40 @@ export default function App() {
     setPassword("");
     setError("");
   }
+  async function endSessionAndSignOut() {
+    if (!api || navigatingLocked) return;
+    if (!sessionId) {
+      logout();
+      return;
+    }
+    setBusy(true);
+    setError("");
+    const confirmStop = () => window.confirm(
+      "End the current Workbench session? Unfinished jobs will stop. Completed results will stay in Session History.",
+    );
+    try {
+      if (caps?.sessions?.confirm_close) {
+        try {
+          await api.closeSession(sessionId, true);
+        } catch (cause) {
+          if (!(cause instanceof ApiError) || cause.status !== 409) throw cause;
+          if (!confirmStop()) return;
+          await api.closeSession(sessionId);
+        }
+      } else {
+        const current = await api.session(sessionId);
+        if (current.session.status === "open" &&
+            current.jobs.some(job => isActiveJobState(job.state)) && !confirmStop()) return;
+        await api.closeSession(sessionId);
+      }
+      logout();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not end the session. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function canFit(chosen: Experiment | null): boolean {
     return Boolean(chosen?.recording && caps?.fit?.supported_sources.includes(chosen.recording.source));
   }
@@ -191,7 +226,7 @@ export default function App() {
   return (
     <div className="shell">
       <div className="workspace">
-        <WorkspaceHeader key={api ? "signed-in" : "signed-out"} signedIn={Boolean(api)} checkConnection={api?.checkConnection} username={username} busy={navigatingLocked} onSignOut={logout} />
+        <WorkspaceHeader key={api ? "signed-in" : "signed-out"} signedIn={Boolean(api)} checkConnection={api?.checkConnection} username={username} busy={navigatingLocked} hasSession={Boolean(sessionId)} onSignOut={endSessionAndSignOut} />
         <main>
           {error && <div className="notice error" role="alert">{error}</div>}
           {api && caps?.sessions?.resumable && (
