@@ -18,7 +18,7 @@ function setupCapacity(caps: Capabilities): number {
 
 export default function App() {
   const [view, setView] = useState<"workbench" | "history">("workbench");
-  const [step, setStep] = useState<"Setup" | "Recording" | "Fit">("Setup");
+  const [step, setStep] = useState<"Setup" | "Recording" | "Fit" | "Generate" | "Results">("Setup");
   const [recordingSource, setRecordingSource] = useState<"upload" | "existing">("upload");
   const [submissionBusy, setSubmissionBusy] = useState(false);
   const [resumeCount, setResumeCount] = useState(0);
@@ -239,7 +239,6 @@ export default function App() {
             <SessionHistory api={api} currentExperiment={null} readOnly timestampedExports={caps.sessions.exports} />
           )}
           <div hidden={Boolean(api && caps?.sessions?.resumable && view === "history")}>
-
           {api && caps?.sessions?.supported && (
             <>
               {caps.sessions.resumable && <SessionWorkbench
@@ -254,13 +253,13 @@ export default function App() {
                 api={api}
                 currentExperiment={experiment}
                 onClosed={closed}
-                onResume={caps.sessions.resumable ? undefined : resume}
+                onResume={resume}
                 onNew={newLegacySession}
               />}
             </>
           )}
           <h1>
-            {api ? ({ Setup: "Set up your experiment", Recording: "Choose a recording", Fit: "Fit the encoding model" })[activeStep] : "Connect to your research workspace"}
+            {api ? ({ Setup: "Set up your experiment", Recording: "Choose a recording", Fit: "Fit the encoding model", Generate: "Generate samples", Results: "Sample results" })[activeStep] : "Connect to your research workspace"}
           </h1>
           {(!api || activeStep === "Setup") && <p className="intro">
             Configure an encoding model and the compute resources for your next
@@ -304,7 +303,7 @@ export default function App() {
           ) : (
             <>
               <ol className="workflow guided-steps" aria-label="Experiment workflow">
-                {(["Setup", "Recording", "Fit"] as const).map((item) => (
+                {(caps.batch?.unified ? (["Setup", "Recording", "Fit", "Generate", "Results"] as const) : (["Setup", "Recording", "Fit"] as const)).map((item) => (
                   <li key={item} aria-current={activeStep === item ? "step" : undefined}>{item}</li>
                 ))}
               </ol>
@@ -511,10 +510,10 @@ export default function App() {
                       </div>
                     </section>
                   )}
-                  {activeStep === "Fit" && (
-                    <button type="button" className="text-button guided-back" disabled={submissionBusy} onClick={() => setStep("Recording")}>Back</button>
+                  {(activeStep === "Fit" || activeStep === "Generate" || activeStep === "Results") && (
+                    <button type="button" className="text-button guided-back" disabled={submissionBusy} onClick={() => setStep(activeStep === "Fit" ? "Recording" : activeStep === "Generate" ? "Fit" : "Generate")}>Back</button>
                   )}
-                  {activeStep === "Fit" && experiment && caps.fit && canFit(experiment) && (
+                  {(activeStep === "Fit" || activeStep === "Generate" || activeStep === "Results") && experiment && caps.fit && canFit(experiment) && (
                       <FitPanel
                         key={`fit-${experiment.id}-${experiment.recording_revision}-${resumeCount}`}
                         api={api}
@@ -524,6 +523,8 @@ export default function App() {
                         generationOptions={caps.generation}
                         batchEnabled={Boolean(caps.batch?.supported)}
                         unifiedGeneration={Boolean(caps.batch?.unified)}
+                        phase={activeStep}
+                        onPhase={setStep}
                         timestampedExports={caps.sessions?.exports}
                         recoveryEnabled={Boolean(caps.sessions?.supported)}
                       />

@@ -17,6 +17,8 @@ interface Props {
   batchEnabled?: boolean;
   unifiedGeneration?: boolean;
   timestampedExports?: boolean;
+  phase: "Fit" | "Generate" | "Results";
+  onPhase: (phase: "Generate" | "Results") => void;
   generationOptions?: Capabilities["generation"];
   api: ReturnType<typeof makeApi>;
   experiment: Experiment;
@@ -41,6 +43,8 @@ export default function FitPanel({
   batchEnabled,
   unifiedGeneration,
   timestampedExports,
+  phase,
+  onPhase,
   recoveryEnabled,
 }: Props) {
   const [recovered, setRecovered] = useState<RecoveredWork | null>(null);
@@ -90,7 +94,7 @@ export default function FitPanel({
     };
   }, [api, experiment.id, experiment.recording_revision, recoveryEnabled]);
 
-  const BatchGeneration = unifiedGeneration ? SampleGeneration : BatchPanel;
+  const showFit = !unifiedGeneration || phase === "Fit";
   const active = isActiveJobState(fit?.state);
 
   useEffect(() => {
@@ -151,7 +155,8 @@ export default function FitPanel({
     interrupted: "Fit interrupted",
   };
   return (
-    <section className="card recording-card" aria-labelledby="fit-heading">
+    <section className="card recording-card" aria-label={showFit ? "Model fit" : "Sample generation"}>
+      {showFit && <>
       <div className="section-heading">
         <span className="step">03</span>
         <div>
@@ -209,8 +214,10 @@ export default function FitPanel({
           <small>Fit {fit.id}</small>
         </div>
       )}
+      </>}
       {fit?.state === "succeeded" && fit.artifacts_ready && (
         <div className="fit-results">
+          {showFit && <>
           <h3>Channel correlations</h3>
           {fit.best_channel ? (
             <div className="correlation-summary">
@@ -249,16 +256,28 @@ export default function FitPanel({
               </tbody>
             </table>
           </div>
+          {unifiedGeneration && generationOptions && (
+            <button type="button" className="primary" onClick={() => onPhase("Generate")}>Continue to generation</button>
+          )}
+          </>}
           {batchEnabled && generationOptions && (
-            <BatchGeneration
-              key={`batch-${fit.id}`}
-              api={api}
-              fit={fit}
-              options={generationOptions}
-              onBusy={onBusy}
-              exportSessionId={timestampedExports ? experiment.session_id : undefined}
-              recovered={preferActive(recovered?.batches.filter((item) => item.fit_id === fit.id) ?? [])}
-            />
+            unifiedGeneration ? (
+              <div hidden={showFit}>
+                <SampleGeneration
+                  key={fit.id}
+                  api={api}
+                  fit={fit}
+                  options={generationOptions}
+                  onBusy={onBusy}
+                  exportSessionId={timestampedExports ? experiment.session_id : undefined}
+                  recovered={preferActive(recovered?.batches.filter(item => item.fit_id === fit.id) ?? [])}
+                  onPhase={onPhase}
+                />
+              </div>
+            ) : (
+              <BatchPanel key={fit.id} api={api} fit={fit} options={generationOptions}
+                recovered={preferActive(recovered?.batches.filter(item => item.fit_id === fit.id) ?? [])} />
+            )
           )}
           {!unifiedGeneration && generationOptions && (
             <GenerationPanel

@@ -1,8 +1,7 @@
 """Validated sample archives scoped to an application session."""
 
-import io
+import json
 import os
-import shutil
 import tempfile
 import zipfile
 from datetime import datetime
@@ -12,7 +11,7 @@ import pytz
 from pytz.tzfile import build_tzinfo
 
 from backend.fits import FitRequestError
-from backend.generations import download_zip
+from backend.generations import validated_download_clips
 
 
 def session_basename(session):
@@ -44,6 +43,7 @@ def sample_archive(lifecycle, identity, job_id=None):
     path = Path(filename)
     try:
         completed = 0
+        unavailable = []
         with zipfile.ZipFile(path, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
             for job in jobs:
                 if not job['artifacts_ready']:
@@ -58,12 +58,17 @@ def sample_archive(lifecycle, identity, job_id=None):
                     record = lifecycle.store.generation_record(job['id'])
                     runs = [(*record, '')] if record else []
                 for generation, directory, target_suffix in runs:
-                    with zipfile.ZipFile(io.BytesIO(download_zip(generation, directory))) as clips:
-                        run_path = name + '/' + job['kind'] + '-' + job['id'] + target_suffix
-                        for clip in clips.namelist():
-                            with clips.open(clip) as source, archive.open(run_path + '/' + clip, 'w') as output:
-                                shutil.copyfileobj(source, output)
-                                completed += 1
+                    run_path = name + '/' + job['kind'] + '-' + job['id'] + target_suffix
+                    try:
+                        clips = validated_download_clips(generation, directory)
+                    except FitRequestError:
+                        unavailable.append(run_path.split('/', 1)[1])
+                        continue
+                    for clip in clips:
+                        archive.write(directory / clip.filename, run_path + '/' + clip.filename)
+                        completed += 1
+            if completed and unavailable:
+                archive.writestr(name + '/unavailable-results.json', json.dumps(unavailable, indent=2))
         if not completed:
             raise FitRequestError(409, 'No completed samples are available to download.')
         return path, name + '.zip'

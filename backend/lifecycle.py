@@ -91,7 +91,7 @@ def save_job(connection, table, job):
     data = job.model_dump_json(exclude={'targets'}) if table == 'batches' else job.model_dump_json()
     connection.execute('UPDATE ' + table + ' SET state=?,data=? WHERE id=?', (job.state, data, job.id))
     stage = getattr(job, 'stage', job.state)
-    if job.state == 'running':
+    if job.state == 'running' and stage in ('loading', 'fitting', 'writing', 'generating'):
         connection.execute('INSERT OR IGNORE INTO job_activity VALUES (?,?,?)',
                            (job.job_id, stage, datetime.now(timezone.utc).isoformat()))
     return True
@@ -205,46 +205,52 @@ class Lifecycle:
         return {'session':session, 'experiments':[self.store.get(identity) for identity in ids], 'jobs':jobs}
 
     def activity(self, identity):
-        session = self.session(identity)
-        if session is None:
-            raise KeyError('Application session not found')
+        stages = {
+            'queued': 'queued', 'running': 'started', 'loading': 'loading inputs',
+            'fitting': 'fitting the model', 'writing': 'writing results',
+            'generating': 'generating samples', 'stop_requested': 'stop requested',
+            'succeeded': 'completed', 'cancelled': 'stopped',
+            'failed': 'failed. Check your settings before submitting again.',
+            'partial': 'completed with failures. View saved results in Session History.',
+            'interrupted': 'interrupted. Reconnect before submitting again.',
+        }
         with sqlite3.connect(str(self.store.path)) as connection:
-            ids = [row[0] for row in connection.execute(
-                'SELECT experiment_id FROM session_experiments WHERE session_id=?', (identity,))]
-            events = []
-            for experiment in ids:
-                for kind, jobs in self.work(experiment).items():
-                    for job in jobs:
-                        label = {'fits': 'Fit', 'generations': 'Generation', 'batches': 'Batch'}[kind]
-                        prefix = label + ' ' + job.id[:8]
-                        events.append({'at': job.created_at, 'message': prefix + ' queued'})
-                        stages = dict(connection.execute(
-                            'SELECT stage,occurred_at FROM job_activity WHERE job_id=?', (job.job_id,)))
-                        if job.started_at:
-                            stages.setdefault('running', job.started_at)
-                        for stage, at in stages.items():
-                            text = {
-                                'running': 'started', 'loading': 'loading inputs',
-                                'fitting': 'fitting the model', 'writing': 'writing results',
-                                'generating': 'generating samples',
-                            }.get(stage)
-                            if text:
-                                events.append({'at': at, 'message': prefix + ' ' + text})
-                        if job.state == 'cancelling':
-                            stop = connection.execute(
-                                'SELECT requested_at FROM job_controls WHERE job_id=?', (job.job_id,)).fetchone()
-                            if stop:
-                                events.append({'at': stop[0], 'message': prefix + ' stopping'})
-                        if job.finished_at:
-                            text = {
-                                'succeeded': 'completed', 'cancelled': 'stopped',
-                                'failed': 'failed. Check your settings before submitting again.',
-                                'partial': 'completed with failures. View saved results in Session History.',
-                                'interrupted': 'interrupted. Reconnect before submitting again.',
-                            }.get(job.state)
-                            if text:
-                                events.append({'at': job.finished_at, 'message': prefix + ' ' + text})
-        return sorted(events, key=lambda event: event['at'], reverse=True)[:100]
+            if not connection.execute('SELECT 1 FROM application_sessions WHERE id=?', (identity,)).fetchone():
+                raise KeyError('Application session not found')
+            rows = connection.execute("""
+                WITH experiments AS (
+                    SELECT experiment_id FROM session_experiments WHERE session_id=?
+                ), fits_in_session AS (
+                    SELECT f.* FROM fits f JOIN experiments e ON e.experiment_id=f.experiment_id
+                ), jobs AS (
+                    SELECT id, job_id, state, data, 'Fit' AS label FROM fits_in_session
+                    UNION ALL
+                    SELECT g.id, g.job_id, g.state, g.data,
+                           CASE WHEN g.batch_id IS NULL THEN 'Generation' ELSE 'Sample target' END
+                    FROM generations g JOIN fits_in_session f ON f.id=g.fit_id
+                    UNION ALL
+                    SELECT b.id, b.job_id, b.state, b.data, 'Batch'
+                    FROM batches b JOIN fits_in_session f ON f.id=b.fit_id
+                ), events AS (
+                    SELECT label, id, 'queued' AS stage, json_extract(data,'$.created_at') AS occurred_at FROM jobs
+                    UNION ALL
+                    SELECT label, id, 'running', json_extract(data,'$.started_at') FROM jobs
+                    UNION ALL
+                    SELECT label, id, a.stage, a.occurred_at
+                    FROM jobs JOIN job_activity a USING (job_id)
+                    WHERE a.stage IN ('loading','fitting','writing','generating')
+                    UNION ALL
+                    SELECT label, id, 'stop_requested', c.requested_at
+                    FROM jobs JOIN job_controls c USING (job_id)
+                    UNION ALL
+                    SELECT label, id, state, json_extract(data,'$.finished_at') FROM jobs
+                    WHERE state IN ('succeeded','failed','partial','cancelled','interrupted')
+                )
+                SELECT label, id, stage, occurred_at FROM events WHERE occurred_at IS NOT NULL
+                ORDER BY occurred_at DESC, id, stage LIMIT 100
+            """, (identity,)).fetchall()
+        return [{'at': at, 'message': label + ' ' + operation_id[:8] + ' ' + stages[stage]}
+                for label, operation_id, stage, at in rows]
 
     def cancel_job(self, job_id):
         with sqlite3.connect(str(self.store.path)) as connection:

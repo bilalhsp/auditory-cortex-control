@@ -23,6 +23,63 @@ class BatchApiTests(unittest.TestCase):
         return {'request_id': str(uuid4()), 'gpu_count': count, 'duration_seconds': 1, 'clip_count': 1,
                 'targets': [{'channel_id': '12.03', 'objective': 'stretch'}, {'channel_id': '-2.02', 'objective': 'one-hot'}]}
 
+    def test_guided_session_samples_are_scoped_confirmed_and_exportable(self):
+        fit = self.fixture.fit
+        session = self.fixture.fixture.experiment['session_id']
+        root = '/api/v1/sessions/' + session
+        samples = self.url.replace('/batches', '/samples')
+        self.assertEqual(self.client.post(samples, json=self.body(2)).status_code, 422)
+        self.assertEqual(self.client.post(samples, json=self.body(1)).status_code, 422)
+
+        body = self.body(1)
+        body['targets'] = body['targets'][:1]
+        self.capacity = 0
+        self.assertEqual(self.client.post(samples, json=body).status_code, 409)
+        self.capacity = 1
+        response = self.client.post(samples, json=body)
+        self.assertEqual(response.status_code, 202, response.text)
+        run = response.json()
+        self.assertEqual(self.client.post(root + '/close?require_idle=true').status_code, 409)
+        self.assertEqual(self.client.get('/api/v1/jobs/' + run['job_id']).json()['state'], 'queued')
+        self.assertEqual(self.client.get(root + '/download').status_code, 409)
+        self.assertEqual(TestClient(create_app(self.settings, lambda: 0)).get(root + '/activity').status_code, 401)
+
+        run_worker(self.settings, once=True, generation_runner=self.fixture.compute, gpu_count=lambda: 1)
+        self.capacity = 0
+        activity = self.client.get(root + '/activity').json()
+        self.assertTrue(any(event['message'].endswith('completed') for event in activity))
+        self.assertTrue(any('writing results' in event['message'] for event in activity))
+        self.assertNotIn(str(self.settings.database_path.parent), str(activity))
+
+        other = self.client.post('/api/v1/experiments', json={'gpu_count': 0}).json()['session_id']
+        self.assertEqual(self.client.get('/api/v1/sessions/' + other + '/activity').json(), [])
+        run_path = '/runs/' + run['job_id'] + '/download'
+        self.assertEqual(self.client.get('/api/v1/sessions/' + other + run_path).status_code, 404)
+        self.capacity = 1
+        legacy = self.client.post(self.fixture.url, json=self.fixture.body(clip_count=1, duration_seconds=1))
+        self.assertEqual(legacy.status_code, 202)
+        run_worker(self.settings, once=True, generation_runner=self.fixture.compute, gpu_count=lambda: 1)
+        self.capacity = 0
+        self.assertEqual(self.client.post(root + '/close?require_idle=true').json()['status'], 'closed')
+        for path in ('/download', run_path):
+            response = self.client.get(root + path)
+            self.assertEqual(response.status_code, 200, response.text[:150] if response.status_code != 200 else '')
+            filename = response.headers['content-disposition'].split('filename=')[1].strip('"')
+            self.assertRegex(filename, r'^session-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}')
+            with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
+                paths = archive.namelist()
+                self.assertEqual(len(paths), 2 if path == '/download' else 1)
+                self.assertTrue(all(clip.split('/')[0] + '.zip' == filename for clip in paths))
+                self.assertTrue(all(clip.endswith('/clip-001.wav') for clip in paths))
+
+        damaged = self.settings.database_path.parent / 'batches' / run['id'] / run['targets'][0]['id'] / 'clip-001.wav'
+        damaged.write_bytes(b'invalid clip')
+        self.assertEqual(self.client.get(root + run_path).status_code, 409)
+        with zipfile.ZipFile(io.BytesIO(self.client.get(root + '/download').content)) as archive:
+            self.assertTrue(any('/generation-' + legacy.json()['id'] + '/' in path for path in archive.namelist()))
+            self.assertTrue(any(path.endswith('/unavailable-results.json') for path in archive.namelist()))
+            self.assertFalse(any('/batch-' in path for path in archive.namelist()))
+
     def test_batch_reserves_requested_capacity_and_deduplicates_submission(self):
         body = self.body()
         response = self.client.post(self.url, json=body)

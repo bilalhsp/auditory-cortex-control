@@ -155,7 +155,7 @@ export default function SessionHistory({
   const open = detail?.session.status === "open";
   return (
     <section className="card" aria-labelledby="history-heading">
-      <h2 id="history-heading">Session history</h2>
+      {readOnly ? <h1 id="history-heading">Session History</h1> : <h2 id="history-heading">Session history</h2>}
       <p className="help">
         {readOnly ? "Choose a session to view its saved results." : "Browser disconnects leave accepted work running. Closing a session stops unfinished work and keeps saved results."}
       </p>

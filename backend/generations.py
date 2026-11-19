@@ -109,17 +109,25 @@ def validate_clips(generation: Generation, workspace: Path):
     return clips
 
 
-def download_zip(generation: Generation, workspace: Path) -> bytes:
+def validated_download_clips(generation: Generation, workspace: Path):
     if generation.state != 'succeeded' or not generation.artifacts_ready:
         raise FitRequestError(409, 'Generation is not complete. No download is available.')
     try:
         clips = validate_clips(generation, workspace)
         if clips != generation.clips or json.loads((workspace / 'manifest.json').read_text()) != [clip.model_dump() for clip in clips]:
             raise ValueError('Generated artifacts changed')
-        stream = io.BytesIO()
+        return clips
+    except (OSError, ValueError, KeyError, wave.Error, EOFError) as error:
+        raise FitRequestError(409, 'Generated samples are missing or changed. Create a new generation.') from error
+
+
+def download_zip(generation: Generation, workspace: Path) -> bytes:
+    clips = validated_download_clips(generation, workspace)
+    stream = io.BytesIO()
+    try:
         with zipfile.ZipFile(stream, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
             for clip in clips:
                 archive.write(str(workspace / clip.filename), clip.filename)
-        return stream.getvalue()
-    except (OSError, ValueError, KeyError, wave.Error, EOFError) as error:
+    except OSError as error:
         raise FitRequestError(409, 'Generated samples are missing or changed. Create a new generation.') from error
+    return stream.getvalue()
