@@ -16,10 +16,12 @@ export default function SessionHistory({
   onClosed,
   onResume,
   onNew,
+  readOnly = false,
 }: {
   api: ReturnType<typeof makeApi>;
   currentExperiment: Experiment | null;
-  onClosed: (sessionId: string) => void;
+  onClosed?: (sessionId: string) => void;
+  readOnly?: boolean;
   onResume?: (experiment: Experiment) => void;
   onNew?: () => void;
 }) {
@@ -73,7 +75,7 @@ export default function SessionHistory({
           setSessions(rows);
           setDetail(result);
           if (result && result.session.status !== "open")
-            onClosed(result.session.id);
+            onClosed?.(result.session.id);
         }
       } catch {
         if (current) setError("Could not refresh session history.");
@@ -148,9 +150,7 @@ export default function SessionHistory({
     <section className="card" aria-labelledby="history-heading">
       <h2 id="history-heading">Session history</h2>
       <p className="help">
-        Browser disconnects leave accepted work running. Stop / close ends the
-        selected session and stops unfinished work. Saved results remain
-        available.
+        {readOnly ? "Choose a session to view its saved results." : "Browser disconnects leave accepted work running. Closing a session stops unfinished work and keeps saved results."}
       </p>
       <label>
         Saved session
@@ -169,21 +169,22 @@ export default function SessionHistory({
         </select>
       </label>
       {onNew && <button type="button" disabled={busy} onClick={onNew}>Start a new session</button>}
+      {!sessions.length && !error && <p className="help">No saved sessions yet.</p>}
       {detail && (
         <>
           <p role="status">Session {detail.session.status}</p>
-          <button
+          {!readOnly && <button
             type="button"
             disabled={busy || !open}
             onClick={() =>
               action(async () => {
                 await api.closeSession(detail.session.id);
-                onClosed(detail.session.id);
+                onClosed?.(detail.session.id);
               })
             }
           >
             Stop / close session
-          </button>
+          </button>}
           {open && onResume && detail.experiments.map((experiment) => (
             <button key={experiment.id} type="button" disabled={busy} onClick={() => onResume(experiment)}>
               Resume setup {experiment.id.slice(0, 8)}
@@ -218,7 +219,7 @@ export default function SessionHistory({
                       >
                         View {job.id.slice(0, 8)}
                       </button>
-                      {["queued", "running", "cancelling"].includes(
+                      {!readOnly && ["queued", "running", "cancelling"].includes(
                         job.state,
                       ) && (
                         <button
@@ -236,7 +237,7 @@ export default function SessionHistory({
                           Stop job {job.id.slice(0, 8)}
                         </button>
                       )}
-                      {open && job.retryable && (
+                      {!readOnly && open && job.retryable && (
                         <button
                           type="button"
                           disabled={

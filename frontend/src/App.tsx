@@ -16,6 +16,7 @@ function setupCapacity(caps: Capabilities): number {
 }
 
 export default function App() {
+  const [view, setView] = useState<"workbench" | "history">("workbench");
   const [step, setStep] = useState<"Setup" | "Recording" | "Fit">("Setup");
   const [recordingSource, setRecordingSource] = useState<"upload" | "existing">("upload");
   const [submissionBusy, setSubmissionBusy] = useState(false);
@@ -57,6 +58,7 @@ export default function App() {
       const connection = makeApi(username, password, baseUrl);
       const result = await connection.capabilities();
       setApi(connection);
+      setView("workbench");
       setStep("Setup");
       setExperiment(null);
       setCaps(result);
@@ -191,6 +193,18 @@ export default function App() {
       <div className="workspace">
         <WorkspaceHeader key={api ? "signed-in" : "signed-out"} signedIn={Boolean(api)} checkConnection={api?.checkConnection} username={username} busy={navigatingLocked} onSignOut={logout} />
         <main>
+          {error && <div className="notice error" role="alert">{error}</div>}
+          {api && caps?.sessions?.resumable && (
+            <nav className="workspace-tabs" aria-label="Workspace views">
+              <button type="button" aria-pressed={view === "workbench"} onClick={() => setView("workbench")}>Workbench</button>
+              <button type="button" aria-pressed={view === "history"} onClick={() => setView("history")}>Session History</button>
+            </nav>
+          )}
+          {api && caps?.sessions?.resumable && view === "history" && (
+            <SessionHistory api={api} currentExperiment={null} readOnly />
+          )}
+          <div hidden={Boolean(api && caps?.sessions?.resumable && view === "history")}>
+
           {api && caps?.sessions?.supported && (
             <>
               {caps.sessions.resumable && <SessionWorkbench
@@ -201,13 +215,13 @@ export default function App() {
                 onResume={resume}
                 onStartOver={startOver}
               />}
-              <SessionHistory
+              {!caps.sessions.resumable && <SessionHistory
                 api={api}
                 currentExperiment={experiment}
                 onClosed={closed}
                 onResume={caps.sessions.resumable ? undefined : resume}
-                onNew={caps.sessions.resumable ? undefined : newLegacySession}
-              />
+                onNew={newLegacySession}
+              />}
             </>
           )}
           <h1>
@@ -217,11 +231,6 @@ export default function App() {
             Configure an encoding model and the compute resources for your next
             experiment.
           </p>}
-          {error && (
-            <div className="notice error" role="alert">
-              {error}
-            </div>
-          )}
           {!api || !caps ? (
             <section className="card login-card">
               <BackendConnection />
@@ -488,6 +497,7 @@ export default function App() {
               {caps.sessions?.activity && sessionId && <SessionActivity key={sessionId} api={api} sessionId={sessionId} />}
             </>
           )}
+          </div>
         </main>
         <footer>
           Auditory Cortex Control <span>Experiment workspace</span>

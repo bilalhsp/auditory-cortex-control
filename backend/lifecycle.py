@@ -234,9 +234,9 @@ class Lifecycle:
                         if job.finished_at:
                             text = {
                                 'succeeded': 'completed', 'cancelled': 'stopped',
-                                'failed': 'failed. Check your settings and retry from Session History.',
-                                'partial': 'completed with failures. View completed results or retry unfinished targets.',
-                                'interrupted': 'interrupted. Reconnect and retry from Session History.',
+                                'failed': 'failed. Check your settings before submitting again.',
+                                'partial': 'completed with failures. View saved results in Session History.',
+                                'interrupted': 'interrupted. Reconnect before submitting again.',
                             }.get(job.state)
                             if text:
                                 events.append({'at': job.finished_at, 'message': prefix + ' ' + text})

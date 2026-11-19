@@ -792,3 +792,23 @@ footer span {
   overflow: auto;
 }
 .session-activity time { color: var(--sand); }
+
+.workspace-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 20px;
+}
+.workspace-tabs button {
+  min-height: 44px;
+  background: transparent;
+  color: var(--ink);
+  border: 0;
+  border-bottom: 3px solid transparent;
+  padding: 6px 4px;
+}
+.workspace-tabs button[aria-pressed="true"] {
+  border-bottom-color: var(--sunset);
+  font-weight: 700;
+}
