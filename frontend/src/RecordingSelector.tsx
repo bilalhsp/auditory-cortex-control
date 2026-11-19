@@ -6,12 +6,14 @@ interface Props {
   api: ReturnType<typeof makeApi>;
   experiment: Experiment;
   onSelected: (experiment: Experiment) => void;
+  onBusy: (busy: boolean) => void;
 }
 
 export default function RecordingSelector({
   api,
   experiment,
   onSelected,
+  onBusy,
 }: Props) {
   const [catalog, setCatalog] = useState<RecordingCatalog | null>(null);
   const [candidate, setCandidate] = useState(
@@ -64,6 +66,7 @@ export default function RecordingSelector({
 
   async function select() {
     setSaving(true);
+    onBusy(true);
     setError("");
     try {
       const updated = await api.selectRecording(experiment.id, candidate);
@@ -72,6 +75,7 @@ export default function RecordingSelector({
       if (mounted.current) setError(message(cause));
     } finally {
       if (mounted.current) setSaving(false);
+      onBusy(false);
     }
   }
 
@@ -79,20 +83,7 @@ export default function RecordingSelector({
     catalog?.recordings.some((recording) => recording.id === candidate) ??
     false;
   return (
-    <section
-      className="card recording-card"
-      aria-labelledby="recording-heading"
-    >
-      <div className="section-heading">
-        <span className="step">03</span>
-        <div>
-          <h2 id="recording-heading">Choose an existing recording</h2>
-          <p>
-            Compatible with {experiment.configuration.stimulus_family} ·{" "}
-            {experiment.configuration.dataset_name}
-          </p>
-        </div>
-      </div>
+    <div>
       {error && (
         <div className="notice error" role="alert">
           {error}
@@ -164,6 +155,6 @@ export default function RecordingSelector({
           </small>
         </div>
       )}
-    </section>
+    </div>
   );
 }

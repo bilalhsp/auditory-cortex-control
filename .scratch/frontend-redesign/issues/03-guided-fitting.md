@@ -4,7 +4,7 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] Guide the operator through setup, Recording and Fit with Back and a persistent responsive summary.
 - [ ] Default to Upload recording and offer Choose existing recording in the same view.

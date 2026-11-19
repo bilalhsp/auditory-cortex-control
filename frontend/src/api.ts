@@ -355,12 +355,12 @@ export function makeApi(
       ),
     selectRecording: (experimentId: string, recordingId: string) =>
       request<Experiment>(
-        `/experiments/${encodeURIComponent(experimentId)}/recording-selection`,
+        `/experiments/${encodeURIComponent(experimentId)}/recording-selection?preserve_fits=true`,
         { recording_id: recordingId },
       ),
     uploadRecording: (experimentId: string, file: File) =>
       request<UploadResult>(
-        `/experiments/${encodeURIComponent(experimentId)}/recording-upload`,
+        `/experiments/${encodeURIComponent(experimentId)}/recording-upload?preserve_fits=true`,
         file,
       ),
     startFit: (experimentId: string, submission: FitSubmission) =>

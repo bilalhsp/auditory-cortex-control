@@ -663,3 +663,114 @@ footer span {
 .workbench-heading button {
   min-height: 44px;
 }
+
+.guided-steps {
+  list-style: decimal inside;
+  padding: 0 0 12px;
+  margin: 22px 0;
+  border-bottom: 1px solid var(--line);
+}
+.guided-steps [aria-current="step"] {
+  color: var(--ink);
+  font-weight: 700;
+}
+.guided-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
+  align-items: start;
+  gap: 20px;
+}
+.guided-content {
+  grid-row: 1;
+  grid-column: 1;
+  min-width: 0;
+}
+.guided-content .setup-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+.selection-summary {
+  grid-row: 1;
+  grid-column: 2;
+  position: sticky;
+  top: 16px;
+  padding: 16px;
+  background: var(--warm-panel);
+  border-top: 3px solid var(--sunset);
+  overflow-wrap: anywhere;
+}
+.selection-summary dl {
+  margin: 10px 0 0;
+}
+.selection-summary dl div {
+  border-top: 1px solid var(--line);
+  padding: 8px 0;
+}
+.selection-summary dt {
+  font-size: 0.75rem;
+  color: #526269;
+}
+.selection-summary dd {
+  margin: 4px 0 0;
+  font-size: 0.875rem;
+}
+.guided-actions {
+  justify-content: flex-end;
+}
+.source-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.source-options button {
+  background: white;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  min-height: 44px;
+}
+.source-options button[aria-pressed="true"] {
+  font-weight: 700;
+  background: var(--warm-panel);
+  border-color: var(--sunset);
+}
+.guided-back {
+  min-height: 44px;
+}
+@media (max-width: 760px) {
+  .guided-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .selection-summary,
+  .guided-content {
+    position: static;
+    grid-row: auto;
+    grid-column: 1;
+  }
+  .selection-summary dl {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 12px;
+  }
+}
+
+.fit-stage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fit-activity {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  border: 2px solid var(--line);
+  border-top-color: #873a28;
+  border-radius: 50%;
+  animation: fit-spin 900ms linear infinite;
+}
+@keyframes fit-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fit-activity { animation: none; }
+}

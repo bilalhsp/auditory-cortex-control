@@ -139,7 +139,7 @@ def create_app(
 
     @app.post("/api/v1/experiments/{identity}/recording-selection", response_model=Experiment,
               dependencies=[Depends(operator)])
-    def select_recording(identity: UUID, selection: RecordingSelection) -> Experiment:
+    def select_recording(identity: UUID, selection: RecordingSelection, preserve_fits: bool = False) -> Experiment:
         experiment = read_experiment(identity)
         uploaded = store.get_upload(str(selection.recording_id), str(identity))
         if uploaded is not None:
@@ -152,7 +152,7 @@ def create_app(
         if experiment.configuration.stimulus_family not in recording.stimulus_families:
             raise HTTPException(409, "Recording is incompatible with this experiment's stimulus family.")
         try:
-            selected = store.select_recording(str(identity), recording)
+            selected = store.select_recording(str(identity), recording, preserve_fits)
         except ValueError as error:
             raise HTTPException(409, str(error)) from error
         if selected is None:
@@ -162,7 +162,8 @@ def create_app(
     @app.post("/api/v1/experiments/{identity}/recording-upload", response_model=UploadResult,
               status_code=201, dependencies=[Depends(operator)])
     async def upload_recording(identity: UUID, request: Request,
-                               filename: str = Header(..., alias="X-Recording-Filename")) -> UploadResult:
+                               filename: str = Header(..., alias="X-Recording-Filename"),
+                               preserve_fits: bool = False) -> UploadResult:
         experiment = read_experiment(identity)
         if request.headers.get("content-type", "").split(";")[0].strip() != "application/octet-stream":
             raise HTTPException(415, {"validation_status": "invalid", "message": "Send MAT recording bytes as application/octet-stream."})
@@ -177,7 +178,7 @@ def create_app(
                     raise UploadError(400, "Invalid upload length.")
                 if byte_count > settings.max_upload_bytes:
                     raise UploadError(413, "Recording exceeds the configured upload size limit.")
-            return await receive_upload(request.stream(), filename, experiment, settings, store)
+            return await receive_upload(request.stream(), filename, experiment, settings, store, preserve_fits)
         except UploadError as error:
             raise HTTPException(error.status, {
                 "validation_status": "invalid" if error.status < 500 else "error", "message": str(error),

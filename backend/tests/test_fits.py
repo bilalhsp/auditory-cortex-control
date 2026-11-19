@@ -31,6 +31,21 @@ class FitApiTests(unittest.TestCase):
         return {"request_id": str(uuid4()), "recording_id": self.experiment["recording"]["id"],
                 "recording_revision": self.experiment["recording_revision"], "seed": 42}
 
+    def test_guided_recording_change_preserves_accepted_fit_in_original_experiment(self):
+        accepted = self.client.post(self.prefix + "/fits", json=self.request()).json()
+        response = self.client.post(
+            self.prefix + "/recording-selection?preserve_fits=true",
+            json={"recording_id": self.recordings[1]["id"]},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        replacement = response.json()
+        self.assertNotEqual(replacement["id"], self.experiment["id"])
+        self.assertEqual(replacement["session_id"], self.experiment["session_id"])
+        original = self.client.get(self.prefix).json()
+        self.assertEqual(original["recording"], self.experiment["recording"])
+        self.assertEqual(self.client.get(self.prefix + "/work").json()["fits"][0]["id"], accepted["id"])
+        self.assertEqual(self.client.get("/api/v1/experiments/" + replacement["id"] + "/work").json()["fits"], [])
+
     def test_submission_returns_persisted_immutable_job_without_running_compute(self):
         body = self.request()
         response = self.client.post(self.prefix + "/fits", json=body)

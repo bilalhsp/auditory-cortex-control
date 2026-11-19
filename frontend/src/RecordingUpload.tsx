@@ -6,6 +6,7 @@ interface Props {
   experiment: Experiment;
   maxBytes: number;
   onSelected: (experiment: Experiment) => void;
+  onBusy: (busy: boolean) => void;
 }
 
 export default function RecordingUpload({
@@ -13,6 +14,7 @@ export default function RecordingUpload({
   experiment,
   maxBytes,
   onSelected,
+  onBusy,
 }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [pending, setPending] = useState(false);
@@ -53,6 +55,7 @@ export default function RecordingUpload({
   async function upload() {
     if (!file) return;
     setPending(true);
+    onBusy(true);
     setError("");
     try {
       const result = await api.uploadRecording(experiment.id, file);
@@ -66,21 +69,12 @@ export default function RecordingUpload({
         );
     } finally {
       if (mounted.current) setPending(false);
+      onBusy(false);
     }
   }
 
   return (
-    <section className="card recording-card" aria-labelledby="upload-heading">
-      <div className="section-heading">
-        <span className="step">04</span>
-        <div>
-          <h2 id="upload-heading">Or upload a recording</h2>
-          <p>
-            Use a new {experiment.configuration.stimulus_family} recording for
-            this experiment.
-          </p>
-        </div>
-      </div>
+    <div>
       <label htmlFor="recording-upload">MAT recording file</label>
       <input
         id="recording-upload"
@@ -128,6 +122,6 @@ export default function RecordingUpload({
           </small>
         </div>
       )}
-    </section>
+    </div>
   );
 }

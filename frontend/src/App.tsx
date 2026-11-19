@@ -11,6 +11,9 @@ import BackendConnection from "./BackendConnection";
 import WorkspaceHeader from "./WorkspaceHeader";
 
 export default function App() {
+  const [step, setStep] = useState<"Setup" | "Recording" | "Fit">("Setup");
+  const [recordingSource, setRecordingSource] = useState<"upload" | "existing">("upload");
+  const [recordingBusy, setRecordingBusy] = useState(false);
   const [resumeCount, setResumeCount] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [api, setApi] = useState<ReturnType<typeof makeApi> | null>(null);
@@ -49,6 +52,7 @@ export default function App() {
       const connection = makeApi(username, password, baseUrl);
       const result = await connection.capabilities();
       setApi(connection);
+      setStep("Setup");
       setExperiment(null);
       setCaps(result);
       setFamily(result.settings.stimulus_families[0]);
@@ -85,6 +89,11 @@ export default function App() {
   }
   async function save(event: FormEvent) {
     event.preventDefault();
+    if (experiment?.configuration.stimulus_family === family &&
+        experiment.configuration.gpu_count === gpuCount) {
+      setStep("Recording");
+      return;
+    }
     await createExperiment(family, gpuCount);
   }
   async function createExperiment(nextFamily: string, nextGpuCount?: number) {
@@ -109,6 +118,8 @@ export default function App() {
           sessionId,
         ),
       );
+      setRecordingSource("upload");
+      setStep("Recording");
       setFamily(nextFamily);
       setGpuCount(count);
       return true;
@@ -127,6 +138,8 @@ export default function App() {
     setError("");
   }
   function resume(experiment: Experiment) {
+    setStep(experiment.recording ? "Fit" : "Recording");
+    setRecordingSource("upload");
     setResumeCount((count) => count + 1);
     setSessionId(experiment.session_id);
     setExperiment(experiment);
@@ -144,6 +157,7 @@ export default function App() {
     setFamily(caps?.settings.stimulus_families[0] ?? "");
     setGpuCount(caps?.gpu.available_count ?? 0);
     setExplicitGpu(false);
+    setStep("Setup");
     await refresh(true);
   }
   async function startOver() {
@@ -154,19 +168,22 @@ export default function App() {
   }
   function recordingSelected(updated: Experiment) {
     setExperiment((current) =>
-      current?.id === updated.id &&
-      updated.recording_revision >= current.recording_revision
+      current?.id === experiment?.id && current != null &&
+      updated.session_id === current.session_id &&
+      (current.id !== updated.id || updated.recording_revision >= current.recording_revision)
         ? updated
         : current,
     );
   }
+  const activeStep = experiment ? step : "Setup";
+  const navigatingLocked = busy || recordingBusy;
   const available = caps?.gpu.available_count ?? 0;
   const invalidGpu = gpuCount > available || (gpuCount === 0 && available > 0);
 
   return (
     <div className="shell">
       <div className="workspace">
-        <WorkspaceHeader key={api ? "signed-in" : "signed-out"} signedIn={Boolean(api)} checkConnection={api?.checkConnection} username={username} busy={busy} onSignOut={logout} />
+        <WorkspaceHeader key={api ? "signed-in" : "signed-out"} signedIn={Boolean(api)} checkConnection={api?.checkConnection} username={username} busy={navigatingLocked} onSignOut={logout} />
         <main>
           {api && caps?.sessions?.supported && (
             <>
@@ -174,7 +191,7 @@ export default function App() {
                 api={api}
                 sessionId={sessionId}
                 experimentId={experiment?.id}
-                busy={busy}
+                busy={navigatingLocked}
                 onResume={resume}
                 onStartOver={startOver}
               />}
@@ -188,12 +205,12 @@ export default function App() {
             </>
           )}
           <h1>
-            {api ? "Set up your experiment" : "Connect to your research workspace"}
+            {api ? ({ Setup: "Set up your experiment", Recording: "Choose a recording", Fit: "Fit the encoding model" })[activeStep] : "Connect to your research workspace"}
           </h1>
-          <p className="intro">
+          {(!api || activeStep === "Setup") && <p className="intro">
             Configure an encoding model and the compute resources for your next
             experiment.
-          </p>
+          </p>}
           {error && (
             <div className="notice error" role="alert">
               {error}
@@ -236,15 +253,24 @@ export default function App() {
             </section>
           ) : (
             <>
-              <div className="workflow" aria-label="Experiment workflow">
-                <span className={!experiment ? "current" : ""}>
-                  1 <b>Configure</b>
-                </span>
-                <span className={experiment ? "current" : ""}>2 Recording</span>
-                <span>3 Fit model</span>
-                <span>4 Generate</span>
-              </div>
-              <form onSubmit={save}>
+              <ol className="workflow guided-steps" aria-label="Experiment workflow">
+                {(["Setup", "Recording", "Fit"] as const).map((item) => (
+                  <li key={item} aria-current={activeStep === item ? "step" : undefined}>{item}</li>
+                ))}
+              </ol>
+              <div className="guided-layout">
+                <aside className="selection-summary" aria-labelledby="selection-heading">
+                  <h2 id="selection-heading">Your selections</h2>
+                  <dl>
+                    <div><dt>Stimulus family</dt><dd>{family}</dd></div>
+                    <div><dt>Neural dataset</dt><dd>{experiment?.configuration.dataset_name ?? caps.settings.datasets[0]}</dd></div>
+                    <div><dt>Encoding model</dt><dd>{experiment?.configuration.model_name ?? caps.settings.models[0]}</dd></div>
+                    <div><dt>GPUs selected</dt><dd>{gpuCount}</dd></div>
+                    <div><dt>Recording</dt><dd>{experiment?.recording?.display_name ?? "Not selected"}</dd></div>
+                  </dl>
+                </aside>
+                <div className="guided-content">
+              {activeStep === "Setup" && <form onSubmit={save}>
                 <div className="setup-grid">
                   <section className="card">
                     <div className="section-heading">
@@ -271,7 +297,6 @@ export default function App() {
                               checked={family === option}
                               onChange={() => {
                                 setFamily(option);
-                                setExperiment(null);
                               }}
                             />
                             <strong>{option}</strong>
@@ -349,7 +374,6 @@ export default function App() {
                         onChange={(e) => {
                           setGpuCount(Number(e.target.value));
                           setExplicitGpu(true);
-                          setExperiment(null);
                         }}
                       >
                         {invalidGpu && (
@@ -407,46 +431,39 @@ export default function App() {
                     </div>
                   </section>
                 </div>
-                <div className="action-bar">
-                  <p>Settings are saved with a unique experiment identity.</p>
+                <div className="action-bar guided-actions">
                   <button className="primary" disabled={busy || invalidGpu}>
-                    {busy ? "Saving…" : "Save experiment →"}
+                    {busy ? "Saving…" : "Continue to recording"}
                   </button>
                 </div>
-              </form>
-              {experiment && (
-                <section className="notice success" role="status">
-                  <strong>Experiment configured</strong>
-                  <p>
-                    Your {experiment.configuration.stimulus_family} setup is
-                    saved with {experiment.configuration.gpu_count} selected
-                    GPUs.
-                  </p>
-                  <code>{experiment.id}</code>
+              </form>}
+              {activeStep === "Recording" && experiment && (
+                <section className="card" aria-label="Recording source">
+                  {caps.upload && <div className="source-options" role="group" aria-label="Recording method">
+                    <button type="button" disabled={recordingBusy} aria-pressed={recordingSource === "upload"}
+                      onClick={() => setRecordingSource("upload")}>Upload recording</button>
+                    <button type="button" disabled={recordingBusy} aria-pressed={recordingSource === "existing"}
+                      onClick={() => setRecordingSource("existing")}>Choose existing recording</button>
+                  </div>}
+                  {recordingSource === "upload" && caps.upload ? (
+                    <RecordingUpload key={experiment.id} api={api} experiment={experiment}
+                      maxBytes={caps.upload.max_bytes} onSelected={recordingSelected} onBusy={setRecordingBusy} />
+                  ) : (
+                    <RecordingSelector key={experiment.id} api={api} experiment={experiment}
+                      onSelected={recordingSelected} onBusy={setRecordingBusy} />
+                  )}
+                  <div className="action-bar">
+                    <button type="button" className="text-button" disabled={recordingBusy} onClick={() => setStep("Setup")}>Back</button>
+                    <button type="button" className="primary" disabled={!experiment.recording || recordingBusy ||
+                      !caps.fit?.supported_sources.includes(experiment.recording.source)}
+                      onClick={() => setStep("Fit")}>Continue to fit</button>
+                  </div>
                 </section>
               )}
-              {experiment && (
-                <RecordingSelector
-                  key={experiment.id}
-                  api={api}
-                  experiment={experiment}
-                  onSelected={recordingSelected}
-                />
+              {activeStep === "Fit" && (
+                <button type="button" className="text-button guided-back" onClick={() => setStep("Recording")}>Back</button>
               )}
-              {experiment && caps.upload && (
-                <RecordingUpload
-                  key={`upload-${experiment.id}`}
-                  api={api}
-                  experiment={experiment}
-                  maxBytes={caps.upload.max_bytes}
-                  onSelected={recordingSelected}
-                />
-              )}
-              <p className="footnote">
-                GPU capacity is checked again when you save. Saving a setup does
-                not reserve GPUs or start computation.
-              </p>
-              {experiment?.recording &&
+              {activeStep === "Fit" && experiment?.recording &&
                 caps.fit?.supported_sources.includes(
                   experiment.recording.source,
                 ) && (
@@ -460,6 +477,8 @@ export default function App() {
                     recoveryEnabled={Boolean(caps.sessions?.supported)}
                   />
                 )}
+                </div>
+              </div>
             </>
           )}
         </main>

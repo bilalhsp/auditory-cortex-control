@@ -271,16 +271,33 @@ class ExperimentStore:
                           recording=json.loads(row[3]) if row[3] else None,
                           recording_revision=row[4] or 0, session_id=connection.execute('SELECT session_id FROM session_experiments WHERE experiment_id=?', (identity,)).fetchone()[0])
 
-    def select_recording(self, identity: str, recording: Recording) -> Optional[Experiment]:
+    def select_recording(self, identity: str, recording: Recording, preserve_fits: bool = False) -> Optional[Experiment]:
         with sqlite3.connect(str(self.path)) as connection:
             connection.execute("BEGIN IMMEDIATE")
-            return self._select(connection, identity, recording)
+            target = self._recording_target(connection, identity, recording, preserve_fits)
+            return self._select(connection, target, recording) if target else None
+
+    def _recording_target(self, connection, identity, recording, preserve_fits):
+        experiment = self._get(connection, identity)
+        if experiment is None:
+            return None
+        ensure_open(connection, identity)
+        if (not preserve_fits or
+                (experiment.recording and experiment.recording.id == recording.id) or
+                not connection.execute("SELECT 1 FROM fits WHERE experiment_id=? LIMIT 1", (identity,)).fetchone()):
+            return identity
+        replacement = str(uuid4())
+        connection.execute(
+            "INSERT INTO experiments VALUES (?, ?, ?)",
+            (replacement, datetime.now(timezone.utc).isoformat(), experiment.configuration.model_dump_json()),
+        )
+        connection.execute("INSERT INTO session_experiments VALUES (?, ?)", (replacement, experiment.session_id))
+        return replacement
 
     def _select(self, connection: sqlite3.Connection, identity: str, recording: Recording) -> Optional[Experiment]:
         experiment = self._get(connection, identity)
         if experiment is None:
             return None
-        ensure_open(connection, identity)
         if experiment.recording and experiment.recording.id == recording.id:
             return experiment
         revision = experiment.recording_revision + 1
@@ -291,16 +308,17 @@ class ExperimentStore:
         )
         return experiment.model_copy(update={"recording": recording, "recording_revision": revision})
 
-    def register_upload(self, identity: str, upload: StoredUpload) -> Optional[Experiment]:
+    def register_upload(self, identity: str, upload: StoredUpload, preserve_fits: bool = False) -> Optional[Experiment]:
         with sqlite3.connect(str(self.path)) as connection:
             connection.execute("BEGIN IMMEDIATE")
-            if self._get(connection, identity) is None:
+            target = self._recording_target(connection, identity, upload.recording, preserve_fits)
+            if target is None:
                 return None
             connection.execute("INSERT INTO uploaded_recordings VALUES (?, ?, ?, ?, ?, ?)", (
-                upload.recording.id, identity, upload.recording.model_dump_json(), str(upload.path),
+                upload.recording.id, target, upload.recording.model_dump_json(), str(upload.path),
                 upload.size_bytes, upload.sha256,
             ))
-            return self._select(connection, identity, upload.recording)
+            return self._select(connection, target, upload.recording)
 
     def get_upload(self, identity: str, experiment_id: str) -> Optional[StoredUpload]:
         with sqlite3.connect(str(self.path)) as connection:

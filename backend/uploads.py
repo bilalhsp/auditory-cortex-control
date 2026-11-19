@@ -88,12 +88,12 @@ def _discard(staged: Path, final: Path) -> None:
         logger.exception('Could not clean an incomplete upload')
 
 
-def _publish(store: ExperimentStore, experiment_id: str, artifact: StoredUpload) -> UploadResult:
+def _publish(store: ExperimentStore, experiment_id: str, artifact: StoredUpload, preserve_fits: bool) -> UploadResult:
     staged = artifact.path.parent / 'recording.part'
     published = False
     try:
         staged.rename(artifact.path)
-        selected = store.register_upload(experiment_id, artifact)
+        selected = store.register_upload(experiment_id, artifact, preserve_fits)
         if selected is None:
             raise UploadError(404, 'Experiment not found.')
         published = True
@@ -108,7 +108,7 @@ def _publish(store: ExperimentStore, experiment_id: str, artifact: StoredUpload)
 
 
 async def receive_upload(stream: AsyncIterable[bytes], filename: str, experiment: Experiment,
-                         settings: Settings, store: ExperimentStore) -> UploadResult:
+                         settings: Settings, store: ExperimentStore, preserve_fits: bool = False) -> UploadResult:
     try:
         display_name = unquote(filename, encoding='utf-8', errors='strict').replace('\\', '/').rsplit('/', 1)[-1]
     except UnicodeError as error:
@@ -147,7 +147,7 @@ async def receive_upload(stream: AsyncIterable[bytes], filename: str, experiment
         artifact = StoredUpload(recording, final, size, digest.hexdigest())
         # The worker owns publication and cleanup together. Cancelling the HTTP
         # task must never unlink a file whose metadata commit is still running.
-        finalization = asyncio.create_task(run_in_threadpool(_publish, store, experiment.id, artifact))
+        finalization = asyncio.create_task(run_in_threadpool(_publish, store, experiment.id, artifact, preserve_fits))
         finalization.add_done_callback(lambda task: None if task.cancelled() else task.exception())
         handed_off = True
         return await asyncio.shield(finalization)

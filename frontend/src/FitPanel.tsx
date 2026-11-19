@@ -41,6 +41,7 @@ export default function FitPanel({
   const [fit, setFit] = useState<Fit | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [pollingError, setPollingError] = useState("");
   const mounted = useRef(false);
   const requestId = useRef<string | null>(null);
   useEffect(() => {
@@ -98,7 +99,7 @@ export default function FitPanel({
     fit,
     api.fit,
     setFit,
-    setError,
+    setPollingError,
     "Could not refresh fit status. Accepted work continues on the server; reconnect to refresh.",
   );
 
@@ -106,6 +107,7 @@ export default function FitPanel({
     if (!experiment.recording) return;
     requestId.current ??= crypto.randomUUID();
     setSubmitting(true);
+    setPollingError("");
     setError("");
     try {
       const result = await api.startFit(experiment.id, {
@@ -141,19 +143,16 @@ export default function FitPanel({
   return (
     <section className="card recording-card" aria-labelledby="fit-heading">
       <div className="section-heading">
-        <span className="step">05</span>
+        <span className="step">03</span>
         <div>
           <h2 id="fit-heading">Fit the encoding model</h2>
           <p>Three-fold cross-validation · Seed {seed} · One fitting GPU</p>
         </div>
       </div>
-      <p className="help">
-        {experiment.recording?.display_name}. Each fit keeps its own recording
-        snapshot and model. Accepted work continues when this page closes.
-      </p>
-      {error && (
+
+      {(error || pollingError) && (
         <div className="notice error" role="alert">
-          {error}
+          {error || pollingError}
         </div>
       )}
       <button
@@ -184,14 +183,18 @@ export default function FitPanel({
       )}
       {fit && (
         <div className="fit-status" role="status">
-          <strong>
+          <strong className="fit-stage">
+            {active && !pollingError && <span className="fit-activity" aria-hidden="true" />}
+            {pollingError && "Last reported stage: "}
             {fit.state === "cancelling"
               ? "Stopping fit"
               : fit.state === "cancelled"
                 ? "Fit stopped"
                 : fit.state === "failed"
                   ? "Fit failed"
-                  : (labels[fit.stage] ?? fit.state)}
+                  : fit.state === "succeeded"
+                    ? "Fit complete"
+                    : labels[fit.stage] ?? labels[fit.state] ?? "Fit running"}
           </strong>
           <p>
             {fit.error ??
