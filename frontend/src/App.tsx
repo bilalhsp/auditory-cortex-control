@@ -6,6 +6,7 @@ import RecordingSelector from "./RecordingSelector";
 import RecordingUpload from "./RecordingUpload";
 import FitPanel from "./FitPanel";
 import SessionWorkbench from "./SessionWorkbench";
+import SessionActivity from "./SessionActivity";
 import SessionHistory from "./SessionHistory";
 import BackendConnection from "./BackendConnection";
 import WorkspaceHeader from "./WorkspaceHeader";
@@ -478,6 +479,7 @@ export default function App() {
                     )}
                 </div>
               </div>
+              {caps.sessions?.activity && sessionId && <SessionActivity key={sessionId} api={api} sessionId={sessionId} />}
             </>
           )}
         </main>

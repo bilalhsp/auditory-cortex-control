@@ -38,6 +38,10 @@ def initialize(connection):
     if 'timezone' not in {column[1] for column in connection.execute('PRAGMA table_info(application_sessions)')}:
         connection.execute('ALTER TABLE application_sessions ADD COLUMN timezone TEXT')
     connection.execute('CREATE TABLE IF NOT EXISTS session_experiments (experiment_id TEXT PRIMARY KEY, session_id TEXT NOT NULL)')
+    connection.execute(
+        'CREATE TABLE IF NOT EXISTS job_activity (job_id TEXT NOT NULL, stage TEXT NOT NULL, '
+        'occurred_at TEXT NOT NULL, PRIMARY KEY (job_id, stage))'
+    )
     connection.execute('CREATE TABLE IF NOT EXISTS job_controls (job_id TEXT PRIMARY KEY, requested_at TEXT NOT NULL)')
     connection.execute('CREATE TABLE IF NOT EXISTS retry_commands (request_id TEXT PRIMARY KEY, source_job_id TEXT NOT NULL, command_id TEXT UNIQUE NOT NULL, job_id TEXT)')
     connection.execute('CREATE TABLE IF NOT EXISTS job_retries (job_id TEXT PRIMARY KEY, previous_job_id TEXT NOT NULL)')
@@ -86,6 +90,10 @@ def save_job(connection, table, job):
             else: job.clips = []
     data = job.model_dump_json(exclude={'targets'}) if table == 'batches' else job.model_dump_json()
     connection.execute('UPDATE ' + table + ' SET state=?,data=? WHERE id=?', (job.state, data, job.id))
+    stage = getattr(job, 'stage', job.state)
+    if job.state == 'running':
+        connection.execute('INSERT OR IGNORE INTO job_activity VALUES (?,?,?)',
+                           (job.job_id, stage, datetime.now(timezone.utc).isoformat()))
     return True
 
 
@@ -191,6 +199,48 @@ class Lifecycle:
                                  'artifacts_ready':operation.artifacts_ready, 'retryable':operation.state in ('failed','interrupted','cancelled','partial') and (kind != 'batches' or any(target.state != 'succeeded' for target in operation.targets)), 'retry_of_job_id':retries.get(operation.job_id)})
         jobs.sort(key=lambda job: job['created_at'], reverse=True)
         return {'session':session, 'experiments':[self.store.get(identity) for identity in ids], 'jobs':jobs}
+
+    def activity(self, identity):
+        session = self.session(identity)
+        if session is None:
+            raise KeyError('Application session not found')
+        with sqlite3.connect(str(self.store.path)) as connection:
+            ids = [row[0] for row in connection.execute(
+                'SELECT experiment_id FROM session_experiments WHERE session_id=?', (identity,))]
+            events = []
+            for experiment in ids:
+                for kind, jobs in self.work(experiment).items():
+                    for job in jobs:
+                        label = {'fits': 'Fit', 'generations': 'Generation', 'batches': 'Batch'}[kind]
+                        prefix = label + ' ' + job.id[:8]
+                        events.append({'at': job.created_at, 'message': prefix + ' queued'})
+                        stages = dict(connection.execute(
+                            'SELECT stage,occurred_at FROM job_activity WHERE job_id=?', (job.job_id,)))
+                        if job.started_at:
+                            stages.setdefault('running', job.started_at)
+                        for stage, at in stages.items():
+                            text = {
+                                'running': 'started', 'loading': 'loading inputs',
+                                'fitting': 'fitting the model', 'writing': 'writing results',
+                                'generating': 'generating samples',
+                            }.get(stage)
+                            if text:
+                                events.append({'at': at, 'message': prefix + ' ' + text})
+                        if job.state == 'cancelling':
+                            stop = connection.execute(
+                                'SELECT requested_at FROM job_controls WHERE job_id=?', (job.job_id,)).fetchone()
+                            if stop:
+                                events.append({'at': stop[0], 'message': prefix + ' stopping'})
+                        if job.finished_at:
+                            text = {
+                                'succeeded': 'completed', 'cancelled': 'stopped',
+                                'failed': 'failed. Check your settings and retry from Session History.',
+                                'partial': 'completed with failures. View completed results or retry unfinished targets.',
+                                'interrupted': 'interrupted. Reconnect and retry from Session History.',
+                            }.get(job.state)
+                            if text:
+                                events.append({'at': job.finished_at, 'message': prefix + ' ' + text})
+        return sorted(events, key=lambda event: event['at'], reverse=True)[:100]
 
     def cancel_job(self, job_id):
         with sqlite3.connect(str(self.store.path)) as connection:

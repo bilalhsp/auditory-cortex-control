@@ -774,3 +774,21 @@ footer span {
 @media (prefers-reduced-motion: reduce) {
   .fit-activity { animation: none; }
 }
+
+.session-activity {
+  margin-top: 24px;
+  padding: 14px 18px;
+  background: var(--ink);
+  color: #fff5e7;
+  border-top: 3px solid var(--sunset);
+  overflow-wrap: anywhere;
+}
+.session-activity summary { cursor: pointer; font-weight: bold; }
+.session-activity ol {
+  font: 0.8rem/1.65 monospace;
+  list-style: none;
+  padding: 0;
+  max-height: 18rem;
+  overflow: auto;
+}
+.session-activity time { color: var(--sand); }

@@ -91,7 +91,7 @@ def create_app(
             "gpu": capacity(),
             "upload": {"max_bytes": settings.max_upload_bytes, "formats": [".mat"]},
             "fit": {"supported_sources": ["existing", "upload"], "default_seed": 42, "preserve_fits_on_recording_change": True},
-            "sessions": {"supported": True, "resumable": True},
+            "sessions": {"supported": True, "resumable": True, "activity": True},
             "batch": {"supported": True},
             "generation": {"objectives": GENERATION_OBJECTIVES, "durations": GENERATION_DURATIONS, "clip_counts": GENERATION_CLIP_COUNTS},
         }
@@ -284,6 +284,13 @@ def create_app(
     def session_detail(identity: UUID):
         try: return lifecycle.detail(str(identity))
         except KeyError as error: raise HTTPException(404, str(error)) from error
+
+    @app.get('/api/v1/sessions/{identity}/activity', dependencies=[Depends(operator)])
+    def session_activity(identity: UUID):
+        try:
+            return lifecycle.activity(str(identity))
+        except KeyError as error:
+            raise HTTPException(404, str(error)) from error
 
     @app.get('/api/v1/experiments/{identity}/work', dependencies=[Depends(operator)])
     def experiment_work(identity: UUID):

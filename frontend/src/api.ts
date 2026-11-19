@@ -1,5 +1,5 @@
 export interface Capabilities {
-  sessions?: { supported: boolean; resumable?: boolean };
+  sessions?: { supported: boolean; resumable?: boolean; activity?: boolean };
   batch?: { supported: boolean };
   generation?: {
     objectives: string[];
@@ -307,6 +307,7 @@ export function makeApi(
   return {
     checkConnection: () => isBackendReachable(base),
     resumableSessions: () => request<ResumableSession[]>("/sessions/resumable"),
+    activity: (id: string) => request<{ at: string; message: string }[]>(`/sessions/${encodeURIComponent(id)}/activity`),
     sessions: () => request<ApplicationSession[]>("/sessions"),
     session: (id: string) =>
       request<SessionDetail>(`/sessions/${encodeURIComponent(id)}`),
