@@ -17,11 +17,13 @@ export default function SessionHistory({
   onResume,
   onNew,
   readOnly = false,
+  timestampedExports = false,
 }: {
   api: ReturnType<typeof makeApi>;
   currentExperiment: Experiment | null;
   onClosed?: (sessionId: string) => void;
   readOnly?: boolean;
+  timestampedExports?: boolean;
   onResume?: (experiment: Experiment) => void;
   onNew?: () => void;
 }) {
@@ -134,7 +136,12 @@ export default function SessionHistory({
     retries.current.delete(id);
     showJob(job, context);
   }
+  async function exportSamples(sessionId: string, jobId?: string) {
+    const { blob, filename } = await api.exportSamples(sessionId, jobId);
+    if (mounted.current) saveDownload(blob, filename);
+  }
   async function download(job: Job) {
+    if (timestampedExports) return exportSamples(selected, job.job_id);
     const blob =
       "targets" in job
         ? await api.downloadBatch(job.id)
@@ -173,6 +180,10 @@ export default function SessionHistory({
       {detail && (
         <>
           <p role="status">Session {detail.session.status}</p>
+          {timestampedExports && detail.jobs.some(job => job.kind !== "fit" && job.artifacts_ready) && (
+            <button type="button" className="primary" disabled={busy}
+              onClick={() => action(() => exportSamples(detail.session.id))}>Download session results</button>
+          )}
           {!readOnly && <button
             type="button"
             disabled={busy || !open}

@@ -20,6 +20,7 @@ from backend.models import Experiment, ExperimentConfiguration, RecordingCatalog
 from backend.recordings import CatalogUnavailable, RecordingCatalog
 from backend.store import ExperimentStore
 from backend.lifecycle import Lifecycle
+from backend.session_exports import sample_archive
 from backend.retries import retry_job
 from backend.uploads import UploadError, receive_upload
 from backend.fits import FitRequestError, submit_fit
@@ -43,7 +44,7 @@ def create_app(
     app = FastAPI(title="Auditory Cortex Control", docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(
         CORSMiddleware, allow_origins=list(settings.allowed_origins),
-        allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type", "X-Recording-Filename"],
+        allow_methods=["GET", "POST"], expose_headers=["Content-Disposition"], allow_headers=["Authorization", "Content-Type", "X-Recording-Filename"],
     )
     @app.middleware("http")
     async def protect_api_cache(request: Request, call_next):
@@ -91,7 +92,7 @@ def create_app(
             "gpu": capacity(),
             "upload": {"max_bytes": settings.max_upload_bytes, "formats": [".mat"]},
             "fit": {"supported_sources": ["existing", "upload"], "default_seed": 42, "preserve_fits_on_recording_change": True},
-            "sessions": {"supported": True, "resumable": True, "activity": True},
+            "sessions": {"supported": True, "resumable": True, "activity": True, "exports": True},
             "batch": {"supported": True, "unified": True},
             "generation": {"objectives": GENERATION_OBJECTIVES, "durations": GENERATION_DURATIONS, "clip_counts": GENERATION_CLIP_COUNTS},
         }
@@ -292,6 +293,26 @@ def create_app(
     def session_detail(identity: UUID):
         try: return lifecycle.detail(str(identity))
         except KeyError as error: raise HTTPException(404, str(error)) from error
+
+    def session_export(identity, job_id=None):
+        try:
+            path, filename = sample_archive(lifecycle, str(identity), str(job_id) if job_id else None)
+        except KeyError as error:
+            raise HTTPException(404, str(error)) from error
+        except FitRequestError as error:
+            raise HTTPException(error.status, str(error)) from error
+        except OSError as error:
+            raise HTTPException(503, 'Download storage is unavailable. Try again later.') from error
+        return FileResponse(path, media_type='application/zip', filename=filename,
+                            background=BackgroundTask(path.unlink, missing_ok=True))
+
+    @app.get('/api/v1/sessions/{identity}/download', dependencies=[Depends(operator)])
+    def export_session(identity: UUID):
+        return session_export(identity)
+
+    @app.get('/api/v1/sessions/{identity}/runs/{job_id}/download', dependencies=[Depends(operator)])
+    def export_run(identity: UUID, job_id: UUID):
+        return session_export(identity, job_id)
 
     @app.get('/api/v1/sessions/{identity}/activity', dependencies=[Depends(operator)])
     def session_activity(identity: UUID):

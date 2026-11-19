@@ -8,10 +8,11 @@ type Props = {
   fit: Fit;
   options: NonNullable<Capabilities["generation"]>;
   recovered?: Batch;
+  exportSessionId?: string;
   onBusy: (busy: boolean) => void;
 };
 
-export default function SampleGeneration({ api, fit, options, recovered, onBusy }: Props) {
+export default function SampleGeneration({ api, fit, options, recovered, onBusy, exportSessionId }: Props) {
   const [targets, setTargets] = useState<{ channel_id: string; objective: string }[]>([]);
   const [channel, setChannel] = useState(fit.best_channel?.channel_id ?? "");
   const [objective, setObjective] = useState(options.objectives[0]);
@@ -80,7 +81,12 @@ export default function SampleGeneration({ api, fit, options, recovered, onBusy 
   async function download() {
     if (!batch) return;
     try {
-      saveDownload(await api.downloadBatch(batch.id), `batch-${batch.id}.zip`);
+      if (exportSessionId) {
+        const result = await api.exportSamples(exportSessionId, batch.job_id);
+        saveDownload(result.blob, result.filename);
+      } else {
+        saveDownload(await api.downloadBatch(batch.id), `batch-${batch.id}.zip`);
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Download failed.");
     }

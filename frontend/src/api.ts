@@ -1,5 +1,5 @@
 export interface Capabilities {
-  sessions?: { supported: boolean; resumable?: boolean; activity?: boolean };
+  sessions?: { supported: boolean; resumable?: boolean; activity?: boolean; exports?: boolean };
   batch?: { supported: boolean; unified?: boolean };
   generation?: {
     objectives: string[];
@@ -288,7 +288,7 @@ export function makeApi(
     }
     return response.json() as Promise<T>;
   }
-  async function download(path: string): Promise<Blob> {
+  async function downloadResponse(path: string): Promise<Response> {
     const response = await fetch(`${base}/api/v1${path}`, {
       headers: { Authorization: `Basic ${encoded}` },
       cache: "no-store",
@@ -302,9 +302,19 @@ export function makeApi(
         response.status,
       );
     }
-    return response.blob();
+    return response;
+  }
+  async function download(path: string): Promise<Blob> {
+    return (await downloadResponse(path)).blob();
+  }
+  async function exportSamples(sessionId: string, jobId?: string) {
+    const scope = jobId ? `/runs/${encodeURIComponent(jobId)}` : "";
+    const response = await downloadResponse(`/sessions/${encodeURIComponent(sessionId)}${scope}/download`);
+    const filename = response.headers.get("Content-Disposition")?.match(/filename="?([A-Za-z0-9_-]+\.zip)"?/i)?.[1];
+    return { blob: await response.blob(), filename: filename ?? "samples.zip" };
   }
   return {
+    exportSamples,
     checkConnection: () => isBackendReachable(base),
     resumableSessions: () => request<ResumableSession[]>("/sessions/resumable"),
     activity: (id: string) => request<{ at: string; message: string }[]>(`/sessions/${encodeURIComponent(id)}/activity`),

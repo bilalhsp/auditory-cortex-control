@@ -201,7 +201,7 @@ export default function App() {
             </nav>
           )}
           {api && caps?.sessions?.resumable && view === "history" && (
-            <SessionHistory api={api} currentExperiment={null} readOnly />
+            <SessionHistory api={api} currentExperiment={null} readOnly timestampedExports={caps.sessions.exports} />
           )}
           <div hidden={Boolean(api && caps?.sessions?.resumable && view === "history")}>
 
@@ -489,6 +489,7 @@ export default function App() {
                         generationOptions={caps.generation}
                         batchEnabled={Boolean(caps.batch?.supported)}
                         unifiedGeneration={Boolean(caps.batch?.unified)}
+                        timestampedExports={caps.sessions?.exports}
                         recoveryEnabled={Boolean(caps.sessions?.supported)}
                       />
                     )}

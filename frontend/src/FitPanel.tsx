@@ -16,6 +16,7 @@ interface Props {
   recoveryEnabled?: boolean;
   batchEnabled?: boolean;
   unifiedGeneration?: boolean;
+  timestampedExports?: boolean;
   generationOptions?: Capabilities["generation"];
   api: ReturnType<typeof makeApi>;
   experiment: Experiment;
@@ -39,6 +40,7 @@ export default function FitPanel({
   generationOptions,
   batchEnabled,
   unifiedGeneration,
+  timestampedExports,
   recoveryEnabled,
 }: Props) {
   const [recovered, setRecovered] = useState<RecoveredWork | null>(null);
@@ -254,6 +256,7 @@ export default function FitPanel({
               fit={fit}
               options={generationOptions}
               onBusy={onBusy}
+              exportSessionId={timestampedExports ? experiment.session_id : undefined}
               recovered={preferActive(recovered?.batches.filter((item) => item.fit_id === fit.id) ?? [])}
             />
           )}
