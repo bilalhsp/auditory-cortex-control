@@ -1,6 +1,6 @@
 export interface Capabilities {
   sessions?: { supported: boolean; resumable?: boolean; activity?: boolean };
-  batch?: { supported: boolean };
+  batch?: { supported: boolean; unified?: boolean };
   generation?: {
     objectives: string[];
     durations: number[];
@@ -325,6 +325,8 @@ export function makeApi(
       }),
     recoverExperiment: (id: string) =>
       request<RecoveredWork>(`/experiments/${encodeURIComponent(id)}/work`),
+    generateSamples: (fitId: string, submission: BatchSubmission) =>
+      request<Batch>(`/fits/${encodeURIComponent(fitId)}/samples`, submission),
     startBatch: (fitId: string, submission: BatchSubmission) =>
       request<Batch>(`/fits/${encodeURIComponent(fitId)}/batches`, submission),
     batch: (id: string) => request<Batch>(`/batches/${encodeURIComponent(id)}`),
@@ -340,8 +342,9 @@ export function makeApi(
     downloadGeneration: (id: string) =>
       download(`/generations/${encodeURIComponent(id)}/download`),
     capabilities: () => request<Capabilities>("/capabilities"),
-    createExperiment: (configuration: Configuration, sessionId?: string | null) => {
+    createExperiment: (configuration: Configuration, sessionId?: string | null, useVisibleCapacity = false) => {
       const params = new URLSearchParams();
+      if (useVisibleCapacity) params.set("use_visible_capacity", "true");
       if (sessionId) {
         params.set("session_id", sessionId);
       } else {

@@ -92,16 +92,16 @@ def create_app(
             "upload": {"max_bytes": settings.max_upload_bytes, "formats": [".mat"]},
             "fit": {"supported_sources": ["existing", "upload"], "default_seed": 42, "preserve_fits_on_recording_change": True},
             "sessions": {"supported": True, "resumable": True, "activity": True},
-            "batch": {"supported": True},
+            "batch": {"supported": True, "unified": True},
             "generation": {"objectives": GENERATION_OBJECTIVES, "durations": GENERATION_DURATIONS, "clip_counts": GENERATION_CLIP_COUNTS},
         }
 
     @app.post("/api/v1/experiments", response_model=Experiment, status_code=201,
               dependencies=[Depends(operator)])
     def create_experiment(configuration: ExperimentConfiguration, session_id: Optional[UUID] = None,
-                          session_timezone: Optional[str] = None) -> Experiment:
+                          session_timezone: Optional[str] = None, use_visible_capacity: bool = False) -> Experiment:
         current = capacity()
-        count = current["available_count"]
+        count = current["visible_count" if use_visible_capacity else "available_count"]
         if configuration.gpu_count > count:
             raise HTTPException(409, {
                 "message": "GPU capacity changed. Refresh capacity and choose again.",
@@ -246,6 +246,14 @@ def create_app(
     def create_batch(identity: UUID, submission: BatchSubmission) -> Batch:
         try:
             return submit_batch(settings, store, str(identity), submission, capacity()['visible_count'])
+        except FitRequestError as error:
+            raise HTTPException(error.status, str(error)) from error
+
+    @app.post('/api/v1/fits/{identity}/samples', response_model=Batch, status_code=202, dependencies=[Depends(operator)])
+    def generate_samples(identity: UUID, submission: BatchSubmission) -> Batch:
+        try:
+            return submit_batch(settings, store, str(identity), submission, capacity()['visible_count'],
+                                limit_to_experiment=True)
         except FitRequestError as error:
             raise HTTPException(error.status, str(error)) from error
 

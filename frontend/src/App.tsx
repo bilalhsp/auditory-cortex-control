@@ -11,6 +11,10 @@ import SessionHistory from "./SessionHistory";
 import BackendConnection from "./BackendConnection";
 import WorkspaceHeader from "./WorkspaceHeader";
 
+function setupCapacity(caps: Capabilities): number {
+  return caps.batch?.unified ? caps.gpu.visible_count : caps.gpu.available_count;
+}
+
 export default function App() {
   const [step, setStep] = useState<"Setup" | "Recording" | "Fit">("Setup");
   const [recordingSource, setRecordingSource] = useState<"upload" | "existing">("upload");
@@ -57,7 +61,7 @@ export default function App() {
       setExperiment(null);
       setCaps(result);
       setFamily(result.settings.stimulus_families[0]);
-      setGpuCount(result.gpu.available_count);
+      setGpuCount(setupCapacity(result));
       setExplicitGpu(false);
       setPassword("");
     } catch (cause) {
@@ -74,7 +78,7 @@ export default function App() {
       const result = await api.capabilities();
       setCaps(result);
       if (resetGpu || !explicitGpu) {
-        setGpuCount(result.gpu.available_count);
+        setGpuCount(setupCapacity(result));
       }
     } catch (cause) {
       reportError(cause);
@@ -96,7 +100,7 @@ export default function App() {
     setError("");
     try {
       const current = nextGpuCount === undefined ? await api.capabilities() : caps;
-      const count = nextGpuCount ?? current.gpu.available_count;
+      const count = nextGpuCount ?? setupCapacity(current);
       setCaps(current);
       setExperiment(
         await api.createExperiment(
@@ -110,6 +114,7 @@ export default function App() {
             gpu_count: count,
           },
           sessionId,
+          Boolean(current.batch?.unified),
         ),
       );
       setRecordingSource("upload");
@@ -152,7 +157,7 @@ export default function App() {
     setSessionId(null);
     setExperiment(null);
     setFamily(caps?.settings.stimulus_families[0] ?? "");
-    setGpuCount(caps?.gpu.available_count ?? 0);
+    setGpuCount(caps ? setupCapacity(caps) : 0);
     setExplicitGpu(false);
     setStep("Setup");
     await refresh(true);
@@ -175,7 +180,7 @@ export default function App() {
   }
   const activeStep = experiment ? step : "Setup";
   const navigatingLocked = busy || submissionBusy;
-  const available = caps?.gpu.available_count ?? 0;
+  const available = caps ? setupCapacity(caps) : 0;
   const setupUnchanged = experiment?.configuration.stimulus_family === family &&
     experiment.configuration.gpu_count === gpuCount;
   const canChangeRecording = !experiment?.recording || caps?.fit?.preserve_fits_on_recording_change;
@@ -362,8 +367,8 @@ export default function App() {
                               : "Compute unavailable"}
                           </div>
                           <strong>
-                            {available}
-                            <small> / {caps.gpu.visible_count} GPUs</small>
+                            {caps.gpu.available_count}
+                            <small> / {caps.gpu.visible_count} GPUs free</small>
                           </strong>
                         </div>
                         <label>
@@ -401,7 +406,7 @@ export default function App() {
                         </label>
                         <p id="gpu-help" className="help">
                           {available
-                            ? "Defaults to all available GPUs. Choose fewer to limit resource use."
+                            ? "Choose how many GPUs to use. The default is the maximum detected by the backend."
                             : "You can save your setup. GPU generation is unavailable until capacity returns."}
                         </p>
                         {invalidGpu && (
@@ -474,6 +479,7 @@ export default function App() {
                       onBusy={setSubmissionBusy}
                         generationOptions={caps.generation}
                         batchEnabled={Boolean(caps.batch?.supported)}
+                        unifiedGeneration={Boolean(caps.batch?.unified)}
                         recoveryEnabled={Boolean(caps.sessions?.supported)}
                       />
                     )}

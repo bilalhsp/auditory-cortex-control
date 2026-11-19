@@ -23,7 +23,7 @@ from backend.store import ExperimentStore
 logger = logging.getLogger(__name__)
 
 
-def submit_batch(settings, store: ExperimentStore, fit_id: str, request: BatchSubmission, visible_count: int, retry_source=None):
+def submit_batch(settings, store: ExperimentStore, fit_id: str, request: BatchSubmission, visible_count: int, retry_source=None, limit_to_experiment=False):
     command = request.model_dump(mode='json')
     previous = store.batch_for_request(fit_id, str(request.request_id))
     if previous is not None:
@@ -31,6 +31,9 @@ def submit_batch(settings, store: ExperimentStore, fit_id: str, request: BatchSu
             raise FitRequestError(409, 'Request identity was already used for different batch settings.')
         return previous[0]
     fit, fit_workspace, manifest = ready_fit(store, fit_id)
+    if limit_to_experiment and (
+            request.gpu_count > fit.configuration.gpu_count or len(request.targets) > request.gpu_count):
+        raise FitRequestError(422, 'Select no more targets than GPUs, within the experiment GPU limit.')
     channels = {row.channel_id for row in fit.correlations if row.correlation is not None}
     if any(target.channel_id not in channels for target in request.targets):
         raise FitRequestError(422, 'Choose available channels from this fit.')

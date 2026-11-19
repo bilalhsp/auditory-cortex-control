@@ -10,10 +10,12 @@ import type {
 
 import GenerationPanel from "./GenerationPanel";
 import BatchPanel from "./BatchPanel";
+import SampleGeneration from "./SampleGeneration";
 
 interface Props {
   recoveryEnabled?: boolean;
   batchEnabled?: boolean;
+  unifiedGeneration?: boolean;
   generationOptions?: Capabilities["generation"];
   api: ReturnType<typeof makeApi>;
   experiment: Experiment;
@@ -36,6 +38,7 @@ export default function FitPanel({
   onBusy,
   generationOptions,
   batchEnabled,
+  unifiedGeneration,
   recoveryEnabled,
 }: Props) {
   const [recovered, setRecovered] = useState<RecoveredWork | null>(null);
@@ -85,6 +88,7 @@ export default function FitPanel({
     };
   }, [api, experiment.id, experiment.recording_revision, recoveryEnabled]);
 
+  const BatchGeneration = unifiedGeneration ? SampleGeneration : BatchPanel;
   const active = isActiveJobState(fit?.state);
 
   useEffect(() => {
@@ -244,15 +248,16 @@ export default function FitPanel({
             </table>
           </div>
           {batchEnabled && generationOptions && (
-            <BatchPanel
+            <BatchGeneration
               key={`batch-${fit.id}`}
               api={api}
               fit={fit}
               options={generationOptions}
+              onBusy={onBusy}
               recovered={preferActive(recovered?.batches.filter((item) => item.fit_id === fit.id) ?? [])}
             />
           )}
-          {generationOptions && (
+          {!unifiedGeneration && generationOptions && (
             <GenerationPanel
               key={fit.id}
               api={api}
