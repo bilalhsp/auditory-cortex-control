@@ -6,7 +6,7 @@ export interface Capabilities {
     durations: number[];
     clip_counts: number[];
   };
-  fit?: { supported_sources: string[]; default_seed: number };
+  fit?: { supported_sources: string[]; default_seed: number; preserve_fits_on_recording_change?: boolean };
   upload?: { max_bytes: number; formats: string[] };
   settings: {
     stimulus_families: string[];

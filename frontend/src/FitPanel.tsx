@@ -18,6 +18,7 @@ interface Props {
   api: ReturnType<typeof makeApi>;
   experiment: Experiment;
   seed: number;
+  onBusy: (busy: boolean) => void;
 }
 
 function isActiveJob(job: { state: string }): boolean {
@@ -32,6 +33,7 @@ export default function FitPanel({
   api,
   experiment,
   seed,
+  onBusy,
   generationOptions,
   batchEnabled,
   recoveryEnabled,
@@ -83,10 +85,7 @@ export default function FitPanel({
     };
   }, [api, experiment.id, experiment.recording_revision, recoveryEnabled]);
 
-  const active =
-    fit?.state === "queued" ||
-    fit?.state === "running" ||
-    fit?.state === "cancelling";
+  const active = isActiveJobState(fit?.state);
 
   useEffect(() => {
     mounted.current = true;
@@ -107,6 +106,7 @@ export default function FitPanel({
     if (!experiment.recording) return;
     requestId.current ??= crypto.randomUUID();
     setSubmitting(true);
+    onBusy(true);
     setPollingError("");
     setError("");
     try {
@@ -129,15 +129,19 @@ export default function FitPanel({
         );
     } finally {
       if (mounted.current) setSubmitting(false);
+      onBusy(false);
     }
   }
 
-  const labels: Record<string, string> = {
+  const stageLabels: Record<string, string> = {
     queued: "Waiting for fit worker",
     loading: "Loading models and features",
     fitting: "Fitting encoding model",
     writing: "Saving model and results",
-    complete: "Fit complete",
+    succeeded: "Fit complete",
+    failed: "Fit failed",
+    cancelling: "Stopping fit",
+    cancelled: "Fit stopped",
     interrupted: "Fit interrupted",
   };
   return (
@@ -186,15 +190,7 @@ export default function FitPanel({
           <strong className="fit-stage">
             {active && !pollingError && <span className="fit-activity" aria-hidden="true" />}
             {pollingError && "Last reported stage: "}
-            {fit.state === "cancelling"
-              ? "Stopping fit"
-              : fit.state === "cancelled"
-                ? "Fit stopped"
-                : fit.state === "failed"
-                  ? "Fit failed"
-                  : fit.state === "succeeded"
-                    ? "Fit complete"
-                    : labels[fit.stage] ?? labels[fit.state] ?? "Fit running"}
+            {fit.state === "running" ? stageLabels[fit.stage] ?? "Fit running" : stageLabels[fit.state]}
           </strong>
           <p>
             {fit.error ??

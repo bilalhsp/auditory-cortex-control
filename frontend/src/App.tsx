@@ -13,7 +13,7 @@ import WorkspaceHeader from "./WorkspaceHeader";
 export default function App() {
   const [step, setStep] = useState<"Setup" | "Recording" | "Fit">("Setup");
   const [recordingSource, setRecordingSource] = useState<"upload" | "existing">("upload");
-  const [recordingBusy, setRecordingBusy] = useState(false);
+  const [submissionBusy, setSubmissionBusy] = useState(false);
   const [resumeCount, setResumeCount] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [api, setApi] = useState<ReturnType<typeof makeApi> | null>(null);
@@ -74,12 +74,6 @@ export default function App() {
       setCaps(result);
       if (resetGpu || !explicitGpu) {
         setGpuCount(result.gpu.available_count);
-        if (result.gpu.available_count !== gpuCount) setExperiment(null);
-      } else if (
-        gpuCount > result.gpu.available_count ||
-        (gpuCount === 0 && result.gpu.available_count > 0)
-      ) {
-        setExperiment(null);
       }
     } catch (cause) {
       reportError(cause);
@@ -89,8 +83,7 @@ export default function App() {
   }
   async function save(event: FormEvent) {
     event.preventDefault();
-    if (experiment?.configuration.stimulus_family === family &&
-        experiment.configuration.gpu_count === gpuCount) {
+    if (setupUnchanged) {
       setStep("Recording");
       return;
     }
@@ -137,8 +130,11 @@ export default function App() {
     setPassword("");
     setError("");
   }
+  function canFit(chosen: Experiment | null): boolean {
+    return Boolean(chosen?.recording && caps?.fit?.supported_sources.includes(chosen.recording.source));
+  }
   function resume(experiment: Experiment) {
-    setStep(experiment.recording ? "Fit" : "Recording");
+    setStep(canFit(experiment) ? "Fit" : "Recording");
     setRecordingSource("upload");
     setResumeCount((count) => count + 1);
     setSessionId(experiment.session_id);
@@ -163,6 +159,7 @@ export default function App() {
   async function startOver() {
     if (!caps || !sessionId) return;
     if (await createExperiment(caps.settings.stimulus_families[0])) {
+      setStep("Setup");
       setExplicitGpu(false);
     }
   }
@@ -176,8 +173,11 @@ export default function App() {
     );
   }
   const activeStep = experiment ? step : "Setup";
-  const navigatingLocked = busy || recordingBusy;
+  const navigatingLocked = busy || submissionBusy;
   const available = caps?.gpu.available_count ?? 0;
+  const setupUnchanged = experiment?.configuration.stimulus_family === family &&
+    experiment.configuration.gpu_count === gpuCount;
+  const canChangeRecording = !experiment?.recording || caps?.fit?.preserve_fits_on_recording_change;
   const invalidGpu = gpuCount > available || (gpuCount === 0 && available > 0);
 
   return (
@@ -270,213 +270,212 @@ export default function App() {
                   </dl>
                 </aside>
                 <div className="guided-content">
-              {activeStep === "Setup" && <form onSubmit={save}>
-                <div className="setup-grid">
-                  <section className="card">
-                    <div className="section-heading">
-                      <span className="step">01</span>
-                      <div>
-                        <h2>Experiment configuration</h2>
-                        <p>Choose the stimulus family for your recording.</p>
-                      </div>
-                    </div>
-                    <fieldset disabled={busy}>
-                      <legend>Stimulus family</legend>
-                      <div className="family-options">
-                        {caps.settings.stimulus_families.map((option) => (
-                          <label
-                            className={
-                              family === option ? "family selected" : "family"
-                            }
-                            key={option}
+                  {activeStep === "Setup" && <form onSubmit={save}>
+                    <div className="setup-grid">
+                      <section className="card">
+                        <div className="section-heading">
+                          <span className="step">01</span>
+                          <div>
+                            <h2>Experiment configuration</h2>
+                            <p>Choose the stimulus family for your recording.</p>
+                          </div>
+                        </div>
+                        <fieldset disabled={busy}>
+                          <legend>Stimulus family</legend>
+                          <div className="family-options">
+                            {caps.settings.stimulus_families.map((option) => (
+                              <label
+                                className={
+                                  family === option ? "family selected" : "family"
+                                }
+                                key={option}
+                              >
+                                <input
+                                  type="radio"
+                                  name="family"
+                                  value={option}
+                                  checked={family === option}
+                                  onChange={() => {
+                                    setFamily(option);
+                                  }}
+                                />
+                                <strong>{option}</strong>
+                                <small>
+                                  {option === "TIMIT"
+                                    ? "Speech stimuli"
+                                    : "Vocalization stimuli"}
+                                </small>
+                              </label>
+                            ))}
+                          </div>
+                          <div className="fields">
+                            <label>
+                              Neural dataset
+                              <select value={caps.settings.datasets[0]} disabled>
+                                {caps.settings.datasets.map((value) => (
+                                  <option key={value}>{value}</option>
+                                ))}
+                              </select>
+                            </label>
+                            <label>
+                              Encoding model
+                              <select value={caps.settings.models[0]} disabled>
+                                {caps.settings.models.map((value) => (
+                                  <option key={value}>{value}</option>
+                                ))}
+                              </select>
+                            </label>
+                          </div>
+                          <div className="fixed-settings">
+                            <div>
+                              <small>MODEL LAYER</small>
+                              <strong>{caps.settings.layers[0]}</strong>
+                            </div>
+                            <div>
+                              <small>BIN WIDTH</small>
+                              <strong>
+                                {caps.settings.bin_width_ms} <span>ms</span>
+                              </strong>
+                            </div>
+                            <div>
+                              <small>RECEPTIVE FIELD</small>
+                              <strong>
+                                {caps.settings.receptive_field_ms} <span>ms</span>
+                              </strong>
+                            </div>
+                          </div>
+                        </fieldset>
+                      </section>
+                      <section className="card">
+                        <div className="section-heading">
+                          <span className="step">02</span>
+                          <div>
+                            <h2>Compute resources</h2>
+                            <p>Detected on your backend server.</p>
+                          </div>
+                        </div>
+                        <div className="capacity">
+                          <div>
+                            {available
+                              ? "Compute available"
+                              : "Compute unavailable"}
+                          </div>
+                          <strong>
+                            {available}
+                            <small> / {caps.gpu.visible_count} GPUs</small>
+                          </strong>
+                        </div>
+                        <label>
+                          GPUs to use
+                          <select
+                            aria-describedby="gpu-help"
+                            disabled={busy}
+                            value={gpuCount}
+                            onChange={(e) => {
+                              setGpuCount(Number(e.target.value));
+                              setExplicitGpu(true);
+                            }}
                           >
-                            <input
-                              type="radio"
-                              name="family"
-                              value={option}
-                              checked={family === option}
-                              onChange={() => {
-                                setFamily(option);
-                              }}
-                            />
-                            <strong>{option}</strong>
-                            <small>
-                              {option === "TIMIT"
-                                ? "Speech stimuli"
-                                : "Vocalization stimuli"}
-                            </small>
-                          </label>
-                        ))}
-                      </div>
-                      <div className="fields">
-                        <label>
-                          Neural dataset
-                          <select value={caps.settings.datasets[0]} disabled>
-                            {caps.settings.datasets.map((value) => (
-                              <option key={value}>{value}</option>
-                            ))}
+                            {invalidGpu && (
+                              <option value={gpuCount} disabled>
+                                {gpuCount} — no longer available
+                              </option>
+                            )}
+                            {available === 0 ? (
+                              <option value={0}>No GPUs available</option>
+                            ) : (
+                              Array.from(
+                                { length: available },
+                                (_, i) => i + 1,
+                              ).map((count) => (
+                                <option key={count} value={count}>
+                                  {count}
+                                  {count === available
+                                    ? " — maximum available"
+                                    : ""}
+                                </option>
+                              ))
+                            )}
                           </select>
                         </label>
-                        <label>
-                          Encoding model
-                          <select value={caps.settings.models[0]} disabled>
-                            {caps.settings.models.map((value) => (
-                              <option key={value}>{value}</option>
-                            ))}
-                          </select>
-                        </label>
-                      </div>
-                      <div className="fixed-settings">
-                        <div>
-                          <small>MODEL LAYER</small>
-                          <strong>{caps.settings.layers[0]}</strong>
-                        </div>
-                        <div>
-                          <small>BIN WIDTH</small>
-                          <strong>
-                            {caps.settings.bin_width_ms} <span>ms</span>
-                          </strong>
-                        </div>
-                        <div>
-                          <small>RECEPTIVE FIELD</small>
-                          <strong>
-                            {caps.settings.receptive_field_ms} <span>ms</span>
-                          </strong>
-                        </div>
-                      </div>
-                    </fieldset>
-                  </section>
-                  <section className="card">
-                    <div className="section-heading">
-                      <span className="step">02</span>
-                      <div>
-                        <h2>Compute resources</h2>
-                        <p>Detected on your backend server.</p>
-                      </div>
-                    </div>
-                    <div className="capacity">
-                      <div>
-                        {available
-                          ? "Compute available"
-                          : "Compute unavailable"}
-                      </div>
-                      <strong>
-                        {available}
-                        <small> / {caps.gpu.visible_count} GPUs</small>
-                      </strong>
-                    </div>
-                    <label>
-                      GPUs to use
-                      <select
-                        aria-describedby="gpu-help"
-                        disabled={busy}
-                        value={gpuCount}
-                        onChange={(e) => {
-                          setGpuCount(Number(e.target.value));
-                          setExplicitGpu(true);
-                        }}
-                      >
+                        <p id="gpu-help" className="help">
+                          {available
+                            ? "Defaults to all available GPUs. Choose fewer to limit resource use."
+                            : "You can save your setup. GPU generation is unavailable until capacity returns."}
+                        </p>
                         {invalidGpu && (
-                          <option value={gpuCount} disabled>
-                            {gpuCount} — no longer available
-                          </option>
+                          <div className="notice warning" role="alert">
+                            Capacity changed. Select a currently available GPU count
+                            to continue.
+                          </div>
                         )}
-                        {available === 0 ? (
-                          <option value={0}>No GPUs available</option>
-                        ) : (
-                          Array.from(
-                            { length: available },
-                            (_, i) => i + 1,
-                          ).map((count) => (
-                            <option key={count} value={count}>
-                              {count}
-                              {count === available
-                                ? " — maximum available"
-                                : ""}
-                            </option>
-                          ))
+                        {caps.gpu.status === "unavailable" && (
+                          <div className="notice warning" role="status">
+                            GPU detection is unavailable. The API is reachable;
+                            refresh capacity to retry.
+                          </div>
                         )}
-                      </select>
-                    </label>
-                    <p id="gpu-help" className="help">
-                      {available
-                        ? "Defaults to all available GPUs. Choose fewer to limit resource use."
-                        : "You can save your setup. GPU generation is unavailable until capacity returns."}
-                    </p>
-                    {invalidGpu && (
-                      <div className="notice warning" role="alert">
-                        Capacity changed. Select a currently available GPU count
-                        to continue.
-                      </div>
-                    )}
-                    {caps.gpu.status === "unavailable" && (
-                      <div className="notice warning" role="status">
-                        GPU detection is unavailable. The API is reachable;
-                        refresh capacity to retry.
-                      </div>
-                    )}
-                    <div className="capacity-footer">
-                      <small>
-                        Checked{" "}
-                        {new Date(caps.gpu.observed_at).toLocaleTimeString()}
-                      </small>
-                      <button
-                        type="button"
-                        className="text-button"
-                        onClick={() => void refresh()}
-                        disabled={busy}
-                      >
-                        {busy ? "Checking…" : "↻ Refresh capacity"}
+                        <div className="capacity-footer">
+                          <small>
+                            Checked{" "}
+                            {new Date(caps.gpu.observed_at).toLocaleTimeString()}
+                          </small>
+                          <button
+                            type="button"
+                            className="text-button"
+                            onClick={() => void refresh()}
+                            disabled={busy}
+                          >
+                            {busy ? "Checking…" : "↻ Refresh capacity"}
+                          </button>
+                        </div>
+                      </section>
+                    </div>
+                    <div className="action-bar guided-actions">
+                      <button className="primary" disabled={busy || (invalidGpu && !setupUnchanged)}>
+                        {busy ? "Saving…" : "Continue to recording"}
                       </button>
                     </div>
-                  </section>
-                </div>
-                <div className="action-bar guided-actions">
-                  <button className="primary" disabled={busy || invalidGpu}>
-                    {busy ? "Saving…" : "Continue to recording"}
-                  </button>
-                </div>
-              </form>}
-              {activeStep === "Recording" && experiment && (
-                <section className="card" aria-label="Recording source">
-                  {caps.upload && <div className="source-options" role="group" aria-label="Recording method">
-                    <button type="button" disabled={recordingBusy} aria-pressed={recordingSource === "upload"}
-                      onClick={() => setRecordingSource("upload")}>Upload recording</button>
-                    <button type="button" disabled={recordingBusy} aria-pressed={recordingSource === "existing"}
-                      onClick={() => setRecordingSource("existing")}>Choose existing recording</button>
-                  </div>}
-                  {recordingSource === "upload" && caps.upload ? (
-                    <RecordingUpload key={experiment.id} api={api} experiment={experiment}
-                      maxBytes={caps.upload.max_bytes} onSelected={recordingSelected} onBusy={setRecordingBusy} />
-                  ) : (
-                    <RecordingSelector key={experiment.id} api={api} experiment={experiment}
-                      onSelected={recordingSelected} onBusy={setRecordingBusy} />
+                  </form>}
+                  {activeStep === "Recording" && experiment && (
+                    <section className="card" aria-label="Recording source">
+                      {canChangeRecording && caps.upload && <div className="source-options" role="group" aria-label="Recording method">
+                        <button type="button" disabled={submissionBusy} aria-pressed={recordingSource === "upload"}
+                          onClick={() => setRecordingSource("upload")}>Upload recording</button>
+                        <button type="button" disabled={submissionBusy} aria-pressed={recordingSource === "existing"}
+                          onClick={() => setRecordingSource("existing")}>Choose existing recording</button>
+                      </div>}
+                      {!canChangeRecording ? (
+                        <p className="help">This recording is already attached. Start another experiment to use a different recording on this backend.</p>
+                      ) : recordingSource === "upload" && caps.upload ? (
+                        <RecordingUpload key={experiment.id} api={api} experiment={experiment}
+                          maxBytes={caps.upload.max_bytes} onSelected={recordingSelected} onBusy={setSubmissionBusy} />
+                      ) : (
+                        <RecordingSelector key={experiment.id} api={api} experiment={experiment}
+                          onSelected={recordingSelected} onBusy={setSubmissionBusy} />
+                      )}
+                      <div className="action-bar">
+                        <button type="button" className="text-button" disabled={submissionBusy} onClick={() => setStep("Setup")}>Back</button>
+                        <button type="button" className="primary" disabled={!canFit(experiment) || submissionBusy}
+                          onClick={() => setStep("Fit")}>Continue to fit</button>
+                      </div>
+                    </section>
                   )}
-                  <div className="action-bar">
-                    <button type="button" className="text-button" disabled={recordingBusy} onClick={() => setStep("Setup")}>Back</button>
-                    <button type="button" className="primary" disabled={!experiment.recording || recordingBusy ||
-                      !caps.fit?.supported_sources.includes(experiment.recording.source)}
-                      onClick={() => setStep("Fit")}>Continue to fit</button>
-                  </div>
-                </section>
-              )}
-              {activeStep === "Fit" && (
-                <button type="button" className="text-button guided-back" onClick={() => setStep("Recording")}>Back</button>
-              )}
-              {activeStep === "Fit" && experiment?.recording &&
-                caps.fit?.supported_sources.includes(
-                  experiment.recording.source,
-                ) && (
-                  <FitPanel
-                    key={`fit-${experiment.id}-${experiment.recording_revision}-${resumeCount}`}
-                    api={api}
-                    experiment={experiment}
-                    seed={caps.fit.default_seed}
-                    generationOptions={caps.generation}
-                    batchEnabled={Boolean(caps.batch?.supported)}
-                    recoveryEnabled={Boolean(caps.sessions?.supported)}
-                  />
-                )}
+                  {activeStep === "Fit" && (
+                    <button type="button" className="text-button guided-back" disabled={submissionBusy} onClick={() => setStep("Recording")}>Back</button>
+                  )}
+                  {activeStep === "Fit" && experiment && caps.fit && canFit(experiment) && (
+                      <FitPanel
+                        key={`fit-${experiment.id}-${experiment.recording_revision}-${resumeCount}`}
+                        api={api}
+                        experiment={experiment}
+                        seed={caps.fit.default_seed}
+                      onBusy={setSubmissionBusy}
+                        generationOptions={caps.generation}
+                        batchEnabled={Boolean(caps.batch?.supported)}
+                        recoveryEnabled={Boolean(caps.sessions?.supported)}
+                      />
+                    )}
                 </div>
               </div>
             </>
