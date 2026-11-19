@@ -1,3 +1,4 @@
+import SamplePulse from "./SamplePulse";
 import { saveDownload } from "./download";
 import { useJobPolling } from "./useJobPolling";
 import { useEffect, useRef, useState } from "react";
@@ -187,7 +188,7 @@ export default function GenerationPanel({
       )}
       {job && (
         <div role="status" className="fit-status">
-          <strong>
+          <strong className="sample-status">
             {job.state === "succeeded"
               ? "Generation complete"
               : job.state === "running"
@@ -195,6 +196,7 @@ export default function GenerationPanel({
                 : job.state === "queued"
                   ? "Waiting for generation worker"
                   : `Generation ${job.state}`}
+            {active && !error && <SamplePulse />}
           </strong>
           <p>{job.error ?? `Generation ${job.id}`}</p>
         </div>

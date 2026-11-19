@@ -1,9 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { makeApi } from "./api";
 
-export default function SessionActivity({ api, sessionId }: {
+export default function SessionActivity({ api, sessionId, visible }: {
   api: ReturnType<typeof makeApi>;
   sessionId: string;
+  visible: boolean;
 }) {
   const [open, setOpen] = useState(true);
   const [events, setEvents] = useState<Awaited<ReturnType<typeof api.activity>>>();
@@ -12,7 +13,7 @@ export default function SessionActivity({ api, sessionId }: {
   const [stale, setStale] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !visible) return;
     let stopped = false;
     let timer: number | undefined;
     async function refresh() {
@@ -32,13 +33,13 @@ export default function SessionActivity({ api, sessionId }: {
       stopped = true;
       window.clearTimeout(timer);
     };
-  }, [api, sessionId, open]);
+  }, [api, sessionId, open, visible]);
 
   useLayoutEffect(() => {
-    if (open && followLatest.current && log.current) {
+    if (visible && open && followLatest.current && log.current) {
       log.current.scrollTop = log.current.scrollHeight;
     }
-  }, [events, open]);
+  }, [events, open, visible]);
 
   return (
     <details className="session-activity" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>

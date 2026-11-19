@@ -1,3 +1,4 @@
+import SamplePulse from "./SamplePulse";
 import { saveDownload } from "./download";
 import { useJobPolling } from "./useJobPolling";
 import { useEffect, useRef, useState } from "react";
@@ -240,7 +241,7 @@ export default function BatchPanel({
       )}
       {batch && (
         <div className="fit-status" role="status">
-          <strong>Batch {batch.state}</strong>
+          <strong className="sample-status">Batch {batch.state}{active && !error && <SamplePulse />}</strong>
           <p>
             {batch.gpu_count} GPUs requested · {batch.used_gpu_count} parallel
             target slots · {batch.unused_gpu_count} idle GPUs

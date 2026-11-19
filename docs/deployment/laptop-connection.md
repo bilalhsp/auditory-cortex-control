@@ -130,16 +130,8 @@ Your Pages address is https://bilalhsp.github.io/auditory-cortex-control/ and it
 backend CORS origin is https://bilalhsp.github.io. These are the configured
 GitHub account defaults; your research operator credentials remain unchanged.
 
-The sign-in page now shows **Copy launcher command** and **Check backend
-connection**. Copy and run the command in laptop Git Bash, keep its terminal open,
-then check the connection and sign in. The check verifies the forwarded app's
-public identity without sending credentials. A failed recheck clears the prior
-reachable message. GPU capacity and protected workflows remain behind operator
-sign-in; allocation selection and service-start progress appear in the terminal.
-
-This is the operator-selected check/copy flow: the web page does not execute SSH
-or open a terminal. No laptop helper, browser extension, or SSH credentials in the
-page are required. The command shown can be changed through the public runtime
-`connectionCommand` field in config.js. Its current `--node gilbreth-n6` override
-should be changed/removed when your allocation changes. The script still resolves
-that alias using the live Slurm assignment.
+Run the connection script in laptop Git Bash, keep the terminal open, and use
+the sign-in form after the frontend header shows **Connected**. The header
+checks the forwarded app's identity without sending credentials. Change the
+script's `--node` flag when your allocation moves. Allocation selection and
+service startup progress appear in the terminal.

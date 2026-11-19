@@ -1,3 +1,4 @@
+import SamplePulse from "./SamplePulse";
 import { useEffect, useState } from "react";
 import { ApiError } from "./api";
 import type { Batch, Capabilities, Fit, makeApi } from "./api";
@@ -111,7 +112,7 @@ export default function SampleGeneration({ api, fit, options, recovered, onBusy,
       {batch && <div className="fit-status">
         <p role="status"><strong className="sample-status">
           {runStatus[batch.state]}
-          {active && !pollError && <span className="sample-pulse" aria-hidden="true"><span /><span /><span /></span>}
+          {active && !pollError && <SamplePulse />}
         </strong></p>
         {batch.error && <p>{batch.error}</p>}
         <ul>{batch.targets.map(target => <li key={target.id}>

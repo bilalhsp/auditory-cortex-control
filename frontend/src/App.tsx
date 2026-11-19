@@ -522,7 +522,7 @@ export default function App() {
                     )}
                 </div>
               </div>
-              {caps.sessions?.activity && sessionId && <SessionActivity key={sessionId} api={api} sessionId={sessionId} />}
+              {caps.sessions?.activity && sessionId && <SessionActivity key={sessionId} api={api} sessionId={sessionId} visible={view === "workbench"} />}
             </>
           )}
           </div>
